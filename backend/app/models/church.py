@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TimestampMixin, utc_now
@@ -15,6 +15,10 @@ class Branch(IdMixin, TimestampMixin, Base):
     location: Mapped[str | None] = mapped_column(String(240))
     contact_phone: Mapped[str | None] = mapped_column(String(40))
 
+    latitude: Mapped[float | None] = mapped_column(Float)
+    longitude: Mapped[float | None] = mapped_column(Float)
+    attendance_radius_meters: Mapped[int] = mapped_column(Integer, default=100)
+    geofence_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class User(IdMixin, TimestampMixin, Base):
     __tablename__ = "users"
