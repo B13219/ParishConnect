@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,7 @@ from app.db.base import utc_now
 from app.db.session import get_db
 from app.models import AttendanceRecord, Branch, Event, HouseholdPerson, Member, Visitor
 from app.services.qr_code import make_qr_svg
+from app.services.geofence import is_inside_geofence
 
 router = APIRouter()
 QR_TOKEN_VERSION = "pcqr1"
@@ -44,6 +45,13 @@ class QrCheckInCreate(BaseModel):
     person_type: str
     person_id: UUID
 
+class GeofenceCheckInCreate(BaseModel):
+    event_id: UUID
+    person_type: str
+    person_id: UUID
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_meters: float | None = Field(default=None, gt=0)
 
 def get_default_branch(db: Session) -> Branch:
     branch = db.scalar(select(Branch).order_by(Branch.created_at.asc()))
@@ -346,3 +354,86 @@ def create_qr_check_in(payload: QrCheckInCreate, db: Session = Depends(get_db)) 
         db,
         require_qr_token=payload.qr_token,
     )
+
+@router.post("/geofence-check-ins", status_code=status.HTTP_201_CREATED)
+def create_geofence_check_in(
+    payload: GeofenceCheckInCreate,
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    event = db.get(Event, payload.event_id)
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found.",
+        )
+
+    branch = db.get(Branch, event.branch_id)
+    if branch is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event branch not found.",
+        )
+
+    if not branch.geofence_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Geofence attendance is disabled for this branch.",
+        )
+
+    if branch.latitude is None or branch.longitude is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The branch geofence location has not been configured.",
+        )
+
+    opens_at, closes_at = qr_window(event)
+    now = utc_now()
+
+    if now < opens_at or now > closes_at:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Geofence check-in is outside the allowed attendance window.",
+        )
+
+    if (
+        payload.accuracy_meters is not None
+        and payload.accuracy_meters > branch.attendance_radius_meters
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Location accuracy is too low to confirm attendance.",
+        )
+
+    inside, distance_meters = is_inside_geofence(
+        church_latitude=branch.latitude,
+        church_longitude=branch.longitude,
+        device_latitude=payload.latitude,
+        device_longitude=payload.longitude,
+        radius_meters=branch.attendance_radius_meters,
+    )
+
+    if not inside:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "reason": "outside_geofence",
+                "distance_meters": round(distance_meters, 1),
+                "allowed_radius_meters": branch.attendance_radius_meters,
+            },
+        )
+
+    attendance = create_attendance_record(
+        CheckInCreate(
+            event_id=payload.event_id,
+            person_type=payload.person_type,
+            person_id=payload.person_id,
+            check_in_method="geofence",
+        ),
+        db,
+    )
+
+    attendance["distance_meters"] = round(distance_meters, 1)
+    attendance["allowed_radius_meters"] = branch.attendance_radius_meters
+    attendance["inside_geofence"] = True
+
+    return attendance

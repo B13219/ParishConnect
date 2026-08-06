@@ -22,7 +22,8 @@ def build_client() -> TestClient:
     Base.metadata.create_all(engine)
 
     with TestingSessionLocal() as db:
-        branch = Branch(name="Test Parish", location="Test City")
+        branch = Branch( name="Test Parish", location="Test City", latitude=-6.7924, longitude=39.2083, attendance_radius_meters=100,
+            geofence_enabled=True)
         db.add(branch)
         db.flush()
         add_test_user(db, branch, "Administrator")
@@ -243,3 +244,142 @@ def test_qr_token_respects_attendance_window() -> None:
     )
 
     assert check_in_response.status_code == 403
+
+def test_geofence_check_in_member_inside_radius() -> None:
+    client = build_client()
+    receptionist_headers = auth_headers(client, "Receptionist")
+    usher_headers = auth_headers(client, "Usher")
+
+    people = client.get(
+        "/api/v1/members/",
+        headers=receptionist_headers,
+    ).json()
+    member_id = people["members"][0]["id"]
+
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={"name": "Geofence Service"},
+        headers=usher_headers,
+    ).json()
+
+    response = client.post(
+        "/api/v1/attendance/geofence-check-ins",
+        json={
+            "event_id": event["id"],
+            "person_type": "member",
+            "person_id": member_id,
+            "latitude": -6.7925,
+            "longitude": 39.2084,
+            "accuracy_meters": 15,
+        },
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["check_in_method"] == "geofence"
+    assert data["inside_geofence"] is True
+    assert data["distance_meters"] < 100
+
+
+def test_geofence_rejects_location_outside_radius() -> None:
+    client = build_client()
+    receptionist_headers = auth_headers(client, "Receptionist")
+    usher_headers = auth_headers(client, "Usher")
+
+    people = client.get(
+        "/api/v1/members/",
+        headers=receptionist_headers,
+    ).json()
+    member_id = people["members"][0]["id"]
+
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={"name": "Outside Test"},
+        headers=usher_headers,
+    ).json()
+
+    response = client.post(
+        "/api/v1/attendance/geofence-check-ins",
+        json={
+            "event_id": event["id"],
+            "person_type": "member",
+            "person_id": member_id,
+            "latitude": -6.8000,
+            "longitude": 39.2200,
+            "accuracy_meters": 10,
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["reason"] == "outside_geofence"
+
+
+def test_geofence_rejects_low_location_accuracy() -> None:
+    client = build_client()
+    receptionist_headers = auth_headers(client, "Receptionist")
+    usher_headers = auth_headers(client, "Usher")
+
+    people = client.get(
+        "/api/v1/members/",
+        headers=receptionist_headers,
+    ).json()
+    member_id = people["members"][0]["id"]
+
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={"name": "Accuracy Test"},
+        headers=usher_headers,
+    ).json()
+
+    response = client.post(
+        "/api/v1/attendance/geofence-check-ins",
+        json={
+            "event_id": event["id"],
+            "person_type": "member",
+            "person_id": member_id,
+            "latitude": -6.7924,
+            "longitude": 39.2083,
+            "accuracy_meters": 250,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_geofence_prevents_duplicate_check_in() -> None:
+    client = build_client()
+    receptionist_headers = auth_headers(client, "Receptionist")
+    usher_headers = auth_headers(client, "Usher")
+
+    people = client.get(
+        "/api/v1/members/",
+        headers=receptionist_headers,
+    ).json()
+    member_id = people["members"][0]["id"]
+
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={"name": "Duplicate Geofence Test"},
+        headers=usher_headers,
+    ).json()
+
+    payload = {
+        "event_id": event["id"],
+        "person_type": "member",
+        "person_id": member_id,
+        "latitude": -6.7924,
+        "longitude": 39.2083,
+        "accuracy_meters": 10,
+    }
+
+    first_response = client.post(
+        "/api/v1/attendance/geofence-check-ins",
+        json=payload,
+    )
+    duplicate_response = client.post(
+        "/api/v1/attendance/geofence-check-ins",
+        json=payload,
+    )
+
+    assert first_response.status_code == 201
+    assert duplicate_response.status_code == 409
