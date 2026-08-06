@@ -1,4 +1,5 @@
 const API_BASE = "http://127.0.0.1:8003/api/v1";
+let portalData = null;
 
 const fetchJson = async (path) => {
   const response = await fetch(`${API_BASE}${path}`);
@@ -14,11 +15,23 @@ const sendJson = async (path, method, payload) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+
+  const body = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.detail || `${path} returned ${response.status}`);
+    const detail = body.detail;
+
+    if (typeof detail === "object" && detail !== null) {
+      const error = new Error(detail.reason || `Request failed with ${response.status}`);
+      error.details = detail;
+      error.status = response.status;
+      throw error;
+    }
+
+    throw new Error(detail || `${path} returned ${response.status}`);
   }
-  return response.json();
+
+  return body;
 };
 
 const formPayload = (form) =>
@@ -59,6 +72,134 @@ const setStatus = (message, kind = "") => {
   el.className = `status-pill ${kind}`.trim();
 };
 
+const setLocationStatus = (message, kind = "") => {
+  const element = document.querySelector("#memberLocationStatus");
+
+  if (!element) {
+    return;
+  }
+
+  element.className = `receipt-panel ${kind}`.trim();
+  element.innerHTML = message;
+};
+
+const locationErrorMessage = (error) => {
+  if (error.details?.reason === "outside_geofence") {
+    return `
+      <strong>You are outside the attendance area.</strong>
+      <span>
+        Distance: ${error.details.distance_meters} metres.
+        Allowed radius: ${error.details.allowed_radius_meters} metres.
+      </span>
+    `;
+  }
+
+  if (error.code === 1) {
+    return `
+      <strong>Location permission was denied.</strong>
+      <span>Allow location access in your browser and try again.</span>
+    `;
+  }
+
+  if (error.code === 2) {
+    return `
+      <strong>Your location could not be determined.</strong>
+      <span>Turn on GPS or location services and try again.</span>
+    `;
+  }
+
+  if (error.code === 3) {
+    return `
+      <strong>Location request timed out.</strong>
+      <span>Move somewhere with a clearer GPS signal and retry.</span>
+    `;
+  }
+
+  return `
+    <strong>Location check-in failed.</strong>
+    <span>${error.message || "Please try again."}</span>
+  `;
+};
+
+const getMemberGpsPosition = () =>
+  new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Location services are not supported by this browser."));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0,
+    });
+  });
+
+const checkInWithLocation = async (eventId, button) => {
+  if (!portalData?.profile?.id) {
+    setLocationStatus(
+      `
+        <strong>Member profile unavailable.</strong>
+        <span>Reload the page and try again.</span>
+      `,
+      "error",
+    );
+    return;
+  }
+
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Finding location...";
+
+  setLocationStatus(`
+    <strong>Checking your location...</strong>
+    <span>Please allow ParishConnect to access your device location.</span>
+  `);
+
+  try {
+    const position = await getMemberGpsPosition();
+    const { latitude, longitude, accuracy } = position.coords;
+
+    button.textContent = "Confirming attendance...";
+
+    const attendance = await sendJson(
+      "/attendance/geofence-check-ins",
+      "POST",
+      {
+        event_id: eventId,
+        person_type: "member",
+        person_id: portalData.profile.id,
+        latitude,
+        longitude,
+        accuracy_meters: accuracy,
+      },
+    );
+
+    setLocationStatus(
+      `
+        <strong>Attendance confirmed.</strong>
+        <span>
+          You were detected ${attendance.distance_meters} metres from the church location.
+        </span>
+      `,
+      "ok",
+    );
+
+    button.textContent = "Checked in";
+    button.disabled = true;
+  } catch (error) {
+  console.error("Geolocation error:", {
+    code: error.code,
+    message: error.message,
+    details: error.details,
+  });
+
+  setLocationStatus(locationErrorMessage(error), "error");
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+};
+
 const renderPortal = (data) => {
   const profile = data.profile;
   document.querySelector("#memberName").textContent = profile.name;
@@ -66,14 +207,40 @@ const renderPortal = (data) => {
     profile.phone || "No phone",
     profile.email || "No email",
   ].join(" - ");
-  document.querySelector("#memberProfileDetails").innerHTML = [
-    row({
-      title: profile.name,
-      subtitle: [profile.phone || "No phone", profile.email || "No email"].join(" - "),
-      tag: labelize(profile.status),
-      tone: profile.status === "active" ? "green" : "muted",
-    }),
-  ].join("");
+  document.querySelector("#memberEvents").innerHTML =
+  data.events
+    .map(
+      (event) => `
+        <div class="row">
+          <div>
+            <strong>${event.name}</strong>
+            <span>
+              ${formatDateTime(event.starts_at)} -
+              ${event.location || "No location"}
+            </span>
+          </div>
+
+          <div class="row-actions">
+            <span class="tag green">${labelize(event.type)}</span>
+            <button
+              class="mini-button"
+              type="button"
+              data-location-check-in
+              data-event-id="${event.id}"
+            >
+              Check in with location
+            </button>
+          </div>
+        </div>
+      `,
+    )
+    .join("") || emptyState("No upcoming events found.");
+
+document.querySelectorAll("[data-location-check-in]").forEach((button) => {
+  button.addEventListener("click", () => {
+    checkInWithLocation(button.dataset.eventId, button);
+  });
+});
 
   const householdPeople = data.household?.people || [];
   document.querySelector("#memberHousehold").innerHTML =
@@ -87,18 +254,6 @@ const renderPortal = (data) => {
         }),
       )
       .join("") || emptyState("No household dependents linked yet.");
-
-  document.querySelector("#memberEvents").innerHTML =
-    data.events
-      .map((event) =>
-        row({
-          title: event.name,
-          subtitle: `${formatDateTime(event.starts_at)} - ${event.location || "No location"}`,
-          tag: labelize(event.type),
-          tone: "green",
-        }),
-      )
-      .join("") || emptyState("No upcoming events found.");
 
   document.querySelector("#memberMessages").innerHTML =
     data.messages
@@ -163,8 +318,8 @@ const loadPortal = async () => {
   try {
     setStatus("Loading");
     const data = await fetchJson("/member-portal/me");
+    portalData = data;
     renderPortal(data);
-    setStatus("Connected", "ok");
   } catch (error) {
     console.error(error);
     setStatus("Offline", "error");
