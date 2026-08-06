@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ParishConnect Check-in</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="scan-page">
+  <main class="scan-shell">
+    <section class="scan-card">
+      <div class="brand scan-brand">
+        <div class="brand-mark" aria-hidden="true">PC</div>
+        <div>
+          <strong>ParishConnect</strong>
+          <span>Attendance Check-in</span>
+        </div>
+      </div>
+
+      <div class="scan-event">
+        <p class="eyebrow">Current Event</p>
+        <h1 id="scanEventName">Loading event</h1>
+        <span id="scanWindow">Checking QR window</span>
+      </div>
+
+      <form id="scanCheckInForm" class="person-form">
+        <label>
+          Check-in type
+          <select name="person_type" id="scanPersonType">
+            <option value="member">Member</option>
+            <option value="visitor">Visitor</option>
+            <option value="household_person">Child / dependent</option>
+          </select>
+        </label>
+        <label>
+          Person
+          <select name="person_id" id="scanPersonSelect" required></select>
+        </label>
+        <button class="primary-button" type="submit">Check in</button>
+      </form>
+
+      <div id="scanStatus" class="scan-status">Preparing check-in</div>
+    </section>
+  </main>
+
+  <script src="./scan.js"></script>
+</body>
+</html>

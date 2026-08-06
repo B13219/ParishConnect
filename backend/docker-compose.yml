@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: parishconnect-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: parishconnect
+      POSTGRES_USER: parishconnect
+      POSTGRES_PASSWORD: parishconnect
+    ports:
+      - "5432:5432"
+    volumes:
+      - parishconnect_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parishconnect -d parishconnect"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  parishconnect_postgres_data:
+

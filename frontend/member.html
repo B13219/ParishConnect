@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ParishConnect Member</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="member-page">
+  <main class="member-shell">
+    <header class="member-topbar">
+      <div class="brand member-brand">
+        <div class="brand-mark" aria-hidden="true">PC</div>
+        <div>
+          <strong>ParishConnect</strong>
+          <span>Member Portal</span>
+        </div>
+      </div>
+      <div class="status-pill" id="memberPortalStatus">Loading</div>
+    </header>
+
+    <section class="member-hero">
+      <div>
+        <p class="eyebrow">My Profile</p>
+        <h1 id="memberName">Member</h1>
+        <span id="memberContact">Loading profile</span>
+      </div>
+      <a class="primary-button member-scan-link" href="./scan.html">QR check-in</a>
+    </section>
+
+    <nav class="member-nav" aria-label="Member sections">
+      <a href="#memberProfile">Profile</a>
+      <a href="#memberHouseholdCard">Household</a>
+      <a href="#memberEventsCard">Events</a>
+      <a href="#memberMessagesCard">Messages</a>
+      <a href="#memberGivingCard">Giving</a>
+    </nav>
+
+    <section class="member-grid">
+      <article class="panel" id="memberProfile">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Account</p>
+            <h2>My Details</h2>
+          </div>
+        </div>
+        <div id="memberProfileDetails" class="list" aria-live="polite"></div>
+      </article>
+
+      <article class="panel" id="memberHouseholdCard">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Household</p>
+            <h2>Family Check-in</h2>
+          </div>
+        </div>
+        <div id="memberHousehold" class="list" aria-live="polite"></div>
+      </article>
+
+      <article class="panel" id="memberEventsCard">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Events</p>
+            <h2>Upcoming</h2>
+          </div>
+        </div>
+        <div id="memberEvents" class="list" aria-live="polite"></div>
+      </article>
+
+      <article class="panel" id="memberMessagesCard">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Messages</p>
+            <h2>Announcements</h2>
+          </div>
+        </div>
+        <div id="memberMessages" class="list" aria-live="polite"></div>
+      </article>
+
+      <article class="panel member-giving-card" id="memberGivingCard">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Giving</p>
+            <h2>Receipts</h2>
+          </div>
+          <strong id="memberGivingTotal" class="member-total">0 TZS</strong>
+        </div>
+        <form class="person-form member-giving-form" id="memberGivingForm">
+          <h3>Make a Giving Entry</h3>
+          <div class="field-row">
+            <label>
+              Type
+              <select name="contribution_type">
+                <option value="tithe">Tithe</option>
+                <option value="offering">Offering</option>
+                <option value="pledge">Pledge</option>
+                <option value="special_giving">Special giving</option>
+              </select>
+            </label>
+            <label>
+              Amount
+              <input name="amount" id="memberGivingAmount" type="number" min="1" step="1" required>
+            </label>
+          </div>
+          <div class="quick-amounts" aria-label="Optional quick giving amounts">
+            <button class="mini-button" type="button" data-member-amount="1000">1,000</button>
+            <button class="mini-button" type="button" data-member-amount="2000">2,000</button>
+            <button class="mini-button" type="button" data-member-amount="5000">5,000</button>
+            <button class="mini-button" type="button" data-member-amount="10000">10,000</button>
+            <span>Optional shortcuts. Any amount is welcome.</span>
+          </div>
+          <div class="field-row">
+            <label>
+              Method
+              <select name="payment_method">
+                <option value="mobile_money">Mobile money</option>
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+              </select>
+            </label>
+            <label>
+              Reference
+              <input name="reference_code" placeholder="Transaction or receipt reference">
+            </label>
+          </div>
+          <label>
+            Notes
+            <input name="notes" placeholder="Optional note">
+          </label>
+          <input name="currency" type="hidden" value="TZS">
+          <button class="primary-button" type="submit">Submit giving</button>
+        </form>
+        <div id="memberGivingReceipt" class="receipt-panel" aria-live="polite"></div>
+        <div id="memberGiving" class="list" aria-live="polite"></div>
+      </article>
+    </section>
+  </main>
+
+  <script src="./member.js"></script>
+</body>
+</html>

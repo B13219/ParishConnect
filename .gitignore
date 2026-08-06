@@ -31,3 +31,5 @@ dist/
 build/
 coverage/
 htmlcov/
+README-local.md
+Set-ExecutionPolicy

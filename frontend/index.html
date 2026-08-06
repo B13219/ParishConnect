@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ParishConnect Admin</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <section class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <div class="brand login-brand">
+        <div class="brand-mark" aria-hidden="true">PC</div>
+        <div>
+          <strong>ParishConnect</strong>
+          <span>Operations Access</span>
+        </div>
+      </div>
+      <div>
+        <p class="eyebrow">Grace Community Parish</p>
+        <h1>Choose Your Workspace</h1>
+      </div>
+      <form class="login-form login-card-form" id="loginForm">
+        <label>
+          Profile
+          <select name="email" id="loginEmail" aria-label="Demo user">
+            <option value="admin@graceparish.test">Administrator</option>
+            <option value="pastor@graceparish.test">Pastor / Leader</option>
+            <option value="accountant@graceparish.test">Accountant</option>
+            <option value="reception@graceparish.test">Receptionist</option>
+            <option value="usher@graceparish.test">Usher</option>
+          </select>
+        </label>
+        <label>
+          Password
+          <input name="password" id="loginPassword" type="password" value="parishconnect" aria-label="Password">
+        </label>
+        <button class="primary-button" type="submit">Enter workspace</button>
+      </form>
+      <div class="status-pill" id="loginStatus">Login required</div>
+    </div>
+  </section>
+
+  <div class="app-shell" id="appShell" hidden>
+    <aside class="sidebar" aria-label="Primary">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">PC</div>
+        <div>
+          <strong>ParishConnect</strong>
+          <span>Admin Console</span>
+        </div>
+      </div>
+
+      <nav class="nav-list" id="mainNav">
+        <a class="active" href="#overview" data-section-link="overview">Overview</a>
+        <a href="#people" data-section-link="people">People</a>
+        <a href="#imports" data-section-link="imports">Import</a>
+        <a href="#attendance" data-section-link="attendance">Attendance</a>
+        <a href="#households" data-section-link="households">Households</a>
+        <a href="#messages" data-section-link="messages">Messages</a>
+        <a href="#stewardship" data-section-link="stewardship">Stewardship</a>
+        <a href="#reports" data-section-link="reports">Reports</a>
+        <a href="#admin" data-section-link="admin">Admin</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Grace Community Parish</p>
+          <h1>Operations Dashboard</h1>
+        </div>
+        <div class="topbar-actions">
+          <div class="auth-chip" id="authSummary">Guest mode</div>
+          <button class="icon-button" id="logoutButton" type="button">Logout</button>
+          <button class="primary-button" id="refreshAll" type="button">Refresh all</button>
+          <div class="status-pill" id="connectionStatus">Checking API</div>
+        </div>
+      </header>
+
+      <section class="metric-grid" id="overview">
+        <article class="metric">
+          <span>Members</span>
+          <strong id="memberCount">0</strong>
+        </article>
+        <article class="metric">
+          <span>Visitors</span>
+          <strong id="visitorCount">0</strong>
+        </article>
+        <article class="metric">
+          <span>Check-ins</span>
+          <strong id="checkInCount">0</strong>
+        </article>
+        <article class="metric">
+          <span>Contributions</span>
+          <strong id="contributionTotal">0</strong>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel" id="people">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">People</p>
+              <h2>Members & Visitors</h2>
+            </div>
+            <button class="icon-button" title="Refresh people" data-refresh="people">Refresh</button>
+          </div>
+          <div class="form-grid">
+            <form class="person-form" id="memberForm">
+              <h3>Add Member</h3>
+              <div class="field-row">
+                <label>
+                  First name
+                  <input name="first_name" required autocomplete="given-name">
+                </label>
+                <label>
+                  Last name
+                  <input name="last_name" required autocomplete="family-name">
+                </label>
+              </div>
+              <div class="field-row">
+                <label>
+                  Phone
+                  <input name="phone" autocomplete="tel">
+                </label>
+                <label>
+                  Email
+                  <input name="email" type="email" autocomplete="email">
+                </label>
+              </div>
+              <button class="primary-button" type="submit">Add member</button>
+            </form>
+
+            <form class="person-form" id="visitorForm">
+              <h3>Add Visitor</h3>
+              <div class="field-row">
+                <label>
+                  First name
+                  <input name="first_name" required autocomplete="given-name">
+                </label>
+                <label>
+                  Last name
+                  <input name="last_name" required autocomplete="family-name">
+                </label>
+              </div>
+              <div class="field-row">
+                <label>
+                  Phone
+                  <input name="phone" autocomplete="tel">
+                </label>
+                <label>
+                  Email
+                  <input name="email" type="email" autocomplete="email">
+                </label>
+              </div>
+              <button class="primary-button" type="submit">Add visitor</button>
+            </form>
+          </div>
+          <div class="people-toolbar">
+            <label>
+              Search people
+              <input id="peopleSearch" placeholder="Name, phone, or email">
+            </label>
+            <label>
+              Member status
+              <select id="memberStatusFilter">
+                <option value="all">All members</option>
+                <option value="active">Active</option>
+                <option value="transferred">Transferred</option>
+                <option value="deceased">Deceased</option>
+                <option value="discontinued">Discontinued</option>
+              </select>
+            </label>
+            <label>
+              Visitor status
+              <select id="visitorStatusFilter">
+                <option value="all">All visitors</option>
+                <option value="new">New</option>
+                <option value="contacted">Contacted</option>
+                <option value="converted">Converted</option>
+              </select>
+            </label>
+          </div>
+          <div class="split-list">
+            <div>
+              <h3>Members</h3>
+              <div id="memberList" class="list" aria-live="polite"></div>
+            </div>
+            <div>
+              <h3>Visitors</h3>
+              <div id="visitorList" class="list" aria-live="polite"></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel report-panel" id="imports">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Migration</p>
+              <h2>CSV Import</h2>
+            </div>
+            <button class="icon-button" id="previewImport" type="button">Preview</button>
+          </div>
+          <div class="form-grid">
+            <form class="person-form import-form" id="importForm">
+              <h3>Members / Visitors</h3>
+              <div class="field-row">
+                <label>
+                  Import type
+                  <select name="import_type" id="importType">
+                    <option value="members">Members</option>
+                    <option value="visitors">Visitors</option>
+                  </select>
+                </label>
+                <label>
+                  CSV file
+                  <input name="csv_file" id="importFile" type="file" accept=".csv,text/csv">
+                </label>
+              </div>
+              <label>
+                CSV content
+                <textarea name="csv_text" id="importCsvText" spellcheck="false">first_name,last_name,phone,email,status
+Neema,Kileo,+255 711 100 001,neema.kileo@example.test,active
+Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
+              </label>
+              <div class="dialog-actions">
+                <button class="icon-button" id="downloadImportTemplate" type="button">Template</button>
+                <button class="primary-button" id="commitImport" type="button" disabled>Import valid rows</button>
+              </div>
+            </form>
+            <div class="assist-panel import-help">
+              <strong>Required columns</strong>
+              <p>first_name, last_name</p>
+              <strong>Optional columns</strong>
+              <p>phone, email, status</p>
+              <strong>Safe rollout</strong>
+              <p>Preview checks rows first. Only valid rows are saved when you import.</p>
+            </div>
+          </div>
+          <div class="finance-summary">
+            <span id="importSummary">No preview yet</span>
+            <strong id="importValidCount">0 valid</strong>
+          </div>
+          <div id="importPreviewList" class="list" aria-live="polite"></div>
+        </article>
+
+        <article class="panel" id="attendance">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Attendance</p>
+              <h2>Upcoming Events</h2>
+            </div>
+            <button class="icon-button" title="Refresh attendance" data-refresh="attendance">Refresh</button>
+          </div>
+          <div class="form-grid">
+            <form class="person-form" id="eventForm">
+              <h3>Create Event</h3>
+              <label>
+                Event name
+                <input name="name" required placeholder="Sunday Main Service">
+              </label>
+              <div class="field-row">
+                <label>
+                  Type
+                  <select name="event_type">
+                    <option value="service">Service</option>
+                    <option value="ministry">Ministry</option>
+                    <option value="event">Event</option>
+                  </select>
+                </label>
+                <label>
+                  Starts
+                  <input name="starts_at" type="datetime-local">
+                </label>
+              </div>
+              <label>
+                Location
+                <input name="location" placeholder="Main Sanctuary">
+              </label>
+              <div class="field-row">
+                <label>
+                  QR opens
+                  <input name="qr_opens_at" type="datetime-local">
+                </label>
+                <label>
+                  QR closes
+                  <input name="qr_closes_at" type="datetime-local">
+                </label>
+              </div>
+              <label>
+                QR rotation seconds
+                <input name="qr_rotation_seconds" type="number" min="30" step="30" value="60">
+              </label>
+              <button class="primary-button" type="submit">Create event</button>
+            </form>
+
+            <form class="person-form" id="checkInForm">
+              <h3>Manual Check-in</h3>
+              <label>
+                Event
+                <select name="event_id" id="checkInEventSelect" required></select>
+              </label>
+              <div class="field-row">
+                <label>
+                  Person type
+                  <select name="person_type" id="checkInPersonType">
+                    <option value="member">Member</option>
+                    <option value="visitor">Visitor</option>
+                  </select>
+                </label>
+                <label>
+                  Person
+                  <select name="person_id" id="checkInPersonSelect" required></select>
+                </label>
+              </div>
+              <button class="primary-button" type="submit">Check in</button>
+            </form>
+          </div>
+          <div id="eventList" class="list" aria-live="polite"></div>
+          <div id="qrTokenPanel" class="qr-panel" aria-live="polite">
+            <span>Select an event QR action to view the active attendance token.</span>
+          </div>
+          <h3 class="section-subhead">Recent Check-ins</h3>
+          <div id="checkInList" class="list" aria-live="polite"></div>
+        </article>
+
+        <article class="panel" id="households">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Families</p>
+              <h2>Household Registry</h2>
+            </div>
+            <button class="icon-button" title="Refresh households" data-refresh="households">Refresh</button>
+          </div>
+          <div class="form-grid">
+            <form class="person-form" id="householdForm">
+              <h3>Create Household</h3>
+              <label>
+                Household name
+                <input name="name" required placeholder="Kileo Household">
+              </label>
+              <label>
+                Primary adult
+                <select name="primary_member_id" id="householdPrimaryMember"></select>
+              </label>
+              <label>
+                Primary phone
+                <input name="primary_phone" autocomplete="tel">
+              </label>
+              <button class="primary-button" type="submit">Create household</button>
+            </form>
+
+            <form class="person-form" id="dependentForm">
+              <h3>Add Child / Dependent</h3>
+              <label>
+                Household
+                <select name="household_id" id="dependentHouseholdSelect" required></select>
+              </label>
+              <div class="field-row">
+                <label>
+                  First name
+                  <input name="first_name" required>
+                </label>
+                <label>
+                  Last name
+                  <input name="last_name" required>
+                </label>
+              </div>
+              <div class="field-row">
+                <label>
+                  Type
+                  <select name="person_type">
+                    <option value="child">Child</option>
+                    <option value="dependent">Dependent</option>
+                  </select>
+                </label>
+                <label>
+                  Relationship
+                  <input name="relationship" value="child" required>
+                </label>
+              </div>
+              <button class="primary-button" type="submit">Add dependent</button>
+            </form>
+          </div>
+          <div id="householdList" class="list" aria-live="polite"></div>
+        </article>
+
+        <article class="panel" id="messages">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Communication</p>
+              <h2>Recent Messages</h2>
+            </div>
+            <button class="icon-button" title="Refresh messages" data-refresh="messages">Refresh</button>
+          </div>
+          <form class="person-form message-form" id="messageForm">
+            <h3>Compose Message</h3>
+            <label>
+              Template
+              <select id="messageTemplate">
+                <option value="">Start blank</option>
+                <option value="sunday_reminder">Sunday reminder</option>
+                <option value="event_reminder">Event reminder</option>
+                <option value="visitor_follow_up">Visitor follow-up</option>
+                <option value="giving_reminder">Giving reminder</option>
+                <option value="urgent_notice">Urgent notice</option>
+              </select>
+            </label>
+            <label>
+              Subject
+              <input name="subject" required placeholder="Sunday service reminder">
+            </label>
+            <label>
+              Body
+              <textarea name="body" id="messageBody" required placeholder="Write announcement or reminder"></textarea>
+            </label>
+            <div class="assist-panel">
+              <span id="smsCounter">0 / 160 SMS characters</span>
+              <strong>Preview</strong>
+              <p id="messagePreview">Your message preview will appear here.</p>
+            </div>
+            <div class="field-row">
+              <label>
+                Channel
+                <select name="channel" id="messageChannel">
+                  <option value="in_app">In-app</option>
+                  <option value="sms">SMS</option>
+                  <option value="push">Push</option>
+                </select>
+              </label>
+              <label>
+                Audience
+                <select name="audience_type">
+                  <option value="all_members">All members</option>
+                  <option value="visitors">Visitors</option>
+                  <option value="ministry">Ministry</option>
+                  <option value="households">Households</option>
+                </select>
+              </label>
+            </div>
+            <div class="field-row">
+              <label>
+                Status
+                <select name="status" id="messageStatus">
+                  <option value="send_now">Send now</option>
+                  <option value="draft">Draft</option>
+                  <option value="scheduled">Scheduled</option>
+                </select>
+              </label>
+              <label>
+                Schedule
+                <input name="scheduled_at" type="datetime-local">
+              </label>
+            </div>
+            <button class="primary-button" type="submit">Save message</button>
+          </form>
+          <div id="messageList" class="list" aria-live="polite"></div>
+          <h3 class="section-subhead">Delivery Tracking</h3>
+          <div id="messageRecipientList" class="list" aria-live="polite"></div>
+        </article>
+
+        <article class="panel" id="stewardship">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Finance</p>
+              <h2>Stewardship</h2>
+            </div>
+            <button class="icon-button" title="Refresh stewardship" data-refresh="stewardship">Refresh</button>
+          </div>
+          <form class="person-form finance-form" id="contributionForm">
+            <h3>Record Contribution</h3>
+            <div class="field-row">
+              <label>
+                Type
+                <select name="contribution_type">
+                  <option value="tithe">Tithe</option>
+                  <option value="offering">Offering</option>
+                  <option value="pledge">Pledge</option>
+                  <option value="special_giving">Special giving</option>
+                </select>
+              </label>
+              <label>
+                Amount
+                <input name="amount" type="number" min="1" step="1" required>
+              </label>
+            </div>
+            <div class="field-row">
+              <label>
+                Currency
+                <select name="currency">
+                  <option value="TZS">TZS</option>
+                  <option value="USD">USD</option>
+                </select>
+              </label>
+              <label>
+                Member
+                <select name="member_id" id="contributionMemberSelect"></select>
+              </label>
+            </div>
+            <div class="field-row">
+              <label>
+                Payment method
+                <select name="payment_method">
+                  <option value="cash">Cash</option>
+                  <option value="envelope">Envelope</option>
+                  <option value="mobile_money">Mobile money</option>
+                  <option value="bank_transfer">Bank transfer</option>
+                  <option value="card">Card</option>
+                </select>
+              </label>
+              <label>
+                Reference
+                <input name="reference_code" placeholder="Receipt, envelope, or transaction ID">
+              </label>
+            </div>
+            <label>
+              Notes
+              <input name="notes" placeholder="Optional finance note">
+            </label>
+            <button class="primary-button" type="submit">Record contribution</button>
+          </form>
+          <div id="contributionReceipt" class="receipt-panel" aria-live="polite"></div>
+          <div class="finance-summary">
+            <span id="contributionCount">0 records</span>
+            <strong id="financeTotal">0 TZS</strong>
+          </div>
+          <div id="contributionBreakdown" class="finance-breakdown" aria-live="polite"></div>
+          <div id="contributionList" class="list" aria-live="polite"></div>
+        </article>
+
+        <article class="panel report-panel" id="reports">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Leadership</p>
+              <h2>Weekly Report</h2>
+            </div>
+            <div class="report-actions">
+              <button class="icon-button" id="copyReportBriefing" type="button">Copy briefing</button>
+              <button class="icon-button" id="downloadReportCsv" type="button">CSV</button>
+              <button class="icon-button" id="printReport" type="button">Print</button>
+              <button class="icon-button" title="Refresh reports" data-refresh="reports">Refresh</button>
+            </div>
+          </div>
+          <div class="report-period" id="reportPeriod">Loading reporting period</div>
+          <div class="permission-note" id="permissionNote" aria-live="polite"></div>
+          <div id="reportMetrics" class="finance-breakdown report-metrics" aria-live="polite"></div>
+          <div class="split-list">
+            <div>
+              <h3>Attendance</h3>
+              <div id="reportAttendance" class="list" aria-live="polite"></div>
+            </div>
+            <div>
+              <h3>Stewardship</h3>
+              <div id="reportStewardship" class="list" aria-live="polite"></div>
+            </div>
+          </div>
+          <h3 class="section-subhead">Critical Observations</h3>
+          <div id="reportObservations" class="list observation-list" aria-live="polite"></div>
+        </article>
+
+        <article class="panel report-panel" id="admin">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">System</p>
+              <h2>Users, Roles & Audit</h2>
+            </div>
+            <button class="icon-button" title="Refresh admin" data-refresh="admin">Refresh</button>
+          </div>
+          <div class="form-grid">
+            <form class="person-form" id="adminUserForm">
+              <h3 id="adminUserFormTitle">Create Staff User</h3>
+              <input type="hidden" name="user_id">
+              <label>
+                Name
+                <input name="name" required placeholder="Full name">
+              </label>
+              <div class="field-row">
+                <label>
+                  Email
+                  <input name="email" type="email" required placeholder="name@church.test">
+                </label>
+                <label>
+                  Phone
+                  <input name="phone" autocomplete="tel">
+                </label>
+              </div>
+              <div class="field-row">
+                <label>
+                  Role
+                  <select name="role" id="adminUserRole" required></select>
+                </label>
+                <label>
+                  Status
+                  <select name="status">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </label>
+              </div>
+              <label>
+                Password
+                <input name="password" type="password" required placeholder="Required for new users">
+              </label>
+              <div class="dialog-actions">
+                <button class="icon-button" id="clearAdminUserForm" type="button">New user</button>
+                <button class="primary-button" type="submit" id="adminUserSubmit">Create user</button>
+              </div>
+            </form>
+            <div>
+              <h3>Roles</h3>
+              <div id="adminRoleList" class="list" aria-live="polite"></div>
+            </div>
+          </div>
+          <div class="split-list">
+            <div>
+              <h3>Staff Users</h3>
+              <div id="adminUserList" class="list" aria-live="polite"></div>
+            </div>
+            <div>
+              <h3>Recent Audit</h3>
+              <div id="auditLogList" class="list" aria-live="polite"></div>
+            </div>
+          </div>
+          <h3 class="section-subhead">Branch Settings</h3>
+          <div class="form-grid">
+            <form class="person-form" id="branchSettingsForm">
+              <label>
+                Branch name
+                <input name="name" id="branchName" required>
+              </label>
+              <div class="field-row">
+                <label>
+                  Location
+                  <input name="location" id="branchLocation">
+                </label>
+                <label>
+                  Contact phone
+                  <input name="contact_phone" id="branchPhone">
+                </label>
+              </div>
+              <button class="primary-button" type="submit">Save branch settings</button>
+            </form>
+            <div class="assist-panel">
+              <strong>Current branch</strong>
+              <p id="branchSettingsSummary">Loading branch settings.</p>
+              <strong>Backup audit</strong>
+              <p id="backupManifestSummary">No backup manifest exported this session.</p>
+              <button class="icon-button" id="downloadBackupManifest" type="button">Backup manifest</button>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="personDialog" class="dialog">
+    <form method="dialog" id="personEditForm" class="dialog-card">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow" id="personDialogType">People</p>
+          <h2 id="personDialogTitle">Edit Record</h2>
+        </div>
+        <button class="icon-button" value="cancel" type="button" id="closePersonDialog">Close</button>
+      </div>
+      <input type="hidden" name="id">
+      <input type="hidden" name="type">
+      <div class="field-row">
+        <label>
+          First name
+          <input name="first_name" required>
+        </label>
+        <label>
+          Last name
+          <input name="last_name" required>
+        </label>
+      </div>
+      <div class="field-row">
+        <label>
+          Phone
+          <input name="phone">
+        </label>
+        <label>
+          Email
+          <input name="email" type="email">
+        </label>
+      </div>
+      <label>
+        Status
+        <select name="status" id="personStatusField"></select>
+      </label>
+      <div class="dialog-actions">
+        <button class="primary-button" type="submit">Save changes</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="./app.js?v=20260713-backup-manifest"></script>
+</body>
+</html>
