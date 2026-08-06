@@ -4,6 +4,7 @@ const state = {
   auth: JSON.parse(localStorage.getItem("parishconnect_auth") || "null"),
   people: null,
   attendance: null,
+  geofence: null,
   households: null,
   messages: null,
   messageRecipients: null,
@@ -18,11 +19,15 @@ const state = {
     visitorStatus: "all",
   },
 };
+let geofenceMap = null;
+let geofenceMarker = null;
+let geofenceCircle = null;
 
 const sections = [
   "people",
   "imports",
   "attendance",
+  "settings",
   "households",
   "messages",
   "stewardship",
@@ -34,6 +39,7 @@ const navSections = [
   "people",
   "imports",
   "attendance",
+  "settings",
   "households",
   "messages",
   "stewardship",
@@ -60,9 +66,10 @@ const rolePermissions = {
     "messages",
     "stewardship",
     "reports",
+    "settings",
     "admin",
   ],
-  pastor_leader: ["people", "messages", "stewardship", "reports"],
+  pastor_leader: ["people", "messages", "stewardship", "reports","settings"],
   accountant: ["stewardship", "reports"],
   receptionist: ["people", "imports", "attendance", "households"],
   usher: ["attendance"],
@@ -654,6 +661,203 @@ const renderWeeklyReport = () => {
   applyRoleAccess();
 };
 
+const setGeofenceCoordinates = (latitude, longitude, moveMap = true) => {
+  const latitudeValue = Number(latitude);
+  const longitudeValue = Number(longitude);
+
+  if (
+    !Number.isFinite(latitudeValue) ||
+    !Number.isFinite(longitudeValue)
+  ) {
+    return;
+  }
+
+  document.querySelector("#geofenceLatitude").value =
+    latitudeValue.toFixed(6);
+
+  document.querySelector("#geofenceLongitude").value =
+    longitudeValue.toFixed(6);
+
+  if (geofenceMarker) {
+    geofenceMarker.setLatLng([latitudeValue, longitudeValue]);
+  }
+
+  if (geofenceCircle) {
+    geofenceCircle.setLatLng([latitudeValue, longitudeValue]);
+  }
+
+  if (moveMap && geofenceMap) {
+    geofenceMap.setView([latitudeValue, longitudeValue], 17);
+  }
+};
+
+const initializeGeofenceMap = () => {
+  const mapElement = document.querySelector("#geofenceMap");
+
+  if (!mapElement || typeof L === "undefined") {
+    return;
+  }
+
+  const latitudeInput = document.querySelector("#geofenceLatitude");
+  const longitudeInput = document.querySelector("#geofenceLongitude");
+  const radiusInput = document.querySelector("#geofenceRadius");
+
+  const savedLatitude = Number(latitudeInput.value);
+  const savedLongitude = Number(longitudeInput.value);
+
+  const hasSavedCoordinates =
+    Number.isFinite(savedLatitude) &&
+    Number.isFinite(savedLongitude) &&
+    latitudeInput.value !== "" &&
+    longitudeInput.value !== "";
+
+  // Dar es Salaam is the fallback starting position.
+  const startingLatitude = hasSavedCoordinates
+    ? savedLatitude
+    : -6.7924;
+
+  const startingLongitude = hasSavedCoordinates
+    ? savedLongitude
+    : 39.2083;
+
+  const startingPosition = [
+    startingLatitude,
+    startingLongitude,
+  ];
+
+  const radius = Number(radiusInput.value || 100);
+
+  if (!geofenceMap) {
+    geofenceMap = L.map("geofenceMap").setView(
+      startingPosition,
+      hasSavedCoordinates ? 17 : 12,
+    );
+
+    L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      },
+    ).addTo(geofenceMap);
+
+    geofenceMarker = L.marker(startingPosition, {
+      draggable: true,
+    }).addTo(geofenceMap);
+
+    geofenceCircle = L.circle(startingPosition, {
+      radius,
+    }).addTo(geofenceMap);
+
+    geofenceMarker.bindPopup(
+      "Church location. Drag this pin to adjust it.",
+    );
+
+    geofenceMap.on("click", (event) => {
+      setGeofenceCoordinates(
+        event.latlng.lat,
+        event.latlng.lng,
+        false,
+      );
+    });
+
+    geofenceMarker.on("dragend", () => {
+      const position = geofenceMarker.getLatLng();
+
+      setGeofenceCoordinates(
+        position.lat,
+        position.lng,
+        false,
+      );
+    });
+  } else {
+    geofenceMarker.setLatLng(startingPosition);
+    geofenceCircle.setLatLng(startingPosition);
+    geofenceCircle.setRadius(radius);
+
+    if (hasSavedCoordinates) {
+      geofenceMap.setView(startingPosition, 17);
+    }
+  }
+
+  // The dashboard is hidden before login, so Leaflet must recalculate its size.
+  window.setTimeout(() => {
+    geofenceMap.invalidateSize();
+  }, 100);
+};
+
+const renderGeofenceSettings = () => {
+  const geofence = state.geofence || {};
+
+  document.querySelector("#geofenceEnabled").checked =
+    Boolean(geofence.geofence_enabled);
+
+  document.querySelector("#geofenceLatitude").value =
+    geofence.latitude ?? "";
+
+  document.querySelector("#geofenceLongitude").value =
+    geofence.longitude ?? "";
+
+  const radius = Number(geofence.attendance_radius_meters || 100);
+
+  document.querySelector("#geofenceRadius").value = radius;
+  document.querySelector("#geofenceRadiusValue").textContent = radius;
+
+  const configured =
+    geofence.latitude !== null &&
+    geofence.latitude !== undefined &&
+    geofence.longitude !== null &&
+    geofence.longitude !== undefined;
+
+  document.querySelector("#geofenceSettingsStatus").innerHTML = configured
+    ? `
+        <strong>Church location configured.</strong>
+        <span>
+          ${geofence.latitude}, ${geofence.longitude} —
+          ${radius} metre radius.
+        </span>
+      `
+    : `
+        <strong>Church location not configured.</strong>
+        <span>Select a setup method and enter the church location.</span>
+      `;
+  updateGeofenceSetupMethod();
+  initializeGeofenceMap();
+};
+
+const updateGeofenceSetupMethod = () => {
+  const selectedMethod =
+    document.querySelector(
+      'input[name="setup_method"]:checked',
+    )?.value || "map";
+
+  const mapMode = document.querySelector("#geofenceMapMode");
+  const manualMode = document.querySelector(
+    "#geofenceManualMode",
+  );
+
+  const latitudeInput = document.querySelector(
+    "#geofenceLatitude",
+  );
+
+  const longitudeInput = document.querySelector(
+    "#geofenceLongitude",
+  );
+
+  mapMode.hidden = selectedMethod !== "map";
+  manualMode.hidden = selectedMethod !== "manual";
+
+  latitudeInput.readOnly = selectedMethod === "map";
+  longitudeInput.readOnly = selectedMethod === "map";
+
+  if (selectedMethod === "map" && geofenceMap) {
+    window.setTimeout(() => {
+      geofenceMap.invalidateSize();
+    }, 100);
+  }
+};
+
 const renderAdmin = () => {
   const roles = state.admin?.roles || [];
   const users = state.admin?.users || [];
@@ -749,6 +953,11 @@ const loadSection = async (section) => {
   if (section === "reports") {
     state.reports = await fetchJson("/reports/weekly");
     renderWeeklyReport();
+  }
+  if (section === "settings") {
+    const response = await fetchJson("/admin/branch/geofence");
+    state.geofence = response.geofence || null;
+    renderGeofenceSettings();
   }
   if (section === "admin") {
     const [roles, users, auditLogs, branch] = await Promise.all([
@@ -1296,6 +1505,75 @@ const submitAdminUserForm = async (form) => {
   }
 };
 
+const submitGeofenceSettingsForm = async (form) => {
+  const payload = formPayload(form);
+
+  payload.geofence_enabled =
+    form.elements.geofence_enabled.checked;
+
+  payload.setup_method =
+    form.elements.setup_method.value;
+
+  payload.latitude =
+    payload.latitude === null
+      ? null
+      : Number(payload.latitude);
+
+  payload.longitude =
+    payload.longitude === null
+      ? null
+      : Number(payload.longitude);
+
+  payload.attendance_radius_meters = Number(
+    payload.attendance_radius_meters || 100,
+  );
+
+  const statusPanel = document.querySelector(
+    "#geofenceSettingsStatus",
+  );
+
+  try {
+    setBusy(true);
+    setStatus("Saving geofence");
+
+    const response = await sendJson(
+      "/admin/branch/geofence",
+      "PUT",
+      payload,
+    );
+
+    state.geofence = response.geofence;
+
+    renderGeofenceSettings();
+
+    statusPanel.innerHTML = `
+      <strong>Geofence settings saved.</strong>
+      <span>
+        ${response.geofence.latitude},
+        ${response.geofence.longitude} —
+        ${response.geofence.attendance_radius_meters}
+        metre radius.
+      </span>
+    `;
+
+    setStatus("Geofence saved", "ok");
+  } catch (error) {
+    console.error(error);
+
+    statusPanel.innerHTML = `
+      <strong>Geofence settings could not be saved.</strong>
+      <span>${error.message || "Please check the values."}</span>
+    `;
+
+    setStatus(
+      error.message || "Geofence save failed",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
 const submitBranchSettingsForm = async (form) => {
   try {
     setBusy(true);
@@ -1599,9 +1877,54 @@ document.querySelector("#personEditForm").addEventListener("submit", (event) => 
 document.querySelector("#closePersonDialog").addEventListener("click", () => {
   document.querySelector("#personDialog").close();
 });
+document
+  .querySelectorAll('input[name="setup_method"]')
+  .forEach((radio) => {
+    radio.addEventListener("change", updateGeofenceSetupMethod);
+  });
+
+document
+  .querySelector("#geofenceRadius")
+  .addEventListener("input", (event) => {
+    const radius = Number(event.currentTarget.value);
+
+    document.querySelector(
+      "#geofenceRadiusValue",
+    ).textContent = radius;
+
+    if (geofenceCircle) {
+      geofenceCircle.setRadius(radius);
+    }
+  });
+document
+  .querySelector("#geofenceSettingsForm")
+  .addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitGeofenceSettingsForm(event.currentTarget);
+  });
+[
+  "#geofenceLatitude",
+  "#geofenceLongitude",
+].forEach((selector) => {
+  document
+    .querySelector(selector)
+    .addEventListener("change", () => {
+      const latitude = document.querySelector(
+        "#geofenceLatitude",
+      ).value;
+
+      const longitude = document.querySelector(
+        "#geofenceLongitude",
+      ).value;
+
+      setGeofenceCoordinates(latitude, longitude);
+    });
+});
+updateGeofenceSetupMethod();
 document.querySelector("#peopleSearch").addEventListener("input", updatePeopleFilters);
 document.querySelector("#memberStatusFilter").addEventListener("change", updatePeopleFilters);
 document.querySelector("#visitorStatusFilter").addEventListener("change", updatePeopleFilters);
+
 
 setupStickyNavigation();
 applyRoleAccess();

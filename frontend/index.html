@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ParishConnect Admin</title>
   <link rel="stylesheet" href="./styles.css">
+  <link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+>
 </head>
 <body>
   <section class="login-screen" id="loginScreen">
@@ -60,6 +66,7 @@
         <a href="#messages" data-section-link="messages">Messages</a>
         <a href="#stewardship" data-section-link="stewardship">Stewardship</a>
         <a href="#reports" data-section-link="reports">Reports</a>
+        <a href="#settings" data-section-link="settings">Settings</a>
         <a href="#admin" data-section-link="admin">Admin</a>
       </nav>
     </aside>
@@ -559,6 +566,136 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
           <div id="reportObservations" class="list observation-list" aria-live="polite"></div>
         </article>
 
+        <article class="panel report-panel" id="settings">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Branch Settings</p>
+      <h2>Geofence Attendance</h2>
+    </div>
+
+    <button
+      class="icon-button"
+      title="Refresh geofence settings"
+      data-refresh="settings"
+      type="button"
+    >
+      Refresh
+    </button>
+  </div>
+
+  <form class="person-form" id="geofenceSettingsForm">
+    <label class="checkbox-label">
+      <input name="geofence_enabled" id="geofenceEnabled" type="checkbox">
+      Enable geofence attendance
+    </label>
+
+    <fieldset class="location-methods">
+      <legend>How should the church location be entered?</legend>
+
+      <label>
+        <input
+          name="setup_method"
+          type="radio"
+          value="map"
+          checked
+        >
+        Choose location on map
+      </label>
+
+      <label>
+        <input
+          name="setup_method"
+          type="radio"
+          value="manual"
+        >
+        Enter coordinates manually
+      </label>
+    </fieldset>
+
+    <div id="geofenceMapMode">
+      <div class="assist-panel">
+        <strong>Map location</strong>
+        <p>
+          Click the map to place the church pin. The latitude and longitude
+          fields will fill automatically.
+        </p>
+      </div>
+
+      <div id="geofenceMap" class="geofence-map">
+        Map picker will appear here.
+      </div>
+    </div>
+
+    <div id="geofenceManualMode" hidden>
+      <div class="assist-panel">
+        <strong>Manual coordinates</strong>
+        <p>
+          Enter the latitude and longitude obtained from Google Maps or
+          another trusted map service.
+        </p>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <label>
+        Latitude
+        <input
+          name="latitude"
+          id="geofenceLatitude"
+          type="number"
+          min="-90"
+          max="90"
+          step="any"
+          placeholder="-6.7924"
+        >
+      </label>
+
+      <label>
+        Longitude
+        <input
+          name="longitude"
+          id="geofenceLongitude"
+          type="number"
+          min="-180"
+          max="180"
+          step="any"
+          placeholder="39.2083"
+        >
+      </label>
+    </div>
+
+    <label>
+      Attendance radius
+
+      <div class="radius-control">
+        <input
+          name="attendance_radius_meters"
+          id="geofenceRadius"
+          type="range"
+          min="25"
+          max="500"
+          step="25"
+          value="100"
+        >
+
+        <strong>
+          <span id="geofenceRadiusValue">100</span> metres
+        </strong>
+      </div>
+    </label>
+
+    <button class="primary-button" type="submit">
+      Save geofence settings
+    </button>
+  </form>
+
+  <div
+    id="geofenceSettingsStatus"
+    class="receipt-panel"
+    aria-live="polite"
+  ></div>
+</article> 
+        
         <article class="panel report-panel" id="admin">
           <div class="panel-header">
             <div>
@@ -695,6 +832,12 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
     </form>
   </dialog>
 
-  <script src="./app.js?v=20260713-backup-manifest"></script>
+  <script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
+<script src="./app.js?v=20260806-geofence-map"></script>
 </body>
 </html>
