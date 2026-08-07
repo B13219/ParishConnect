@@ -2,11 +2,11 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, Numeric, String, Text, Time
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TimestampMixin, utc_now
-
+from datetime import datetime, time
 
 class Branch(IdMixin, TimestampMixin, Base):
     __tablename__ = "branches"
@@ -124,7 +124,66 @@ class Ministry(IdMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     leader_member_id: Mapped[UUID | None] = mapped_column(ForeignKey("members.id"))
 
+class ServiceTemplate(IdMixin, TimestampMixin, Base):
+    __tablename__ = "service_templates"
 
+    branch_id: Mapped[UUID] = mapped_column(
+        ForeignKey("branches.id"),
+        nullable=False,
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(160),
+        nullable=False,
+    )
+
+    event_type: Mapped[str] = mapped_column(
+        String(80),
+        default="service",
+        nullable=False,
+    )
+
+    day_of_week: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    start_time: Mapped[time] = mapped_column(
+        Time,
+        nullable=False,
+    )
+
+    end_time: Mapped[time | None] = mapped_column(
+        Time,
+    )
+
+    location: Mapped[str | None] = mapped_column(
+        String(240),
+    )
+
+    qr_open_minutes_before: Mapped[int] = mapped_column(
+        Integer,
+        default=30,
+        nullable=False,
+    )
+
+    qr_close_minutes_after: Mapped[int] = mapped_column(
+        Integer,
+        default=30,
+        nullable=False,
+    )
+
+    qr_rotation_seconds: Mapped[int] = mapped_column(
+        Integer,
+        default=60,
+        nullable=False,
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
 class Event(IdMixin, TimestampMixin, Base):
     __tablename__ = "events"
 

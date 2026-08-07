@@ -493,3 +493,164 @@ def test_geofence_prevents_duplicate_check_in() -> None:
 
     assert first_response.status_code == 201
     assert duplicate_response.status_code == 409
+    
+def test_can_create_service_template() -> None:
+    client = build_client()
+    headers = auth_headers(client, "Pastor / Leader")
+
+    response = client.post(
+        "/api/v1/attendance/service-templates",
+        json={
+            "name": "Sunday Main Service",
+            "event_type": "service",
+            "day_of_week": 6,
+            "start_time": "09:00",
+            "end_time": "11:00",
+            "location": "Main Sanctuary",
+            "qr_open_minutes_before": 30,
+            "qr_close_minutes_after": 30,
+            "qr_rotation_seconds": 60,
+            "is_active": True,
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+    assert data["name"] == "Sunday Main Service"
+    assert data["day_of_week"] == 6
+    assert data["start_time"] == "09:00"
+
+
+def test_can_list_service_templates() -> None:
+    client = build_client()
+    headers = auth_headers(client, "Pastor / Leader")
+
+    client.post(
+        "/api/v1/attendance/service-templates",
+        json={
+            "name": "Sunday Main Service",
+            "day_of_week": 6,
+            "start_time": "09:00",
+        },
+        headers=headers,
+    )
+
+    response = client.get(
+        "/api/v1/attendance/service-templates",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) >= 1
+
+
+def test_can_update_service_template() -> None:
+    client = build_client()
+    headers = auth_headers(client, "Pastor / Leader")
+
+    created = client.post(
+        "/api/v1/attendance/service-templates",
+        json={
+            "name": "Sunday Service",
+            "day_of_week": 6,
+            "start_time": "09:00",
+        },
+        headers=headers,
+    )
+
+    template_id = created.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/attendance/service-templates/{template_id}",
+        json={
+            "name": "Sunday Main Service",
+            "start_time": "08:30",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["name"] == "Sunday Main Service"
+    assert data["start_time"] == "08:30"
+
+
+def test_can_delete_service_template() -> None:
+    client = build_client()
+    headers = auth_headers(client, "Pastor / Leader")
+
+    created = client.post(
+        "/api/v1/attendance/service-templates",
+        json={
+            "name": "Temporary Service",
+            "day_of_week": 5,
+            "start_time": "10:00",
+        },
+        headers=headers,
+    )
+
+    template_id = created.json()["id"]
+
+    response = client.delete(
+        f"/api/v1/attendance/service-templates/{template_id}",
+        headers=headers,
+    )
+
+    assert response.status_code == 204    
+    
+def test_service_template_generator_creates_once_and_skips_duplicate() -> None:
+    client = build_client()
+    headers = auth_headers(client, "Pastor / Leader")
+
+    created = client.post(
+        "/api/v1/attendance/service-templates",
+        json={
+            "name": "Sunday Main Service",
+            "event_type": "service",
+            "day_of_week": 6,
+            "start_time": "09:00",
+            "end_time": "11:00",
+            "location": "Main Sanctuary",
+            "qr_open_minutes_before": 30,
+            "qr_close_minutes_after": 30,
+            "qr_rotation_seconds": 60,
+            "is_active": True,
+        },
+        headers=headers,
+    )
+
+    assert created.status_code == 201
+
+    first_run = client.post(
+        "/api/v1/attendance/service-templates/generate",
+        headers=headers,
+    )
+
+    assert first_run.status_code == 200
+
+    first_data = first_run.json()
+
+    assert first_data["created"] == 1
+    assert first_data["skipped"] == 0
+    assert len(first_data["events"]) == 1
+
+    generated_event = first_data["events"][0]
+
+    assert generated_event["name"] == "Sunday Main Service"
+    assert generated_event["location"] == "Main Sanctuary"
+
+    second_run = client.post(
+        "/api/v1/attendance/service-templates/generate",
+        headers=headers,
+    )
+
+    assert second_run.status_code == 200
+
+    second_data = second_run.json()
+
+    assert second_data["created"] == 0
+    assert second_data["skipped"] == 1
+    assert second_data["events"] == []    

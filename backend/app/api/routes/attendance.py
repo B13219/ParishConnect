@@ -13,13 +13,37 @@ from app.core.settings import settings
 from app.core.security import require_roles
 from app.db.base import utc_now
 from app.db.session import get_db
-from app.models import AttendanceRecord, Branch, Event, HouseholdPerson, Member, Visitor
+from app.models import AttendanceRecord, Branch, Event, HouseholdPerson, Member, ServiceTemplate, Visitor
 from app.services.qr_code import make_qr_svg
 from app.services.geofence import is_inside_geofence
 
 router = APIRouter()
 QR_TOKEN_VERSION = "pcqr1"
 
+class ServiceTemplateCreate(BaseModel):
+    name: str
+    event_type: str = "service"
+    day_of_week: int = Field(ge=0, le=6)
+    start_time: str
+    end_time: str | None = None
+    location: str | None = None
+    qr_open_minutes_before: int = Field(default=30, ge=0, le=240)
+    qr_close_minutes_after: int = Field(default=30, ge=0, le=240)
+    qr_rotation_seconds: int = Field(default=60, ge=30)
+    is_active: bool = True
+
+
+class ServiceTemplateUpdate(BaseModel):
+    name: str | None = None
+    event_type: str | None = None
+    day_of_week: int | None = Field(default=None, ge=0, le=6)
+    start_time: str | None = None
+    end_time: str | None = None
+    location: str | None = None
+    qr_open_minutes_before: int | None = Field(default=None, ge=0, le=240)
+    qr_close_minutes_after: int | None = Field(default=None, ge=0, le=240)
+    qr_rotation_seconds: int | None = Field(default=None, ge=30)
+    is_active: bool | None = None
 
 class EventCreate(BaseModel):
     name: str
@@ -61,6 +85,62 @@ class GeofenceCheckInCreate(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     accuracy_meters: float | None = Field(default=None, gt=0)
+
+def parse_time_value(value: str | None):
+    if value is None:
+        return None
+
+    try:
+        return datetime.strptime(value, "%H:%M").time()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Time values must use HH:MM format.",
+        ) from exc
+
+def serialize_service_template(
+    template: ServiceTemplate,
+) -> dict[str, object]:
+    return {
+        "id": str(template.id),
+        "name": template.name,
+        "event_type": template.event_type,
+        "day_of_week": template.day_of_week,
+        "start_time": template.start_time.strftime("%H:%M"),
+        "end_time": (
+            template.end_time.strftime("%H:%M")
+            if template.end_time
+            else None
+        ),
+        "location": template.location,
+        "qr_open_minutes_before": template.qr_open_minutes_before,
+        "qr_close_minutes_after": template.qr_close_minutes_after,
+        "qr_rotation_seconds": template.qr_rotation_seconds,
+        "is_active": template.is_active,
+    }
+
+def next_service_occurrence(
+    day_of_week: int,
+    start_time,
+    *,
+    from_date: datetime | None = None,
+) -> datetime:
+    now = from_date or utc_now()
+
+    days_ahead = (day_of_week - now.weekday()) % 7
+
+    occurrence = datetime.combine(
+        (now + timedelta(days=days_ahead)).date(),
+        start_time,
+        tzinfo=now.tzinfo,
+    )
+
+    # If today's service time has already passed,
+    # generate next week's occurrence instead.
+    if occurrence <= now:
+        occurrence += timedelta(days=7)
+
+    return occurrence
 
 def get_default_branch(db: Session) -> Branch:
     branch = db.scalar(select(Branch).order_by(Branch.created_at.asc()))
@@ -284,6 +364,189 @@ def update_event(
 
     return serialize_event(event)
 
+@router.get("/service-templates")
+def list_service_templates(
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "administrator")),
+) -> list[dict[str, object]]:
+    templates = db.scalars(
+        select(ServiceTemplate).order_by(
+            ServiceTemplate.day_of_week.asc(),
+            ServiceTemplate.start_time.asc(),
+        )
+    ).all()
+
+    return [serialize_service_template(template) for template in templates]
+
+@router.post("/service-templates", status_code=status.HTTP_201_CREATED)
+def create_service_template(
+    payload: ServiceTemplateCreate,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "administrator")),
+) -> dict[str, object]:
+    branch = get_default_branch(db)
+
+    template = ServiceTemplate(
+        branch_id=branch.id,
+        name=payload.name,
+        event_type=payload.event_type,
+        day_of_week=payload.day_of_week,
+        start_time=parse_time_value(payload.start_time),
+        end_time=parse_time_value(payload.end_time),
+        location=payload.location,
+        qr_open_minutes_before=payload.qr_open_minutes_before,
+        qr_close_minutes_after=payload.qr_close_minutes_after,
+        qr_rotation_seconds=max(payload.qr_rotation_seconds, 30),
+        is_active=payload.is_active,
+    )
+
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+
+    return serialize_service_template(template)
+
+@router.post("/service-templates/generate")
+def generate_service_events(
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "administrator")),
+) -> dict[str, object]:
+    templates = db.scalars(
+        select(ServiceTemplate).where(
+            ServiceTemplate.is_active.is_(True)
+        )
+    ).all()
+
+    created_events = []
+    skipped = 0
+
+    for template in templates:
+        starts_at = next_service_occurrence(
+            template.day_of_week,
+            template.start_time,
+        )
+
+        existing = db.scalar(
+            select(Event).where(
+                Event.branch_id == template.branch_id,
+                Event.name == template.name,
+                Event.starts_at == starts_at,
+            )
+        )
+
+        if existing is not None:
+            skipped += 1
+            continue
+
+        ends_at = None
+
+        if template.end_time:
+            ends_at = datetime.combine(
+                starts_at.date(),
+                template.end_time,
+                tzinfo=starts_at.tzinfo,
+            )
+
+            if ends_at <= starts_at:
+                ends_at += timedelta(days=1)
+
+        event = Event(
+            branch_id=template.branch_id,
+            name=template.name,
+            event_type=template.event_type,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            location=template.location,
+            qr_opens_at=(
+                starts_at
+                - timedelta(
+                    minutes=template.qr_open_minutes_before
+                )
+            ),
+            qr_closes_at=(
+                (ends_at or starts_at)
+                + timedelta(
+                    minutes=template.qr_close_minutes_after
+                )
+            ),
+            qr_rotation_seconds=template.qr_rotation_seconds,
+        )
+
+        db.add(event)
+        created_events.append(event)
+
+    db.commit()
+
+    for event in created_events:
+        db.refresh(event)
+
+    return {
+        "created": len(created_events),
+        "skipped": skipped,
+        "events": [
+            serialize_event(event)
+            for event in created_events
+        ],
+    }
+@router.patch("/service-templates/{template_id}")
+def update_service_template(
+    template_id: UUID,
+    payload: ServiceTemplateUpdate,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "administrator")),
+) -> dict[str, object]:
+    template = db.get(ServiceTemplate, template_id)
+
+    if template is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service template not found.",
+        )
+
+    updates = payload.model_dump(exclude_unset=True)
+
+    if "start_time" in updates:
+        updates["start_time"] = parse_time_value(updates["start_time"])
+
+    if "end_time" in updates:
+        updates["end_time"] = parse_time_value(updates["end_time"])
+
+    if "qr_rotation_seconds" in updates and updates["qr_rotation_seconds"] is not None:
+        updates["qr_rotation_seconds"] = max(
+            updates["qr_rotation_seconds"],
+            30,
+        )
+
+    for field, value in updates.items():
+        setattr(template, field, value)
+
+    db.commit()
+    db.refresh(template)
+
+    return serialize_service_template(template)
+
+@router.delete(
+    "/service-templates/{template_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_service_template(
+    template_id: UUID,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "administrator")),
+) -> Response:
+    template = db.get(ServiceTemplate, template_id)
+
+    if template is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service template not found.",
+        )
+
+    db.delete(template)
+    db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
 @router.delete(
     "/events/{event_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -317,6 +580,7 @@ def delete_event(
     db.commit()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
 
 @router.get("/events/{event_id}/qr-token")
 def get_event_qr_token(
