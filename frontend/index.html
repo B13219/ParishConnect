@@ -346,6 +346,171 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
               <button class="primary-button" type="submit">Check in</button>
             </form>
           </div>
+          <section class="subpanel recurring-services-panel">
+  <div class="subpanel-header">
+    <div>
+      <h3>Recurring Services</h3>
+      <p>
+        Configure weekly church services and generate upcoming events automatically.
+      </p>
+    </div>
+
+    <button
+      class="primary-button"
+      type="button"
+      id="generateRecurringServices"
+    >
+      Generate upcoming services
+    </button>
+  </div>
+
+  <form class="person-form" id="serviceTemplateForm">
+    <input
+      type="hidden"
+      name="template_id"
+      id="serviceTemplateEditId"
+    >
+
+    <h4 id="serviceTemplateFormTitle">
+      Add recurring service
+    </h4>
+
+    <label>
+      Service name
+      <input
+        name="name"
+        type="text"
+        placeholder="Sunday Main Service"
+        required
+      >
+    </label>
+
+    <div class="field-row">
+      <label>
+        Type
+        <select name="event_type">
+          <option value="service">Service</option>
+          <option value="mass">Mass</option>
+          <option value="bible_study">Bible study</option>
+          <option value="youth">Youth</option>
+          <option value="ministry">Ministry</option>
+          <option value="choir">Choir</option>
+          <option value="meeting">Meeting</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+
+      <label>
+        Day
+        <select name="day_of_week" required>
+          <option value="0">Monday</option>
+          <option value="1">Tuesday</option>
+          <option value="2">Wednesday</option>
+          <option value="3">Thursday</option>
+          <option value="4">Friday</option>
+          <option value="5">Saturday</option>
+          <option value="6">Sunday</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="field-row">
+      <label>
+        Starts
+        <input
+          name="start_time"
+          type="time"
+          required
+        >
+      </label>
+
+      <label>
+        Ends
+        <input
+          name="end_time"
+          type="time"
+        >
+      </label>
+    </div>
+
+    <label>
+      Location
+      <input
+        name="location"
+        type="text"
+        placeholder="Main Sanctuary"
+      >
+    </label>
+
+    <div class="field-row">
+      <label>
+        QR opens before
+        <input
+          name="qr_open_minutes_before"
+          type="number"
+          min="0"
+          max="240"
+          value="30"
+        >
+      </label>
+
+      <label>
+        QR closes after
+        <input
+          name="qr_close_minutes_after"
+          type="number"
+          min="0"
+          max="240"
+          value="30"
+        >
+      </label>
+    </div>
+
+    <label>
+      QR rotation seconds
+      <input
+        name="qr_rotation_seconds"
+        type="number"
+        min="30"
+        value="60"
+      >
+    </label>
+
+    <label class="checkbox-row">
+      <input
+        name="is_active"
+        type="checkbox"
+        checked
+      >
+      Active schedule
+    </label>
+
+    <div class="dialog-actions">
+              <button
+                class="icon-button"
+                type="button"
+                id="cancelServiceTemplateEdit"
+                hidden
+              >
+                Cancel edit
+              </button>
+
+              <button
+                class="primary-button"
+                type="submit"
+                id="serviceTemplateSubmitButton"
+              >
+                Save recurring service
+              </button>
+            </div>
+          </form>
+
+            <div
+                id="serviceTemplateList"
+                class="list"
+                aria-live="polite"
+            ></div>
+          </section>
           <div id="eventList" class="list" aria-live="polite"></div>
           <div id="qrTokenPanel" class="qr-panel" aria-live="polite">
             <span>Select an event QR action to view the active attendance token.</span>

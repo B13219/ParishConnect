@@ -4,6 +4,7 @@ const state = {
   auth: JSON.parse(localStorage.getItem("parishconnect_auth") || "null"),
   people: null,
   attendance: null,
+  serviceTemplates: null,
   geofence: null,
   households: null,
   messages: null,
@@ -109,6 +110,45 @@ const messageTemplates = {
   },
 };
 
+const generateRecurringServices = async () => {
+  try {
+    setBusy(true);
+    setStatus("Generating upcoming services");
+
+    const result = await sendJson(
+      "/attendance/service-templates/generate",
+      "POST",
+    );
+
+    await loadSection("attendance");
+
+    if (result.created > 0) {
+      setStatus(
+        `${result.created} upcoming service${
+          result.created === 1 ? "" : "s"
+        } generated`,
+        "ok",
+      );
+    } else {
+      setStatus(
+        `${result.skipped || 0} service${
+          result.skipped === 1 ? "" : "s"
+        } already scheduled`,
+        "ok",
+      );
+    }
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Upcoming services could not be generated",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
 const setStatus = (text, kind = "") => {
   const el = document.querySelector("#connectionStatus");
   const loginEl = document.querySelector("#loginStatus");
@@ -149,7 +189,6 @@ const fetchText = async (path) => {
   }
   return response.text();
 };
-
 const sendJson = async (path, method, payload = null) => {
   const response = await fetch(`${API_BASE}${path}`, {
     method,
@@ -159,10 +198,16 @@ const sendJson = async (path, method, payload = null) => {
     },
     body: payload ? JSON.stringify(payload) : null,
   });
+
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.detail || `${path} returned ${response.status}`);
   }
+
+  if (response.status === 204) {
+    return null;
+  }
+
   return response.json();
 };
 
@@ -182,6 +227,7 @@ const setSkeletons = () => {
     "#visitorList",
     "#importPreviewList",
     "#eventList",
+    "#serviceTemplateList",
     "#checkInList",
     "#householdList",
     "#contributionBreakdown",
@@ -388,9 +434,72 @@ const renderImportPreview = () => {
 const renderAttendance = () => {
   const events = state.attendance?.events || [];
   const recentCheckIns = state.attendance?.recent_check_ins || [];
+  const serviceTemplates = state.serviceTemplates || [];
 
   document.querySelector("#checkInCount").textContent = state.attendance?.total_check_ins || 0;
-  document.querySelector("#eventList").innerHTML =
+  const dayNames = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+document.querySelector("#serviceTemplateList").innerHTML =
+  serviceTemplates
+    .map((template) =>
+      row({
+        title: template.name,
+        subtitle: `${dayNames[template.day_of_week]} · ${
+          template.start_time
+        }${template.end_time ? `–${template.end_time}` : ""} · ${
+          template.location || "No location"
+        }`,
+        tag: template.is_active ? "Active" : "Inactive",
+        tone: template.is_active ? "green" : "muted",
+        action: `
+          <button
+            class="mini-button"
+            type="button"
+            data-service-template-edit="${template.id}"
+          >
+            Edit
+          </button>
+       
+
+          <button
+            class="mini-button"
+            type="button"
+            data-service-template-delete="${template.id}"
+          >
+            Delete
+          </button>
+        `,
+      }),
+    )
+    .join("") || emptyState("No recurring services configured.");
+  document
+  .querySelectorAll("[data-service-template-delete]")
+  .forEach((button) => {
+    button.addEventListener("click", () => {
+      deleteServiceTemplate(
+        button.dataset.serviceTemplateDelete,
+      );
+    });
+  });
+    document
+  .querySelectorAll("[data-service-template-edit]")
+  .forEach((button) => {
+    button.addEventListener("click", () => {
+      openServiceTemplateEditForm(
+        button.dataset.serviceTemplateEdit,
+      );
+    });
+  });
+ 
+    document.querySelector("#eventList").innerHTML =
     events
       .map((event) =>
     row({
@@ -963,6 +1072,47 @@ const renderAdmin = () => {
   applyRoleAccess();
 };
 
+const deleteServiceTemplate = async (templateId) => {
+  const template = (state.serviceTemplates || []).find(
+    (item) => item.id === templateId,
+  );
+
+  if (!template) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete recurring service "${template.name}"?`,
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    setBusy(true);
+    setStatus("Deleting recurring service");
+
+    await sendJson(
+      `/attendance/service-templates/${templateId}`,
+      "DELETE",
+    );
+
+    await loadSection("attendance");
+
+    setStatus("Recurring service deleted", "ok");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Recurring service could not be deleted",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
 const loadSection = async (section) => {
   if (section === "people") {
     state.people = await fetchJson("/members/");
@@ -972,8 +1122,15 @@ const loadSection = async (section) => {
     renderImportPreview();
   }
   if (section === "attendance") {
-    state.attendance = await fetchJson("/attendance/");
-    renderAttendance();
+  const [attendance, serviceTemplates] = await Promise.all([
+    fetchJson("/attendance/"),
+    fetchJson("/attendance/service-templates"),
+  ]);
+
+  state.attendance = attendance;
+  state.serviceTemplates = serviceTemplates;
+
+  renderAttendance();
   }
   if (section === "households") {
     state.households = await fetchJson("/members/households");
@@ -1387,6 +1544,124 @@ const deleteEvent = async (eventId) => {
   } finally {
     setBusy(false);
   }
+};
+const clearServiceTemplateForm = () => {
+  const form = document.querySelector("#serviceTemplateForm");
+
+  form.reset();
+  form.elements.template_id.value = "";
+  form.elements.qr_open_minutes_before.value = 30;
+  form.elements.qr_close_minutes_after.value = 30;
+  form.elements.qr_rotation_seconds.value = 60;
+  form.elements.is_active.checked = true;
+
+  document.querySelector("#serviceTemplateFormTitle").textContent =
+    "Add recurring service";
+
+  document.querySelector("#serviceTemplateSubmitButton").textContent =
+    "Save recurring service";
+
+  document.querySelector("#cancelServiceTemplateEdit").hidden = true;
+}; 
+
+
+const submitServiceTemplateForm = async (form) => {
+  const payload = formPayload(form);
+  const templateId = payload.template_id;
+
+  delete payload.template_id;
+
+  payload.day_of_week = Number(payload.day_of_week);
+  payload.qr_open_minutes_before = Number(
+    payload.qr_open_minutes_before || 30,
+  );
+  payload.qr_close_minutes_after = Number(
+    payload.qr_close_minutes_after || 30,
+  );
+  payload.qr_rotation_seconds = Number(
+    payload.qr_rotation_seconds || 60,
+  );
+
+  payload.is_active = form.elements.is_active.checked;
+
+  try {
+    setBusy(true);
+
+    if (templateId) {
+      setStatus("Updating recurring service");
+
+      await sendJson(
+        `/attendance/service-templates/${templateId}`,
+        "PATCH",
+        payload,
+      );
+
+      setStatus("Recurring service updated", "ok");
+    } else {
+      setStatus("Creating recurring service");
+
+      await sendJson(
+        "/attendance/service-templates",
+        "POST",
+        payload,
+      );
+
+      setStatus("Recurring service created", "ok");
+    }
+    clearServiceTemplateForm();
+
+    await loadSection("attendance");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Recurring service save failed",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
+const openServiceTemplateEditForm = (templateId) => {
+  const template = (state.serviceTemplates || []).find(
+    (item) => item.id === templateId,
+  );
+
+  if (!template) {
+    setStatus("Recurring service not found", "error");
+    return;
+  }
+
+  const form = document.querySelector("#serviceTemplateForm");
+
+  form.elements.template_id.value = template.id;
+  form.elements.name.value = template.name || "";
+  form.elements.event_type.value = template.event_type || "service";
+  form.elements.day_of_week.value = String(template.day_of_week);
+  form.elements.start_time.value = template.start_time || "";
+  form.elements.end_time.value = template.end_time || "";
+  form.elements.location.value = template.location || "";
+  form.elements.qr_open_minutes_before.value =
+    template.qr_open_minutes_before ?? 30;
+  form.elements.qr_close_minutes_after.value =
+    template.qr_close_minutes_after ?? 30;
+  form.elements.qr_rotation_seconds.value =
+    template.qr_rotation_seconds ?? 60;
+  form.elements.is_active.checked = Boolean(template.is_active);
+
+  document.querySelector("#serviceTemplateFormTitle").textContent =
+    `Edit ${template.name}`;
+
+  document.querySelector("#serviceTemplateSubmitButton").textContent =
+    "Save changes";
+
+  document.querySelector("#cancelServiceTemplateEdit").hidden = false;
+
+  form.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
 };
 
 const submitEventForm = async (form) => {
@@ -2005,6 +2280,12 @@ document.querySelector("#eventForm").addEventListener("submit", (event) => {
   event.preventDefault();
   submitEventForm(event.currentTarget);
 });
+document
+  .querySelector("#serviceTemplateForm")
+  ?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitServiceTemplateForm(event.currentTarget);
+  });
 document.querySelector("#checkInForm").addEventListener("submit", (event) => {
   event.preventDefault();
   submitCheckInForm(event.currentTarget);
@@ -2071,6 +2352,9 @@ document
       geofenceCircle.setRadius(radius);
     }
   });
+  document
+  .querySelector("#generateRecurringServices")
+  ?.addEventListener("click", generateRecurringServices);
 document
   .querySelector("#geofenceSettingsForm")
   .addEventListener("submit", (event) => {
@@ -2110,3 +2394,6 @@ if (state.auth?.access_token) {
 } else {
   setStatus("Login required");
 }
+document
+  .querySelector("#cancelServiceTemplateEdit")
+  ?.addEventListener("click", clearServiceTemplateForm);
