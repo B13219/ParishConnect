@@ -262,7 +262,8 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
           </div>
           <div class="form-grid">
             <form class="person-form" id="eventForm">
-              <h3>Create Event</h3>
+              <h3 id="eventFormTitle">Create Event</h3>
+              <input type="hidden" name="event_id" id="eventEditId">
               <label>
                 Event name
                 <input name="name" required placeholder="Sunday Main Service">
@@ -279,6 +280,10 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
                 <label>
                   Starts
                   <input name="starts_at" type="datetime-local">
+                </label>
+                <label>
+                  Ends
+                  <input name="ends_at" type="datetime-local">
                 </label>
               </div>
               <label>
@@ -299,7 +304,24 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
                 QR rotation seconds
                 <input name="qr_rotation_seconds" type="number" min="30" step="30" value="60">
               </label>
-              <button class="primary-button" type="submit">Create event</button>
+              <div class="dialog-actions">
+                <button
+                  class="icon-button"
+                  type="button"
+                  id="cancelEventEdit"
+                  hidden
+                >
+                  Cancel edit
+                </button>
+
+                <button
+                 class="primary-button"
+                 type="submit"
+                 id="eventSubmitButton"
+                >
+                  Create event
+                </button>
+              </div>
             </form>
 
             <form class="person-form" id="checkInForm">

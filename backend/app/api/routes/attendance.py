@@ -31,6 +31,15 @@ class EventCreate(BaseModel):
     qr_closes_at: datetime | None = None
     qr_rotation_seconds: int = 60
 
+class EventUpdate(BaseModel):
+    name: str | None = None
+    event_type: str | None = None
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    location: str | None = None
+    qr_opens_at: datetime | None = None
+    qr_closes_at: datetime | None = None
+    qr_rotation_seconds: int | None = None
 
 class CheckInCreate(BaseModel):
     event_id: UUID
@@ -201,6 +210,27 @@ def attendance_summary(
         "recent_check_ins": [serialize_attendance_record(record, db) for record in recent_records],
     }
 
+@router.get("/events")
+def list_events(
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "receptionist", "usher")),
+) -> list[dict[str, object]]:
+    events = db.scalars(
+        select(Event).order_by(Event.starts_at.asc())
+    ).all()
+
+    return [
+        serialize_event(
+            event,
+            db.scalar(
+                select(func.count())
+                .select_from(AttendanceRecord)
+                .where(AttendanceRecord.event_id == event.id)
+            )
+            or 0,
+        )
+        for event in events
+    ]
 
 @router.post("/events", status_code=status.HTTP_201_CREATED)
 def create_event(
@@ -226,6 +256,67 @@ def create_event(
     db.refresh(event)
     return serialize_event(event)
 
+@router.patch("/events/{event_id}")
+def update_event(
+    event_id: UUID,
+    payload: EventUpdate,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader")),
+) -> dict[str, object]:
+    event = db.get(Event, event_id)
+
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found.",
+        )
+
+    updates = payload.model_dump(exclude_unset=True)
+
+    for field, value in updates.items():
+        if field == "qr_rotation_seconds" and value is not None:
+            value = max(value, 30)
+
+        setattr(event, field, value)
+
+    db.commit()
+    db.refresh(event)
+
+    return serialize_event(event)
+
+@router.delete(
+    "/events/{event_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_event(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader")),
+) -> Response:
+    event = db.get(Event, event_id)
+
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found.",
+        )
+
+    attendance_count = db.scalar(
+        select(func.count())
+        .select_from(AttendanceRecord)
+        .where(AttendanceRecord.event_id == event.id)
+    ) or 0
+
+    if attendance_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Events with attendance records cannot be deleted.",
+        )
+
+    db.delete(event)
+    db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @router.get("/events/{event_id}/qr-token")
 def get_event_qr_token(

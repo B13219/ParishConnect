@@ -313,6 +313,116 @@ def test_geofence_rejects_location_outside_radius() -> None:
     assert response.status_code == 403
     assert response.json()["detail"]["reason"] == "outside_geofence"
 
+def test_can_list_events() -> None:
+    client = build_client()
+    headers = auth_headers(client, "Pastor / Leader")
+
+    response = client.get(
+        "/api/v1/attendance/events",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+
+def test_pastor_can_update_event() -> None:
+    client  = build_client()
+    headers = auth_headers(client, "Pastor / Leader")
+
+    created = client.post(
+        "/api/v1/attendance/events",
+        json={
+            "name": "Sunday Worship",
+            "event_type": "service",
+            "location": "Main Sanctuary",
+        },
+        headers=headers,
+    )
+
+    assert created.status_code == 201
+    event_id = created.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/attendance/events/{event_id}",
+        json={
+            "name": "Sunday Main Service",
+            "location": "Main Hall",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Sunday Main Service"
+    assert data["location"] == "Main Hall"
+
+
+def test_can_delete_event_without_attendance() -> None:
+    client = build_client()
+    headers = auth_headers(client, "Pastor / Leader")
+
+    created = client.post(
+        "/api/v1/attendance/events",
+        json={
+            "name": "Temporary Service",
+            "event_type": "service",
+        },
+        headers=headers,
+    )
+
+    event_id = created.json()["id"]
+
+    response = client.delete(
+        f"/api/v1/attendance/events/{event_id}",
+        headers=headers,
+    )
+
+    assert response.status_code == 204
+
+
+def test_cannot_delete_event_with_attendance() -> None:
+    client = build_client()
+    pastor_headers = auth_headers(client, "Pastor / Leader")
+    usher_headers = auth_headers(client, "Usher")
+
+    created = client.post(
+        "/api/v1/attendance/events",
+        json={
+            "name": "Sunday Worship",
+            "event_type": "service",
+        },
+        headers=pastor_headers,
+    )
+
+    event_id = created.json()["id"]
+
+    people = client.get(
+        "/api/v1/members/",
+        headers=pastor_headers,
+    ).json()
+
+    member_id = people["members"][0]["id"]
+
+    check_in = client.post(
+        "/api/v1/attendance/check-ins",
+        json={
+            "event_id": event_id,
+            "person_type": "member",
+            "person_id": member_id,
+            "check_in_method": "manual",
+        },
+        headers=usher_headers,
+    )
+
+    assert check_in.status_code == 201
+
+    response = client.delete(
+        f"/api/v1/attendance/events/{event_id}",
+        headers=pastor_headers,
+    )
+
+    assert response.status_code == 409
 
 def test_geofence_rejects_low_location_accuracy() -> None:
     client = build_client()

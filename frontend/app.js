@@ -393,15 +393,39 @@ const renderAttendance = () => {
   document.querySelector("#eventList").innerHTML =
     events
       .map((event) =>
-        row({
-          title: event.name,
-          subtitle: `${formatDateTime(event.starts_at)} - ${
-            event.location || "No location"
-          } - QR ${event.qr_active ? "open" : "closed"}`,
-          tag: `${event.check_ins || 0} check-ins`,
-          tone: event.qr_active ? "green" : "",
-          action: `<button class="mini-button" data-event-qr="${event.id}" type="button">QR</button>`,
-        }),
+    row({
+  title: event.name,
+  subtitle: `${formatDateTime(event.starts_at)} - ${
+    event.location || "No location"
+  } - QR ${event.qr_active ? "open" : "closed"}`,
+  tag: `${event.check_ins || 0} check-ins`,
+  tone: event.qr_active ? "green" : "",
+  action: `
+    <button
+      class="mini-button"
+      data-event-qr="${event.id}"
+      type="button"
+    >
+      QR
+    </button>
+
+    <button
+      class="mini-button"
+      data-event-edit="${event.id}"
+      type="button"
+    >
+      Edit
+    </button>
+
+    <button
+      class="mini-button"
+      data-event-delete="${event.id}"
+      type="button"
+    >
+      Delete
+    </button>
+  `,
+})
       )
       .join("") || emptyState("No upcoming events found.");
   document.querySelector("#checkInList").innerHTML =
@@ -415,11 +439,24 @@ const renderAttendance = () => {
         }),
       )
       .join("") || emptyState("No recent check-ins found.");
-  document.querySelectorAll("[data-event-qr]").forEach((button) => {
-    button.addEventListener("click", () => showQrToken(button.dataset.eventQr));
+ document.querySelectorAll("[data-event-qr]").forEach((button) => {
+  button.addEventListener("click", () => showQrToken(button.dataset.eventQr));
+});
+
+document.querySelectorAll("[data-event-edit]").forEach((button) => {
+  button.addEventListener("click", () => {
+    openEventEditForm(button.dataset.eventEdit);
   });
-  renderCheckInEventOptions();
-  applyRoleAccess();
+});
+
+document.querySelectorAll("[data-event-delete]").forEach((button) => {
+  button.addEventListener("click", () => {
+    deleteEvent(button.dataset.eventDelete);
+  });
+});
+
+renderCheckInEventOptions();
+applyRoleAccess();
 };
 
 const renderHouseholds = () => {
@@ -1249,17 +1286,153 @@ const showQrToken = async (eventId) => {
   }
 };
 
-const submitEventForm = async (form) => {
+const openEventEditForm = (eventId) => {
+  const event = state.attendance?.events?.find(
+    (item) => item.id === eventId,
+  );
+
+  if (!event) {
+    return;
+  }
+
+  const form = document.querySelector("#eventForm");
+
+  form.elements.event_id.value = event.id;
+  form.elements.name.value = event.name || "";
+  form.elements.event_type.value = event.type || "service";
+  form.elements.starts_at.value = event.starts_at
+    ? event.starts_at.slice(0, 16)
+    : "";
+  form.elements.ends_at.value = event.ends_at
+    ? event.ends_at.slice(0, 16)
+    : "";
+  form.elements.location.value = event.location || "";
+  form.elements.qr_opens_at.value = event.qr_opens_at
+    ? event.qr_opens_at.slice(0, 16)
+    : "";
+  form.elements.qr_closes_at.value = event.qr_closes_at
+    ? event.qr_closes_at.slice(0, 16)
+    : "";
+  form.elements.qr_rotation_seconds.value =
+    event.qr_rotation_seconds || 60;
+
+  document.querySelector("#eventFormTitle").textContent =
+    `Edit ${event.name}`;
+
+  document.querySelector("#eventSubmitButton").textContent =
+    "Save changes";
+
+  document.querySelector("#cancelEventEdit").hidden = false;
+
+  form.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+};
+
+
+const clearEventForm = () => {
+  const form = document.querySelector("#eventForm");
+
+  form.reset();
+  form.elements.event_id.value = "";
+  form.elements.qr_rotation_seconds.value = 60;
+
+  document.querySelector("#eventFormTitle").textContent =
+    "Create Event";
+
+  document.querySelector("#eventSubmitButton").textContent =
+    "Create event";
+
+  document.querySelector("#cancelEventEdit").hidden = true;
+};
+
+
+const deleteEvent = async (eventId) => {
+  const event = state.attendance?.events?.find(
+    (item) => item.id === eventId,
+  );
+
+  if (!event) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete "${event.name}"?`,
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
   try {
     setBusy(true);
-    setStatus("Creating event");
-    await sendJson("/attendance/events", "POST", eventPayload(form));
-    form.reset();
+    setStatus("Deleting event");
+
+    await sendJson(
+      `/attendance/events/${eventId}`,
+      "DELETE",
+    );
+
     await loadSection("attendance");
-    setStatus("Event created", "ok");
+
+    setStatus("Event deleted", "ok");
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Event failed", "error");
+
+    setStatus(
+      error.message || "Event could not be deleted",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
+const submitEventForm = async (form) => {
+  const payload = formPayload(form);
+  const eventId = payload.event_id;
+
+  delete payload.event_id;
+
+  payload.qr_rotation_seconds = Number(
+    payload.qr_rotation_seconds || 60,
+  );
+
+  try {
+    setBusy(true);
+
+    if (eventId) {
+      setStatus("Updating event");
+
+      await sendJson(
+        `/attendance/events/${eventId}`,
+        "PATCH",
+        payload,
+      );
+
+      setStatus("Event updated", "ok");
+    } else {
+      setStatus("Creating event");
+
+      await sendJson(
+        "/attendance/events",
+        "POST",
+        payload,
+      );
+
+      setStatus("Event created", "ok");
+    }
+
+    clearEventForm();
+    await loadSection("attendance");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Event save failed",
+      "error",
+    );
   } finally {
     setBusy(false);
   }
@@ -1808,7 +1981,9 @@ document.querySelectorAll("[data-refresh]").forEach((button) => {
     }
   });
 });
-
+document
+  .querySelector("#cancelEventEdit")
+  ?.addEventListener("click", clearEventForm);
 document.querySelector("#refreshAll").addEventListener("click", loadDashboard);
 document.querySelector("#loginForm").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -1929,6 +2104,7 @@ document.querySelector("#visitorStatusFilter").addEventListener("change", update
 setupStickyNavigation();
 applyRoleAccess();
 updateMessageAssist();
+
 if (state.auth?.access_token) {
   loadDashboard();
 } else {
