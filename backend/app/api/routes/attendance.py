@@ -183,6 +183,12 @@ def sign_qr_token(event_id: UUID, bucket: int) -> str:
 
 
 def validate_qr_token(event: Event, token: str, now: datetime) -> None:
+    if event.attendance_status != "open":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Attendance is not open for this event.",
+        )
+        
     opens_at, closes_at = qr_window(event)
     current = to_utc(now)
     if current < opens_at or current > closes_at:
@@ -786,6 +792,8 @@ def create_qr_check_in(payload: QrCheckInCreate, db: Session = Depends(get_db)) 
         db,
         require_qr_token=payload.qr_token,
     )
+
+
 
 @router.post("/geofence-check-ins", status_code=status.HTTP_201_CREATED)
 def create_geofence_check_in(

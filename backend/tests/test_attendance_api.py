@@ -112,13 +112,28 @@ def test_qr_check_in_member() -> None:
     client = build_client()
     receptionist_headers = auth_headers(client, "Receptionist")
     usher_headers = auth_headers(client, "Usher")
-    people = client.get("/api/v1/members/", headers=receptionist_headers).json()
+
+    people = client.get(
+        "/api/v1/members/",
+        headers=receptionist_headers,
+    ).json()
+
     member_id = people["members"][0]["id"]
+
     event = client.post(
         "/api/v1/attendance/events",
         json={"name": "QR Service"},
         headers=usher_headers,
     ).json()
+
+    admin_headers = auth_headers(client, "Administrator")
+
+    open_response = client.post(
+        f"/api/v1/attendance/events/{event['id']}/open",
+        headers=admin_headers,
+    )
+
+    assert open_response.status_code == 200
 
     token_response = client.get(
         f"/api/v1/attendance/events/{event['id']}/qr-token",
@@ -126,6 +141,7 @@ def test_qr_check_in_member() -> None:
     )
 
     assert token_response.status_code == 200
+
     token = token_response.json()["token"]
     assert token is not None
 
@@ -184,25 +200,37 @@ def test_qr_check_in_household_dependent() -> None:
         },
         headers=receptionist_headers,
     ).json()
+    
     event = client.post(
-        "/api/v1/attendance/events",
-        json={"name": "Family Sunday"},
-        headers=usher_headers,
+    "/api/v1/attendance/events",
+    json={"name": "Family Sunday"},
+    headers=usher_headers,
     ).json()
+
+    # Open attendance before requesting/using the QR
+    admin_headers = auth_headers(client, "Administrator")
+
+    open_response = client.post(
+    f"/api/v1/attendance/events/{event['id']}/open",
+    headers=admin_headers,
+    )
+
+    assert open_response.status_code == 200
+
     token = client.get(
-        f"/api/v1/attendance/events/{event['id']}/qr-token",
-        headers=usher_headers,
+    f"/api/v1/attendance/events/{event['id']}/qr-token",
+    headers=usher_headers,
     ).json()["token"]
 
     check_in_response = client.post(
         "/api/v1/attendance/qr-check-ins",
         json={
-            "event_id": event["id"],
-            "qr_token": token,
-            "person_type": "household_person",
-            "person_id": dependent["id"],
-        },
-    )
+        "event_id": event["id"],
+        "qr_token": token,
+        "person_type": "household_person",
+        "person_id": dependent["id"],
+    },
+)
 
     assert check_in_response.status_code == 201
     assert check_in_response.json()["person_name"] == "Chris Child"

@@ -477,13 +477,11 @@ const renderImportPreview = () => {
       )
       .join("") || emptyState("Preview rows will appear here.");
 };
-
 const getServiceDayEvent = () => {
   const events = state.attendance?.events || [];
-
   const now = new Date();
 
-  return events.find((event) => {
+  const todaysEvents = events.filter((event) => {
     if (!event.starts_at) {
       return false;
     }
@@ -495,7 +493,33 @@ const getServiceDayEvent = () => {
       startsAt.getMonth() === now.getMonth() &&
       startsAt.getDate() === now.getDate()
     );
-  }) || null;
+  });
+
+  if (!todaysEvents.length) {
+    return null;
+  }
+
+  // If one service already has attendance open, always show that one.
+  const openEvent = todaysEvents.find(
+    (event) => event.attendance_status === "open",
+  );
+
+  if (openEvent) {
+    return openEvent;
+  }
+
+  // Otherwise show the service closest to the current time.
+  return todaysEvents.sort((a, b) => {
+    const aDifference = Math.abs(
+      new Date(a.starts_at).getTime() - now.getTime(),
+    );
+
+    const bDifference = Math.abs(
+      new Date(b.starts_at).getTime() - now.getTime(),
+    );
+
+    return aDifference - bDifference;
+  })[0];
 };
 
 const renderServiceDay = () => {
@@ -1600,18 +1624,14 @@ const openEventEditForm = (eventId) => {
   form.elements.name.value = event.name || "";
   form.elements.event_type.value = event.type || "service";
   form.elements.starts_at.value = event.starts_at
-    ? event.starts_at.slice(0, 16)
-    : "";
+    isoToLocalInput(event.starts_at)
   form.elements.ends_at.value = event.ends_at
-    ? event.ends_at.slice(0, 16)
-    : "";
+    isoToLocalInput(event.ends_at)
   form.elements.location.value = event.location || "";
   form.elements.qr_opens_at.value = event.qr_opens_at
-    ? event.qr_opens_at.slice(0, 16)
-    : "";
+    isoToLocalInput(event.qr_opens_at)
   form.elements.qr_closes_at.value = event.qr_closes_at
-    ? event.qr_closes_at.slice(0, 16)
-    : "";
+    isoToLocalInput(event.qr_closes_at)
   form.elements.qr_rotation_seconds.value =
     event.qr_rotation_seconds || 60;
 
@@ -1645,7 +1665,19 @@ const clearEventForm = () => {
 
   document.querySelector("#cancelEventEdit").hidden = true;
 };
+const isoToLocalInput = (value) => {
+  if (!value) {
+    return "";
+  }
 
+  const date = new Date(value);
+
+  const pad = (number) => String(number).padStart(2, "0");
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate(),
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 
 const deleteEvent = async (eventId) => {
   const event = state.attendance?.events?.find(
@@ -1687,6 +1719,7 @@ const deleteEvent = async (eventId) => {
     setBusy(false);
   }
 };
+
 const clearServiceTemplateForm = () => {
   const form = document.querySelector("#serviceTemplateForm");
 
@@ -1807,7 +1840,7 @@ const openServiceTemplateEditForm = (templateId) => {
 };
 
 const submitEventForm = async (form) => {
-  const payload = formPayload(form);
+  const payload = eventPayload(form);
   const eventId = payload.event_id;
 
   delete payload.event_id;
