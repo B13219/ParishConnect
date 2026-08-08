@@ -262,6 +262,16 @@ def test_geofence_check_in_member_inside_radius() -> None:
         headers=usher_headers,
     ).json()
 
+    # Open attendance before geofence check-in
+    admin_headers = auth_headers(client, "Administrator")
+
+    open_response = client.post(
+        f"/api/v1/attendance/events/{event['id']}/open",
+        headers=admin_headers,
+    )
+
+    assert open_response.status_code == 200
+
     response = client.post(
         "/api/v1/attendance/geofence-check-ins",
         json={
@@ -291,12 +301,30 @@ def test_geofence_rejects_location_outside_radius() -> None:
         headers=receptionist_headers,
     ).json()
     member_id = people["members"][0]["id"]
-
+    
+    
+    
     event = client.post(
         "/api/v1/attendance/events",
         json={"name": "Outside Test"},
         headers=usher_headers,
     ).json()
+    
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={"name": "Outside Test"},
+        headers=usher_headers,
+    ).json()
+
+    admin_headers = auth_headers(client, "Administrator")
+
+    open_response = client.post(
+        f"/api/v1/attendance/events/{event['id']}/open",
+        headers=admin_headers,
+    )
+
+    assert open_response.status_code == 200
+
 
     response = client.post(
         "/api/v1/attendance/geofence-check-ins",
@@ -440,7 +468,22 @@ def test_geofence_rejects_low_location_accuracy() -> None:
         json={"name": "Accuracy Test"},
         headers=usher_headers,
     ).json()
+    
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={"name": "Outside Test"},
+        headers=usher_headers,
+    ).json()
 
+    admin_headers = auth_headers(client, "Administrator")
+
+    open_response = client.post(
+        f"/api/v1/attendance/events/{event['id']}/open",
+        headers=admin_headers,
+    )
+
+    assert open_response.status_code == 200
+    
     response = client.post(
         "/api/v1/attendance/geofence-check-ins",
         json={
@@ -472,6 +515,22 @@ def test_geofence_prevents_duplicate_check_in() -> None:
         json={"name": "Duplicate Geofence Test"},
         headers=usher_headers,
     ).json()
+    
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={"name": "Duplicate Geofence Test"},
+        headers=usher_headers,
+    ).json()
+
+    admin_headers = auth_headers(client, "Administrator")
+
+    open_response = client.post(
+        f"/api/v1/attendance/events/{event['id']}/open",
+        headers=admin_headers,
+    )
+
+    assert open_response.status_code == 200
+
 
     payload = {
         "event_id": event["id"],
@@ -493,7 +552,54 @@ def test_geofence_prevents_duplicate_check_in() -> None:
 
     assert first_response.status_code == 201
     assert duplicate_response.status_code == 409
-    
+
+def test_geofence_rejects_check_in_when_attendance_closed() -> None:
+    client = build_client()
+    receptionist_headers = auth_headers(client, "Receptionist")
+    usher_headers = auth_headers(client, "Usher")
+    admin_headers = auth_headers(client, "Administrator")
+
+    people = client.get(
+        "/api/v1/members/",
+        headers=receptionist_headers,
+    ).json()
+    member_id = people["members"][0]["id"]
+
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={"name": "Closed Attendance Test"},
+        headers=usher_headers,
+    ).json()
+
+    open_response = client.post(
+        f"/api/v1/attendance/events/{event['id']}/open",
+        headers=admin_headers,
+    )
+    assert open_response.status_code == 200
+
+    close_response = client.post(
+        f"/api/v1/attendance/events/{event['id']}/close",
+        headers=admin_headers,
+    )
+    assert close_response.status_code == 200
+
+    response = client.post(
+        "/api/v1/attendance/geofence-check-ins",
+        json={
+            "event_id": event["id"],
+            "person_type": "member",
+            "person_id": member_id,
+            "latitude": -6.7924,
+            "longitude": 39.2083,
+            "accuracy_meters": 10,
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "Attendance is not open for this event."
+    )
+   
 def test_can_create_service_template() -> None:
     client = build_client()
     headers = auth_headers(client, "Pastor / Leader")

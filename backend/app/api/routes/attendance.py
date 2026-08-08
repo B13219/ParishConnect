@@ -798,7 +798,11 @@ def create_geofence_check_in(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Event not found.",
         )
-
+    if event.attendance_status != "open":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Attendance is not open for this event.",
+        )
     branch = db.get(Branch, event.branch_id)
     if branch is None:
         raise HTTPException(
