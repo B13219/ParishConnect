@@ -654,3 +654,147 @@ def test_service_template_generator_creates_once_and_skips_duplicate() -> None:
     assert second_data["created"] == 0
     assert second_data["skipped"] == 1
     assert second_data["events"] == []    
+    
+def test_can_open_event_attendance() -> None:
+    client = build_client()
+
+    usher_headers = auth_headers(client, "Usher")
+    admin_headers = auth_headers(client, "Administrator")
+
+    event_response = client.post(
+        "/api/v1/attendance/events",
+        json={
+            "name": "Sunday Service",
+            "event_type": "service",
+            "location": "Main Hall",
+        },
+        headers=usher_headers,
+    )
+
+    assert event_response.status_code == 201
+    event = event_response.json()
+
+    response = client.post(
+        f"/api/v1/attendance/events/{event['id']}/open",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["attendance_status"] == "open"
+    assert body["attendance_opened_at"] is not None
+    assert body["attendance_closed_at"] is None
+
+
+def test_can_close_event_attendance() -> None:
+    client = build_client()
+
+    usher_headers = auth_headers(client, "Usher")
+    admin_headers = auth_headers(client, "Administrator")
+
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={
+            "name": "Sunday Service",
+            "event_type": "service",
+            "location": "Main Hall",
+        },
+        headers=usher_headers,
+    ).json()
+
+    open_response = client.post(
+        f"/api/v1/attendance/events/{event['id']}/open",
+        headers=admin_headers,
+    )
+
+    assert open_response.status_code == 200
+
+    response = client.post(
+        f"/api/v1/attendance/events/{event['id']}/close",
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["attendance_status"] == "closed"
+    assert body["attendance_opened_at"] is not None
+    assert body["attendance_closed_at"] is not None
+
+
+def test_open_event_attendance_is_idempotent() -> None:
+    client = build_client()
+
+    usher_headers = auth_headers(client, "Usher")
+    admin_headers = auth_headers(client, "Administrator")
+
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={
+            "name": "Sunday Service",
+            "event_type": "service",
+            "location": "Main Hall",
+        },
+        headers=usher_headers,
+    ).json()
+
+    first = client.post(
+        f"/api/v1/attendance/events/{event['id']}/open",
+        headers=admin_headers,
+    )
+
+    second = client.post(
+        f"/api/v1/attendance/events/{event['id']}/open",
+        headers=admin_headers,
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    assert (
+        second.json()["attendance_opened_at"]
+        == first.json()["attendance_opened_at"]
+    )
+
+
+def test_close_event_attendance_is_idempotent() -> None:
+    client = build_client()
+
+    usher_headers = auth_headers(client, "Usher")
+    admin_headers = auth_headers(client, "Administrator")
+
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={
+            "name": "Sunday Service",
+            "event_type": "service",
+            "location": "Main Hall",
+        },
+        headers=usher_headers,
+    ).json()
+
+    client.post(
+        f"/api/v1/attendance/events/{event['id']}/open",
+        headers=admin_headers,
+    )
+
+    first = client.post(
+        f"/api/v1/attendance/events/{event['id']}/close",
+        headers=admin_headers,
+    )
+
+    second = client.post(
+        f"/api/v1/attendance/events/{event['id']}/close",
+        headers=admin_headers,
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    assert (
+        second.json()["attendance_closed_at"]
+        == first.json()["attendance_closed_at"]
+    ) 

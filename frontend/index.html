@@ -260,6 +260,62 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
             </div>
             <button class="icon-button" title="Refresh attendance" data-refresh="attendance">Refresh</button>
           </div>
+          <section class="subpanel service-day-panel">
+  <div class="subpanel-header">
+    <div>
+      <p class="eyebrow">Service Day</p>
+      <h3 id="serviceDayTitle">No active service</h3>
+      <p id="serviceDayMeta">
+        Select or create an event scheduled for today.
+      </p>
+    </div>
+
+    <span
+      id="serviceDayStatus"
+      class="tag muted"
+    >
+      No session
+    </span>
+  </div>
+
+  <div class="service-day-stats">
+    <div class="metric-card">
+      <span>Checked in</span>
+      <strong id="serviceDayCheckInCount">0</strong>
+    </div>
+
+    <div class="metric-card">
+      <span>QR status</span>
+      <strong id="serviceDayQrStatus">Closed</strong>
+    </div>
+  </div>
+
+  <div class="dialog-actions">
+    <button
+      class="icon-button"
+      type="button"
+      id="serviceDayShowQr"
+      disabled
+    >
+      Show QR
+    </button>
+
+    <button
+      class="primary-button"
+      type="button"
+      id="serviceDayToggleAttendance"
+      disabled
+    >
+      Open Attendance
+    </button>
+  </div>
+
+  <div
+    id="serviceDayRecentCheckIns"
+    class="list"
+    aria-live="polite"
+  ></div>
+</section>
           <div class="form-grid">
             <form class="person-form" id="eventForm">
               <h3 id="eventFormTitle">Create Event</h3>

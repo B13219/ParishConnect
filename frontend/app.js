@@ -110,6 +110,53 @@ const messageTemplates = {
   },
 };
 
+const toggleServiceDayAttendance = async () => {
+  const event = getServiceDayEvent();
+
+  if (!event) {
+    setStatus("No service scheduled for today", "error");
+    return;
+  }
+
+  const action =
+    event.attendance_status === "open"
+      ? "close"
+      : "open";
+
+  try {
+    setBusy(true);
+
+    setStatus(
+      action === "open"
+        ? "Opening attendance"
+        : "Closing attendance",
+    );
+
+    await sendJson(
+      `/attendance/events/${event.id}/${action}`,
+      "POST",
+    );
+
+    await loadSection("attendance");
+
+    setStatus(
+      action === "open"
+        ? "Attendance opened"
+        : "Attendance closed",
+      "ok",
+    );
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Attendance status could not be changed",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
 const generateRecurringServices = async () => {
   try {
     setBusy(true);
@@ -431,6 +478,100 @@ const renderImportPreview = () => {
       .join("") || emptyState("Preview rows will appear here.");
 };
 
+const getServiceDayEvent = () => {
+  const events = state.attendance?.events || [];
+
+  const now = new Date();
+
+  return events.find((event) => {
+    if (!event.starts_at) {
+      return false;
+    }
+
+    const startsAt = new Date(event.starts_at);
+
+    return (
+      startsAt.getFullYear() === now.getFullYear() &&
+      startsAt.getMonth() === now.getMonth() &&
+      startsAt.getDate() === now.getDate()
+    );
+  }) || null;
+};
+
+const renderServiceDay = () => {
+  const event = getServiceDayEvent();
+
+  const title = document.querySelector("#serviceDayTitle");
+  const meta = document.querySelector("#serviceDayMeta");
+  const status = document.querySelector("#serviceDayStatus");
+  const count = document.querySelector("#serviceDayCheckInCount");
+  const qrStatus = document.querySelector("#serviceDayQrStatus");
+  const showQrButton = document.querySelector("#serviceDayShowQr");
+  const toggleButton = document.querySelector("#serviceDayToggleAttendance");
+  const recentList = document.querySelector("#serviceDayRecentCheckIns");
+
+  if (!event) {
+    title.textContent = "No active service";
+    meta.textContent = "No service is scheduled for today.";
+    status.textContent = "No session";
+    status.className = "tag muted";
+    count.textContent = "0";
+    qrStatus.textContent = "Closed";
+    showQrButton.disabled = true;
+    toggleButton.disabled = true;
+    recentList.innerHTML = emptyState("No service-day check-ins yet.");
+    return;
+  }
+
+  title.textContent = event.name;
+
+  meta.textContent = [
+    formatDateTime(event.starts_at),
+    event.location || "No location",
+  ].join(" - ");
+
+  count.textContent = event.check_ins || 0;
+
+ qrStatus.textContent = event.qr_active ? "Open" : "Closed";
+
+const attendanceOpen = event.attendance_status === "open";
+
+status.textContent =
+  event.attendance_status === "closed"
+    ? "Attendance closed"
+    : attendanceOpen
+      ? "Attendance open"
+      : "Scheduled";
+
+status.className = `tag ${attendanceOpen ? "green" : "muted"}`;
+
+showQrButton.disabled = false;
+showQrButton.dataset.eventId = event.id;
+
+toggleButton.disabled = false;
+toggleButton.dataset.eventId = event.id;
+
+toggleButton.textContent = attendanceOpen
+  ? "Close Attendance"
+  : "Open Attendance";
+  const recentCheckIns = (state.attendance?.recent_check_ins || []).filter(
+    (checkIn) => checkIn.event_id === event.id,
+  );
+
+  recentList.innerHTML =
+    recentCheckIns
+      .slice(0, 5)
+      .map((checkIn) =>
+        row({
+          title: checkIn.person_name,
+          subtitle: formatDateTime(checkIn.checked_in_at),
+          tag: checkIn.person_type,
+          tone: checkIn.check_in_method === "qr" ? "green" : "amber",
+        }),
+      )
+      .join("") || emptyState("No check-ins for today's service yet.");
+};
+
 const renderAttendance = () => {
   const events = state.attendance?.events || [];
   const recentCheckIns = state.attendance?.recent_check_ins || [];
@@ -564,6 +705,7 @@ document.querySelectorAll("[data-event-delete]").forEach((button) => {
   });
 });
 
+renderServiceDay();
 renderCheckInEventOptions();
 applyRoleAccess();
 };
@@ -2383,7 +2525,20 @@ updateGeofenceSetupMethod();
 document.querySelector("#peopleSearch").addEventListener("input", updatePeopleFilters);
 document.querySelector("#memberStatusFilter").addEventListener("change", updatePeopleFilters);
 document.querySelector("#visitorStatusFilter").addEventListener("change", updatePeopleFilters);
+document
+  .querySelector("#serviceDayToggleAttendance")
+  ?.addEventListener("click", toggleServiceDayAttendance);
 
+document
+  .querySelector("#serviceDayShowQr")
+  ?.addEventListener("click", () => {
+    const eventId =
+      document.querySelector("#serviceDayShowQr")?.dataset.eventId;
+
+    if (eventId) {
+      showQrToken(eventId);
+    }
+  });
 
 setupStickyNavigation();
 applyRoleAccess();

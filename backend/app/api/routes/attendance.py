@@ -13,7 +13,7 @@ from app.core.settings import settings
 from app.core.security import require_roles
 from app.db.base import utc_now
 from app.db.session import get_db
-from app.models import AttendanceRecord, Branch, Event, HouseholdPerson, Member, ServiceTemplate, Visitor
+from app.models import AttendanceRecord, Branch, Event, HouseholdPerson, Member, ServiceTemplate, User, Visitor
 from app.services.qr_code import make_qr_svg
 from app.services.geofence import is_inside_geofence
 
@@ -229,6 +229,17 @@ def serialize_event(event: Event, check_ins: int = 0) -> dict[str, object]:
         "qr_rotation_seconds": event.qr_rotation_seconds,
         "qr_active": opens_at <= now <= closes_at,
         "check_ins": check_ins,
+        "attendance_status": event.attendance_status,
+        "attendance_opened_at": (
+           event.attendance_opened_at.isoformat()
+           if event.attendance_opened_at
+           else None
+        ),
+        "attendance_closed_at": (
+           event.attendance_closed_at.isoformat()
+           if event.attendance_closed_at
+           else None
+        ),
     }
 
 
@@ -359,6 +370,72 @@ def update_event(
 
         setattr(event, field, value)
 
+    db.commit()
+    db.refresh(event)
+
+    return serialize_event(event)
+
+@router.post("/events/{event_id}/open")
+def open_event_attendance(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("administrator", "pastor_leader")),
+):
+    event = db.get(Event, event_id)
+
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found",
+        )
+
+    if current_user.branch_id and event.branch_id != current_user.branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Event does not belong to your branch",
+        )
+
+    if event.attendance_status == "open":
+        return serialize_event(event)
+
+    event.attendance_status = "open"
+    event.attendance_opened_at = utc_now()
+    event.attendance_closed_at = None
+
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+
+    return serialize_event(event)
+
+
+@router.post("/events/{event_id}/close")
+def close_event_attendance(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("administrator", "pastor_leader")),
+):
+    event = db.get(Event, event_id)
+
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found",
+        )
+
+    if current_user.branch_id and event.branch_id != current_user.branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Event does not belong to your branch",
+        )
+
+    if event.attendance_status == "closed":
+        return serialize_event(event)
+
+    event.attendance_status = "closed"
+    event.attendance_closed_at = utc_now()
+
+    db.add(event)
     db.commit()
     db.refresh(event)
 

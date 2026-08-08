@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, Numeric, String, Text, Time
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, Numeric, String, Text, Time, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TimestampMixin, utc_now
@@ -197,6 +197,20 @@ class Event(IdMixin, TimestampMixin, Base):
     qr_opens_at: Mapped[datetime | None]
     qr_closes_at: Mapped[datetime | None]
     qr_rotation_seconds: Mapped[int] = mapped_column(default=60)
+    attendance_status: Mapped[str] = mapped_column(
+    String(20),
+    default="scheduled",
+    )
+
+    attendance_opened_at: Mapped[datetime | None] = mapped_column(
+    DateTime(timezone=True),
+    nullable=True,
+    )
+
+    attendance_closed_at: Mapped[datetime | None] = mapped_column(
+    DateTime(timezone=True),
+    nullable=True,
+    ) 
 
 
 class AttendanceRecord(IdMixin, TimestampMixin, Base):
