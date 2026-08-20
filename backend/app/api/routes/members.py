@@ -1,5 +1,8 @@
+import csv
+from io import StringIO
 from uuid import UUID
 
+from fastapi.responses import Response
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -10,6 +13,11 @@ from app.db.base import utc_now
 from app.db.session import get_db
 from app.models import Branch, Household, HouseholdPerson, Member, User, Visitor
 from app.services.audit import write_audit_log
+from datetime import date
+
+
+
+
 
 router = APIRouter()
 
@@ -23,7 +31,14 @@ class PersonPayload(BaseModel):
 
 class MemberCreate(PersonPayload):
     membership_status: str = "active"
-
+    address: str | None = None
+    area: str | None = None
+    gender: str | None = None
+    date_of_birth: date | None = None
+    marital_status: str | None = None
+    occupation: str | None = None
+    preferred_language: str | None = None
+    notes: str | None = None
 
 class MemberUpdate(BaseModel):
     first_name: str | None = None
@@ -31,10 +46,24 @@ class MemberUpdate(BaseModel):
     phone: str | None = None
     email: str | None = None
     membership_status: str | None = None
+    address: str | None = None
+    area: str | None = None
+    gender: str | None = None
+    date_of_birth: date | None = None
+    marital_status: str | None = None
+    occupation: str | None = None
+    preferred_language: str | None = None
+    notes: str | None = None
 
 
 class VisitorCreate(PersonPayload):
     follow_up_status: str = "new"
+    address: str | None = None
+    area: str | None = None
+    gender: str | None = None
+    preferred_language: str | None = None
+    notes: str | None = None
+    
 
 
 class VisitorUpdate(BaseModel):
@@ -43,6 +72,11 @@ class VisitorUpdate(BaseModel):
     phone: str | None = None
     email: str | None = None
     follow_up_status: str | None = None
+    address: str | None = None
+    area: str | None = None
+    gender: str | None = None
+    preferred_language: str | None = None
+    notes: str | None = None
 
 
 class HouseholdCreate(BaseModel):
@@ -82,6 +116,18 @@ def serialize_member(member: Member) -> dict[str, object]:
         "phone": member.phone,
         "email": member.email,
         "status": member.membership_status,
+        "address": member.address,
+        "area": member.area,
+        "gender": member.gender,
+        "date_of_birth": (
+            member.date_of_birth.isoformat()
+            if member.date_of_birth
+            else None
+        ),
+        "marital_status": member.marital_status,
+        "occupation": member.occupation,
+        "preferred_language": member.preferred_language,
+        "notes": member.notes,
     }
 
 
@@ -97,6 +143,11 @@ def serialize_visitor(visitor: Visitor) -> dict[str, object]:
         "converted_member_id": str(visitor.converted_member_id)
         if visitor.converted_member_id
         else None,
+        "address": visitor.address,
+        "area": visitor.area,
+        "gender": visitor.gender,
+        "preferred_language": visitor.preferred_language,
+        "notes": visitor.notes,
     }
 
 
@@ -155,6 +206,109 @@ def list_members(
         "visitors": [serialize_visitor(visitor) for visitor in visitors],
     }
 
+@router.get("/export.csv")
+def export_people_csv(
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "receptionist")),
+) -> Response:
+    members = db.scalars(
+        select(Member).order_by(
+            Member.last_name.asc(),
+            Member.first_name.asc(),
+        )
+    ).all()
+
+    visitors = db.scalars(
+        select(Visitor).order_by(
+            Visitor.last_name.asc(),
+            Visitor.first_name.asc(),
+        )
+    ).all()
+
+    output = StringIO()
+
+    fieldnames = [
+        "record_type",
+        "id",
+        "first_name",
+        "last_name",
+        "phone",
+        "email",
+        "address",
+        "area",
+        "gender",
+        "date_of_birth",
+        "marital_status",
+        "occupation",
+        "preferred_language",
+        "status",
+        "notes",
+    ]
+
+    writer = csv.DictWriter(
+        output,
+        fieldnames=fieldnames,
+    )
+
+    writer.writeheader()
+
+    for member in members:
+        writer.writerow(
+            {
+                "record_type": "member",
+                "id": str(member.id),
+                "first_name": member.first_name,
+                "last_name": member.last_name,
+                "phone": member.phone or "",
+                "email": member.email or "",
+                "address": member.address or "",
+                "area": member.area or "",
+                "gender": member.gender or "",
+                "date_of_birth": (
+                    member.date_of_birth.isoformat()
+                    if member.date_of_birth
+                    else ""
+                ),
+                "marital_status": member.marital_status or "",
+                "occupation": member.occupation or "",
+                "preferred_language": member.preferred_language or "",
+                "status": member.membership_status,
+                "notes": member.notes or "",
+            }
+        )
+
+    for visitor in visitors:
+        writer.writerow(
+            {
+                "record_type": "visitor",
+                "id": str(visitor.id),
+                "first_name": visitor.first_name,
+                "last_name": visitor.last_name,
+                "phone": visitor.phone or "",
+                "email": visitor.email or "",
+                "address": visitor.address or "",
+                "area": visitor.area or "",
+                "gender": visitor.gender or "",
+                "date_of_birth": "",
+                "marital_status": "",
+                "occupation": "",
+                "preferred_language": visitor.preferred_language or "",
+                "status": visitor.follow_up_status,
+                "notes": visitor.notes or "",
+            }
+        )
+
+    csv_content = output.getvalue()
+    output.close()
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition":
+                'attachment; filename="parishconnect-people.csv"'
+        },
+    )
 
 @router.get("/households")
 def list_households(
@@ -262,6 +416,14 @@ def create_member(
         email=str(payload.email) if payload.email else None,
         membership_status=payload.membership_status,
         joined_at=utc_now(),
+        address=payload.address,
+        area=payload.area,
+        gender=payload.gender,
+        date_of_birth=payload.date_of_birth,
+        marital_status=payload.marital_status,
+        occupation=payload.occupation,
+        preferred_language=payload.preferred_language,
+        notes=payload.notes,
     )
     db.add(member)
     db.commit()
@@ -312,6 +474,11 @@ def create_visitor(
         phone=payload.phone,
         email=str(payload.email) if payload.email else None,
         follow_up_status=payload.follow_up_status,
+        address=payload.address,
+        area=payload.area,
+        gender=payload.gender,
+        preferred_language=payload.preferred_language,
+        notes=payload.notes,
     )
     db.add(visitor)
     db.commit()
@@ -374,6 +541,11 @@ def convert_visitor(
         email=visitor.email,
         membership_status="active",
         joined_at=utc_now(),
+        address=visitor.address,
+        area=visitor.area,
+        gender=visitor.gender,
+        preferred_language=visitor.preferred_language,
+        notes=visitor.notes,
     )
     db.add(member)
     db.flush()

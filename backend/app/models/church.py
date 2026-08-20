@@ -2,11 +2,11 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, Numeric, String, Text, Time, DateTime
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, Numeric, String, Text, Time, DateTime, Date
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TimestampMixin, utc_now
-from datetime import datetime, time
+from datetime import datetime, time, date
 
 class Branch(IdMixin, TimestampMixin, Base):
     __tablename__ = "branches"
@@ -72,37 +72,96 @@ class ImportBatch(IdMixin, TimestampMixin, Base):
 class Member(IdMixin, TimestampMixin, Base):
     __tablename__ = "members"
 
-    branch_id: Mapped[UUID] = mapped_column(ForeignKey("branches.id"), nullable=False)
-    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    branch_id: Mapped[UUID] = mapped_column(
+        ForeignKey("branches.id"),
+        nullable=False,
+    )
+
+    first_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+    last_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
     phone: Mapped[str | None] = mapped_column(String(40))
     email: Mapped[str | None] = mapped_column(String(255))
-    membership_status: Mapped[str] = mapped_column(String(40), default="active")
+
+    # Existing fields — KEEP
+    membership_status: Mapped[str] = mapped_column(
+        String(40),
+        default="active",
+    )
     joined_at: Mapped[datetime | None]
 
-
+    # New profile fields
+    address: Mapped[str | None] = mapped_column(String(255))
+    area: Mapped[str | None] = mapped_column(String(120))
+    gender: Mapped[str | None] = mapped_column(String(40))
+    date_of_birth: Mapped[date | None] = mapped_column(Date)
+    marital_status: Mapped[str | None] = mapped_column(String(40))
+    occupation: Mapped[str | None] = mapped_column(String(120))
+    preferred_language: Mapped[str | None] = mapped_column(String(10))
+    notes: Mapped[str | None] = mapped_column(Text)
 class Visitor(IdMixin, TimestampMixin, Base):
     __tablename__ = "visitors"
 
-    branch_id: Mapped[UUID] = mapped_column(ForeignKey("branches.id"), nullable=False)
-    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    branch_id: Mapped[UUID] = mapped_column(
+        ForeignKey("branches.id"),
+        nullable=False,
+    )
+
+    first_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+    last_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
     phone: Mapped[str | None] = mapped_column(String(40))
     email: Mapped[str | None] = mapped_column(String(255))
-    follow_up_status: Mapped[str] = mapped_column(String(40), default="new")
-    converted_member_id: Mapped[UUID | None] = mapped_column(ForeignKey("members.id"))
 
+    # Existing fields — KEEP
+    follow_up_status: Mapped[str] = mapped_column(
+        String(40),
+        default="new",
+    )
+
+    converted_member_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("members.id")
+    )
+
+    # New profile fields
+    address: Mapped[str | None] = mapped_column(String(255))
+    area: Mapped[str | None] = mapped_column(String(120))
+    gender: Mapped[str | None] = mapped_column(String(40))
+    preferred_language: Mapped[str | None] = mapped_column(String(10))
+    notes: Mapped[str | None] = mapped_column(Text)
 
 class Household(IdMixin, TimestampMixin, Base):
     __tablename__ = "households"
 
-    branch_id: Mapped[UUID] = mapped_column(ForeignKey("branches.id"), nullable=False)
-    name: Mapped[str] = mapped_column(String(160), nullable=False)
-    primary_member_id: Mapped[UUID | None] = mapped_column(ForeignKey("members.id"))
+    branch_id: Mapped[UUID] = mapped_column(
+        ForeignKey("branches.id"),
+        nullable=False,
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(160),
+        nullable=False,
+    )
+
+    primary_member_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("members.id")
+    )
+
     primary_phone: Mapped[str | None] = mapped_column(String(40))
+
     notes: Mapped[str | None] = mapped_column(Text)
-
-
 class HouseholdPerson(IdMixin, TimestampMixin, Base):
     __tablename__ = "household_people"
 
@@ -111,6 +170,9 @@ class HouseholdPerson(IdMixin, TimestampMixin, Base):
     visitor_id: Mapped[UUID | None] = mapped_column(ForeignKey("visitors.id"))
     first_name: Mapped[str | None] = mapped_column(String(100))
     last_name: Mapped[str | None] = mapped_column(String(100))
+    gender: Mapped[str | None] = mapped_column(String(40))
+    date_of_birth: Mapped[date | None] = mapped_column(Date)
+    preferred_language: Mapped[str | None] = mapped_column(String(10))
     person_type: Mapped[str] = mapped_column(String(40), nullable=False)
     relationship: Mapped[str] = mapped_column(String(60), nullable=False)
     can_self_check_in: Mapped[str] = mapped_column(String(5), default="yes")
