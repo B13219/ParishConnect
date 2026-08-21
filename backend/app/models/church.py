@@ -320,6 +320,14 @@ class Contribution(IdMixin, TimestampMixin, Base):
 
     branch_id: Mapped[UUID] = mapped_column(ForeignKey("branches.id"), nullable=False)
     member_id: Mapped[UUID | None] = mapped_column(ForeignKey("members.id"))
+    household_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("households.id")
+    )
+    
+    contributor_scope: Mapped[str] = mapped_column(
+        String(20),
+        default="individual",
+    )
     contribution_type: Mapped[str] = mapped_column(String(80), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="USD")
@@ -328,3 +336,4 @@ class Contribution(IdMixin, TimestampMixin, Base):
     received_at: Mapped[datetime] = mapped_column(default=utc_now)
     recorded_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
     notes: Mapped[str | None] = mapped_column(Text)
+   
