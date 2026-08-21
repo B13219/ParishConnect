@@ -734,20 +734,41 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
                 Amount
                 <input name="amount" type="number" min="1" step="1" required>
               </label>
-            </div>
-            <div class="field-row">
-              <label>
-                Currency
-                <select name="currency">
-                  <option value="TZS">TZS</option>
-                  <option value="USD">USD</option>
-                </select>
-              </label>
-              <label>
-                Member
-                <select name="member_id" id="contributionMemberSelect"></select>
-              </label>
-            </div>
+            </div><div class="field-row">
+  <label>
+    Currency
+    <select name="currency">
+      <option value="TZS">TZS</option>
+      <option value="USD">USD</option>
+    </select>
+  </label>
+
+  <label>
+    Contributor scope
+    <select name="contributor_scope" id="contributionScope">
+      <option value="individual">Individual</option>
+      <option value="household">Household</option>
+    </select>
+  </label>
+</div>
+
+<div class="field-row">
+  <label id="contributionMemberField">
+    Member
+    <select
+      name="member_id"
+      id="contributionMemberSelect"
+    ></select>
+  </label>
+
+  <label id="contributionHouseholdField" hidden>
+    Household
+    <select
+      name="household_id"
+      id="contributionHouseholdSelect"
+    ></select>
+  </label>
+</div>
             <div class="field-row">
               <label>
                 Payment method

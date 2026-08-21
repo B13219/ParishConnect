@@ -449,6 +449,7 @@ const renderPeople = () => {
   renderCheckInPersonOptions();
   renderHouseholdMemberOptions();
   renderContributionMemberOptions();
+  renderContributionHouseholdOptions();
   applyRoleAccess();
 };
 
@@ -854,7 +855,9 @@ const renderStewardship = () => {
             contribution.currency,
           )}`,
           subtitle: [
-            contribution.member_name || "Anonymous / Visitor",
+            contribution.household_name ||
+              contribution.member_name ||
+              "Unknown contributor",
             labelize(contribution.payment_method || "cash"),
             contribution.reference_code ? `Ref: ${contribution.reference_code}` : null,
             formatDateTime(contribution.received_at),
@@ -867,6 +870,8 @@ const renderStewardship = () => {
       )
       .join("") || emptyState("No contribution records found.");
   renderContributionMemberOptions();
+  renderContributionHouseholdOptions();
+  updateContributionScope();
   applyRoleAccess();
 };
 
@@ -1307,9 +1312,18 @@ const loadSection = async (section) => {
     renderMessages();
   }
   if (section === "stewardship") {
-    state.stewardship = await fetchJson("/stewardship/");
-    renderStewardship();
+  state.stewardship = await fetchJson("/stewardship/");
+
+  if (!state.people) {
+    state.people = await fetchJson("/members/");
   }
+
+  if (!state.households) {
+    state.households = await fetchJson("/members/households");
+  }
+
+  renderStewardship();
+}
   if (section === "reports") {
     state.reports = await fetchJson("/reports/weekly");
     renderWeeklyReport();
@@ -1546,6 +1560,50 @@ const renderContributionMemberOptions = () => {
       .filter((member) => member.status === "active")
       .map((member) => `<option value="${member.id}">${member.name}</option>`)
       .join("");
+};
+
+const renderContributionHouseholdOptions = () => {
+  const select = document.querySelector("#contributionHouseholdSelect");
+
+  if (!select) {
+    return;
+  }
+
+  const households = state.households?.households || [];
+
+  select.innerHTML =
+    '<option value="">Select household</option>' +
+    households
+      .map(
+        (household) =>
+          `<option value="${household.id}">${household.name}</option>`,
+      )
+      .join("");
+};
+
+const updateContributionScope = () => {
+  const scope = document.querySelector("#contributionScope")?.value || "individual";
+  const memberField = document.querySelector("#contributionMemberField");
+  const householdField = document.querySelector("#contributionHouseholdField");
+  const memberSelect = document.querySelector("#contributionMemberSelect");
+  const householdSelect = document.querySelector("#contributionHouseholdSelect");
+
+  if (!memberField || !householdField) {
+    return;
+  }
+
+  const isHousehold = scope === "household";
+
+  memberField.hidden = isHousehold;
+  householdField.hidden = !isHousehold;
+
+  if (isHousehold && memberSelect) {
+    memberSelect.value = "";
+  }
+
+  if (!isHousehold && householdSelect) {
+    householdSelect.value = "";
+  }
 };
 
 const dateInputToIso = (value) => (value ? new Date(value).toISOString() : null);
@@ -1991,24 +2049,65 @@ const dispatchMessage = async (messageId) => {
 
 const submitContributionForm = async (form) => {
   const payload = formPayload(form);
+
   payload.amount = Number(payload.amount || 0);
+
+  if (payload.contributor_scope === "individual") {
+    payload.household_id = null;
+  }
+
+  if (payload.contributor_scope === "household") {
+    payload.member_id = null;
+  }
 
   try {
     setBusy(true);
     setStatus("Recording contribution");
-    const contribution = await sendJson("/stewardship/contributions", "POST", payload);
+
+    const contribution = await sendJson(
+      "/stewardship/contributions",
+      "POST",
+      payload,
+    );
+
+    const contributorName =
+      contribution.household_name ||
+      contribution.member_name ||
+      "Unknown contributor";
+
     form.reset();
+    updateContributionScope();
+
     document.querySelector("#contributionReceipt").innerHTML = `
-      <strong>Recorded ${formatCurrency(contribution.amount, contribution.currency)}</strong>
-      <span>${contribution.member_name || "Anonymous / Visitor"} - ${
-        contribution.reference_code ? `Ref: ${contribution.reference_code}` : labelize(contribution.payment_method)
-      }</span>
+      <strong>
+        Recorded ${formatCurrency(
+          contribution.amount,
+          contribution.currency,
+        )}
+      </strong>
+
+      <span>
+        ${contributorName} - ${
+          contribution.reference_code
+            ? `Ref: ${contribution.reference_code}`
+            : labelize(contribution.payment_method)
+        }
+      </span>
+
+      <span>
+        Contribution acknowledgement created
+      </span>
     `;
+
     await loadSection("stewardship");
+
     setStatus("Contribution recorded", "ok");
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Contribution failed", "error");
+    setStatus(
+      error.message || "Contribution failed",
+      "error",
+    );
   } finally {
     setBusy(false);
   }
@@ -2585,3 +2684,6 @@ if (state.auth?.access_token) {
 document
   .querySelector("#cancelServiceTemplateEdit")
   ?.addEventListener("click", clearServiceTemplateForm);
+document
+  .querySelector("#contributionScope")
+  ?.addEventListener("change", updateContributionScope);
