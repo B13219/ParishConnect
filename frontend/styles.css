@@ -1078,6 +1078,14 @@ select:focus {
   .field-row {
     grid-template-columns: 1fr;
   }
+  .people-form-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .people-form-close {
+    width: auto;
+  }
 }
 
 @media print {
@@ -1318,4 +1326,88 @@ select:focus {
   .geofence-map {
     min-height: 240px;
   }
+}
+
+.people-form-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  margin-bottom: 1.25rem;
+}
+
+.people-form-header > div {
+  min-width: 0;
+}
+
+.people-form-header .eyebrow {
+  margin: 0 0 0.2rem;
+}
+
+.people-form-header h3 {
+  margin: 0;
+}
+
+.people-form-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+
+  flex: 0 0 auto;
+  width: auto;
+
+  padding: 0.55rem 0.85rem;
+  margin: 0;
+
+  border: 1px solid var(--line);
+  border-radius: 10px;
+
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.people-form-close span {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.people-form-close:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.people-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.people-form-header h3 {
+  margin: 0;
+}
+
+.people-form-header .eyebrow {
+  margin: 0 0 2px;
+}
+
+.people-form-close {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--blue);
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.people-form-close:hover {
+  background: #f2f6ff;
 }

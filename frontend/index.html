@@ -113,62 +113,152 @@
             </div>
             <button class="icon-button" title="Refresh people" data-refresh="people">Refresh</button>
           </div>
-          <div class="form-grid">
-            <form class="person-form" id="memberForm">
-              <h3>Add Member</h3>
-              <div class="field-row">
-                <label>
-                  First name
-                  <input name="first_name" required autocomplete="given-name">
-                </label>
-                <label>
-                  Last name
-                  <input name="last_name" required autocomplete="family-name">
-                </label>
-              </div>
-              <div class="field-row">
-                <label>
-                  Phone
-                  <input name="phone" autocomplete="tel">
-                </label>
-                <label>
-                  Email
-                  <input name="email" type="email" autocomplete="email">
-                </label>
-              </div>
-              <button class="primary-button" type="submit">Add member</button>
-            </form>
+          <div class="people-actions">
+  <button
+    class="primary-button"
+    id="showMemberForm"
+    type="button"
+  >
+    + Add member
+  </button>
 
-            <form class="person-form" id="visitorForm">
-              <h3>Add Visitor</h3>
-              <div class="field-row">
-                <label>
-                  First name
-                  <input name="first_name" required autocomplete="given-name">
-                </label>
-                <label>
-                  Last name
-                  <input name="last_name" required autocomplete="family-name">
-                </label>
-              </div>
-              <div class="field-row">
-                <label>
-                  Phone
-                  <input name="phone" autocomplete="tel">
-                </label>
-                <label>
-                  Email
-                  <input name="email" type="email" autocomplete="email">
-                </label>
-              </div>
-              <button class="primary-button" type="submit">Add visitor</button>
-            </form>
-          </div>
+  <button
+    class="icon-button"
+    id="showVisitorForm"
+    type="button"
+  >
+    + Add visitor
+  </button>
+
+  <button
+    class="icon-button"
+    id="downloadPeopleCsv"
+    type="button"
+  >
+    Download CSV
+  </button>
+</div>
+
+<div class="form-grid" id="peopleRegistrationForms">
+
+  <form class="person-form" id="memberForm" hidden>
+<div class="people-form-header">
+  <div>
+    <p class="eyebrow">New record</p>
+    <h3>Add Member</h3>
+  </div>
+
+  <button
+    class="people-form-close"
+    id="hideMemberForm"
+    type="button"
+    aria-label="Hide member form"
+  >
+    <span aria-hidden="true">×</span>
+    Hide
+  </button>
+</div>
+
+    <div class="field-row">
+      <label>
+        First name
+        <input name="first_name" required autocomplete="given-name">
+      </label>
+
+      <label>
+        Last name
+        <input name="last_name" required autocomplete="family-name">
+      </label>
+    </div>
+
+    <div class="field-row">
+      <label>
+        Phone
+        <input name="phone" autocomplete="tel">
+      </label>
+
+      <label>
+        Email
+        <input name="email" type="email" autocomplete="email">
+      </label>
+    </div>
+
+    <button class="primary-button" type="submit">
+      Add member
+    </button>
+  </form>
+
+
+  <form class="person-form" id="visitorForm" hidden>
+<div class="people-form-header">
+  <div>
+    <p class="eyebrow">New record</p>
+    <h3>Add Visitor</h3>
+  </div>
+
+  <button
+    class="people-form-close"
+    id="hideVisitorForm"
+    type="button"
+    aria-label="Hide visitor form"
+  >
+    <span aria-hidden="true">×</span>
+    Hide
+  </button>
+</div>
+
+    <div class="field-row">
+      <label>
+        First name
+        <input name="first_name" required autocomplete="given-name">
+      </label>
+
+      <label>
+        Last name
+        <input name="last_name" required autocomplete="family-name">
+      </label>
+    </div>
+
+    <div class="field-row">
+      <label>
+        Phone
+        <input name="phone" autocomplete="tel">
+      </label>
+
+      <label>
+        Email
+        <input name="email" type="email" autocomplete="email">
+      </label>
+    </div>
+
+    <button class="primary-button" type="submit">
+      Add visitor
+    </button>
+  </form>
+
+</div>
           <div class="people-toolbar">
             <label>
               Search people
-              <input id="peopleSearch" placeholder="Name, phone, or email">
+             <input
+                id="peopleSearch"
+                placeholder="Search by name, phone, or email — use * for all"
+              >
             </label>
+            <button
+              class="icon-button"
+              id="showAllPeople"
+              type="button"
+            >
+            Show all
+            </button>
+            <button
+              class="icon-button"
+              id="clearPeopleSearch"
+              type="button"
+            >
+              Clear
+            </button>
             <label>
               Member status
               <select id="memberStatusFilter">
@@ -1102,6 +1192,6 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
   crossorigin=""
 ></script>
 
-<script src="./app.js?v=20260806-geofence-map"></script>
+<script src="./app.js?v=20260821-geofence-map-people-ui"></script>
 </body>
 </html>

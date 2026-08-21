@@ -381,15 +381,21 @@ const memberLifecycleActions = (member) => {
 const renderPeople = () => {
   const allMembers = state.people?.members || [];
   const allVisitors = state.people?.visitors || [];
+
+  const query = state.peopleFilters.query.trim();
+
+  const showAll = query === "*";
+
   const members = allMembers.filter(
     (member) =>
-      personMatchesQuery(member, state.peopleFilters.query) &&
+      (showAll || (query && personMatchesQuery(member, query))) &&
       (state.peopleFilters.memberStatus === "all" ||
         member.status === state.peopleFilters.memberStatus),
   );
+
   const visitors = allVisitors.filter(
     (visitor) =>
-      personMatchesQuery(visitor, state.peopleFilters.query) &&
+      (showAll || (query && personMatchesQuery(visitor, query))) &&
       (state.peopleFilters.visitorStatus === "all" ||
         visitor.follow_up_status === state.peopleFilters.visitorStatus),
   );
@@ -397,40 +403,55 @@ const renderPeople = () => {
   document.querySelector("#memberCount").textContent = allMembers.length;
   document.querySelector("#visitorCount").textContent = allVisitors.length;
   document.querySelector("#memberList").innerHTML =
-    members
-      .map((member) =>
-        row({
-          title: member.name,
-          subtitle: [member.phone || "No phone", member.email || "No email"].join(" - "),
-          tag: member.status,
-          tone: member.status === "active" ? "green" : "muted",
-          action: `
-            <button class="mini-button" data-edit-member="${member.id}" type="button">Edit</button>
-            ${memberLifecycleActions(member)}
-          `,
-        }),
-      )
-      .join("") || emptyState("No members found.");
+  query
+    ? members
+        .map((member) =>
+          row({
+            title: member.name,
+            subtitle: [
+              member.phone || "No phone",
+              member.email || "No email",
+            ].join(" - "),
+            tag: member.status,
+            tone: member.status === "active" ? "green" : "muted",
+            action: `
+              <button class="mini-button" data-edit-member="${member.id}" type="button">
+                Edit
+              </button>
+              ${memberLifecycleActions(member)}
+            `,
+          }),
+        )
+        .join("") || emptyState("No matching members found.")
+    : emptyState("Search for a member to view records.");
   document.querySelector("#visitorList").innerHTML =
-    visitors
-      .map((visitor) =>
-        row({
-          title: visitor.name,
-          subtitle: [visitor.phone || "No phone", visitor.email || "No email"].join(" - "),
-          tag: visitor.follow_up_status,
-          tone: "amber",
-          action: `
-            <button class="mini-button" data-edit-visitor="${visitor.id}" type="button">Edit</button>
-            ${
-              visitor.converted_member_id
-                ? ""
-                : `<button class="mini-button" data-convert-visitor="${visitor.id}" type="button">Convert</button>`
-            }
-          `,
-        }),
-      )
-      .join("") || emptyState("No visitors found.");
-
+  query
+    ? visitors
+        .map((visitor) =>
+          row({
+            title: visitor.name,
+            subtitle: [
+              visitor.phone || "No phone",
+              visitor.email || "No email",
+            ].join(" - "),
+            tag: visitor.follow_up_status,
+            tone: "amber",
+            action: `
+              <button class="mini-button" data-edit-visitor="${visitor.id}" type="button">
+                Edit
+              </button>
+              ${
+                visitor.converted_member_id
+                  ? ""
+                  : `<button class="mini-button" data-convert-visitor="${visitor.id}" type="button">
+                      Convert
+                    </button>`
+              }
+            `,
+          }),
+        )
+        .join("") || emptyState("No matching visitors found.")
+    : emptyState("Search for a visitor to view records.");
   document.querySelectorAll("[data-edit-member]").forEach((button) => {
     button.addEventListener("click", () => openPersonDialog("member", button.dataset.editMember));
   });
@@ -2443,6 +2464,77 @@ const openPersonDialog = (type, personId) => {
   dialog.showModal();
 };
 
+const showPeopleForm = (type) => {
+  const memberForm = document.querySelector("#memberForm");
+  const visitorForm = document.querySelector("#visitorForm");
+
+  if (!memberForm || !visitorForm) {
+    return;
+  }
+
+  if (type === "member") {
+    memberForm.hidden = false;
+    visitorForm.hidden = true;
+
+    memberForm.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    memberForm.querySelector("input")?.focus();
+  }
+
+  if (type === "visitor") {
+    visitorForm.hidden = false;
+    memberForm.hidden = true;
+
+    visitorForm.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    visitorForm.querySelector("input")?.focus();
+  }
+};
+
+const hidePeopleForm = (type) => {
+  const form =
+    type === "member"
+      ? document.querySelector("#memberForm")
+      : document.querySelector("#visitorForm");
+
+  if (!form) {
+    return;
+  }
+
+  form.hidden = true;
+};
+const downloadPeopleCsv = async () => {
+  try {
+    setBusy(true);
+    setStatus("Preparing people CSV");
+
+    const text = await fetchText("/members/export.csv");
+
+    downloadTextFile(
+      "vinard-people.csv",
+      text,
+      "text/csv",
+    );
+
+    setStatus("People CSV ready", "ok");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "People CSV export failed",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
 const submitEditForm = async (form) => {
   const payload = formPayload(form);
   const type = payload.type;
@@ -2687,3 +2779,41 @@ document
 document
   .querySelector("#contributionScope")
   ?.addEventListener("change", updateContributionScope);
+document
+  .querySelector("#showMemberForm")
+  ?.addEventListener("click", () => {
+    showPeopleForm("member");
+  });
+
+document
+  .querySelector("#showVisitorForm")
+  ?.addEventListener("click", () => {
+    showPeopleForm("visitor");
+  });
+
+document
+  .querySelector("#downloadPeopleCsv")
+  ?.addEventListener("click", downloadPeopleCsv);
+document
+  .querySelector("#showAllPeople")
+  ?.addEventListener("click", () => {
+    document.querySelector("#peopleSearch").value = "*";
+    updatePeopleFilters();
+  });
+document
+  .querySelector("#clearPeopleSearch")
+  ?.addEventListener("click", () => {
+    document.querySelector("#peopleSearch").value = "";
+    updatePeopleFilters();
+  });
+document
+  .querySelector("#hideMemberForm")
+  ?.addEventListener("click", () => {
+    hidePeopleForm("member");
+  });
+
+document
+  .querySelector("#hideVisitorForm")
+  ?.addEventListener("click", () => {
+    hidePeopleForm("visitor");
+  });
