@@ -42,7 +42,7 @@ The complete cleaned source is available in `ParishConnect-source.zip`.
 backend/    API, database models, migrations, scripts, and tests
 frontend/   Administrative web interface and QR check-in page
 mobile/     Reserved for the member mobile application
-docs/       Product requirements, architecture, data model, and API outline
+docs/       Product requirements, roadmap, architecture, data model, deployment, and API docs
 outputs/    Engineering notes and implementation handoffs
 ```
 
@@ -72,8 +72,9 @@ Then open:
 
 ## Verification
 
-- 18 backend tests passing
+- Backend test suite passing
 - Ruff checks passing
+- Active development roadmap maintained in `docs/post-demo-roadmap.md`
 
 ## Important note
 
@@ -82,3 +83,7 @@ The credentials and QR secret included in local defaults are development-only pl
 ## Author
 
 Built by [Beka Kawanara](https://github.com/B13219) as an ongoing full-stack portfolio project.
+
+
+For the current post-demo development direction, see `docs/post-demo-roadmap.md`.
+
