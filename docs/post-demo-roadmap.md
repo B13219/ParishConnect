@@ -46,9 +46,9 @@ The goal is to move ParishConnect from a presentation-ready MVP into a pilot-rea
 
 \- \[x] CSV import foundation for spreadsheet migration.
 
-\- \[ ] Final visitor profile/follow-up UX review.
+\- \[x] Final visitor profile/follow-up UX review.
 
-\- \[ ] Validate visitor-to-member conversion and duplicate handling.
+\- \[x] Validate visitor-to-member conversion and duplicate handling.
 
 
 
