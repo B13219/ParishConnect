@@ -1,9 +1,10 @@
 import csv
+from datetime import date
 from io import StringIO
 from uuid import UUID
 
-from fastapi.responses import Response
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,13 +12,17 @@ from sqlalchemy.orm import Session
 from app.core.security import require_roles
 from app.db.base import utc_now
 from app.db.session import get_db
-from app.models import Branch, Household, HouseholdPerson, Member, User, Visitor
+from app.models import (
+    Branch,
+    CommunityGroup,
+    CommunityGroupMembership,
+    Household,
+    HouseholdPerson,
+    Member,
+    User,
+    Visitor,
+)
 from app.services.audit import write_audit_log
-from datetime import date
-
-
-
-
 
 router = APIRouter()
 
@@ -96,6 +101,29 @@ class HouseholdPersonCreate(BaseModel):
     can_self_check_in: bool = True
     status: str = "active"
 
+class CommunityGroupCreate(BaseModel):
+    name: str
+    group_type: str = "local_community"
+    leader_member_id: UUID | None = None
+    area: str | None = None
+    meeting_day: str | None = None
+    notes: str | None = None
+    status: str = "active"
+
+
+class CommunityMembershipCreate(BaseModel):
+    member_id: UUID
+    role: str = "member"
+    status: str = "active"
+    
+class CommunityGroupUpdate(BaseModel):
+    name: str | None = None
+    group_type: str | None = None
+    leader_member_id: UUID | None = None
+    area: str | None = None
+    meeting_day: str | None = None
+    notes: str | None = None
+    status: str | None = None
 
 def get_default_branch(db: Session) -> Branch:
     branch = db.scalar(select(Branch).order_by(Branch.created_at.asc()))
@@ -106,8 +134,46 @@ def get_default_branch(db: Session) -> Branch:
         )
     return branch
 
+def serialize_member(
+    member: Member,
+    db: Session,
+) -> dict[str, object]:
+    memberships = db.scalars(
+        select(CommunityGroupMembership)
+        .where(
+            CommunityGroupMembership.member_id == member.id,
+            CommunityGroupMembership.status == "active",
+        )
+        .order_by(CommunityGroupMembership.created_at.asc())
+    ).all()
 
-def serialize_member(member: Member) -> dict[str, object]:
+    communities = []
+
+    for membership in memberships:
+        group = db.get(
+            CommunityGroup,
+            membership.community_group_id,
+        )
+
+        if group is None:
+            continue
+
+        communities.append(
+            {
+                "id": str(group.id),
+                "name": group.name,
+                "group_type": group.group_type,
+                "area": group.area,
+                "role": membership.role,
+                "status": membership.status,
+                "leader_member_id": (
+                    str(group.leader_member_id)
+                    if group.leader_member_id
+                    else None
+                ),
+            }
+        )
+
     return {
         "id": str(member.id),
         "first_name": member.first_name,
@@ -128,8 +194,8 @@ def serialize_member(member: Member) -> dict[str, object]:
         "occupation": member.occupation,
         "preferred_language": member.preferred_language,
         "notes": member.notes,
+        "communities": communities,
     }
-
 
 def serialize_visitor(visitor: Visitor) -> dict[str, object]:
     return {
@@ -190,6 +256,72 @@ def serialize_household(household: Household, db: Session) -> dict[str, object]:
         "people": [serialize_household_person(person, db) for person in people],
     }
 
+def serialize_community_membership(
+    membership: CommunityGroupMembership,
+    db: Session,
+) -> dict[str, object]:
+    member = db.get(Member, membership.member_id)
+
+    return {
+        "id": str(membership.id),
+        "member_id": str(membership.member_id),
+        "member_name": (
+            f"{member.first_name} {member.last_name}"
+            if member
+            else None
+        ),
+        "role": membership.role,
+        "status": membership.status,
+        "joined_at": (
+            membership.joined_at.isoformat()
+            if membership.joined_at
+            else None
+        ),
+    }
+
+
+def serialize_community_group(
+    group: CommunityGroup,
+    db: Session,
+) -> dict[str, object]:
+    leader = (
+        db.get(Member, group.leader_member_id)
+        if group.leader_member_id
+        else None
+    )
+
+    memberships = db.scalars(
+        select(CommunityGroupMembership)
+        .where(
+            CommunityGroupMembership.community_group_id == group.id
+        )
+        .order_by(CommunityGroupMembership.created_at.asc())
+    ).all()
+
+    return {
+        "id": str(group.id),
+        "name": group.name,
+        "group_type": group.group_type,
+        "leader_member_id": (
+            str(group.leader_member_id)
+            if group.leader_member_id
+            else None
+        ),
+        "leader_name": (
+            f"{leader.first_name} {leader.last_name}"
+            if leader
+            else None
+        ),
+        "area": group.area,
+        "meeting_day": group.meeting_day,
+        "notes": group.notes,
+        "status": group.status,
+        "member_count": len(memberships),
+        "members": [
+            serialize_community_membership(membership, db)
+            for membership in memberships
+        ],
+    }
 
 @router.get("/")
 def list_members(
@@ -202,7 +334,7 @@ def list_members(
     return {
         "module": "members",
         "status": "demo-data-ready",
-        "members": [serialize_member(member) for member in members],
+        "members": [serialize_member(member, db) for member in members],
         "visitors": [serialize_visitor(visitor) for visitor in visitors],
     }
 
@@ -428,7 +560,7 @@ def create_member(
     db.add(member)
     db.commit()
     db.refresh(member)
-    return serialize_member(member)
+    return serialize_member(member, db)
 
 
 @router.patch("/{member_id}")
@@ -457,7 +589,7 @@ def update_member(
         )
     db.commit()
     db.refresh(member)
-    return serialize_member(member)
+    return serialize_member(member, db)
 
 
 @router.post("/visitors", status_code=status.HTTP_201_CREATED)
@@ -531,7 +663,7 @@ def convert_visitor(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Visitor references a missing converted member.",
             )
-        return {"member": serialize_member(member), "visitor": serialize_visitor(visitor)}
+        return {"member": serialize_member(member, db), "visitor": serialize_visitor(visitor)}
 
     member = Member(
         branch_id=visitor.branch_id,
@@ -562,4 +694,235 @@ def convert_visitor(
     db.commit()
     db.refresh(member)
     db.refresh(visitor)
-    return {"member": serialize_member(member), "visitor": serialize_visitor(visitor)}
+    return {"member": serialize_member(member, db), "visitor": serialize_visitor(visitor)}
+
+@router.get("/communities")
+def list_communities(
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "receptionist")),
+) -> dict[str, object]:
+    groups = db.scalars(
+        select(CommunityGroup)
+        .order_by(CommunityGroup.created_at.desc())
+    ).all()
+
+    return {
+        "communities": [
+            serialize_community_group(group, db)
+            for group in groups
+        ]
+    }
+
+
+@router.post("/communities", status_code=status.HTTP_201_CREATED)
+def create_community(
+    payload: CommunityGroupCreate,
+    db: Session = Depends(get_db),
+    actor: User = Depends(
+        require_roles("pastor_leader", "receptionist")
+    ),
+) -> dict[str, object]:
+    branch = get_default_branch(db)
+
+    if payload.leader_member_id:
+        leader = db.get(Member, payload.leader_member_id)
+        if leader is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Leader member not found.",
+            )
+
+    group = CommunityGroup(
+        branch_id=branch.id,
+        name=payload.name,
+        group_type=payload.group_type,
+        leader_member_id=payload.leader_member_id,
+        area=payload.area,
+        meeting_day=payload.meeting_day,
+        notes=payload.notes,
+        status=payload.status,
+    )
+
+    db.add(group)
+    db.flush()
+
+    write_audit_log(
+        db,
+        actor=actor,
+        action="people.community_created",
+        entity_type="community_group",
+        entity_id=group.id,
+        metadata={
+            "name": group.name,
+            "group_type": group.group_type,
+        },
+    )
+
+    db.commit()
+    db.refresh(group)
+
+    return serialize_community_group(group, db)
+
+@router.patch("/communities/{community_id}")
+def update_community(
+    community_id: UUID,
+    payload: CommunityGroupUpdate,
+    db: Session = Depends(get_db),
+    actor: User = Depends(
+        require_roles("pastor_leader", "receptionist")
+    ),
+) -> dict[str, object]:
+    group = db.get(CommunityGroup, community_id)
+
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Community not found.",
+        )
+
+    if payload.leader_member_id is not None:
+        leader = db.get(Member, payload.leader_member_id)
+
+        if leader is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Leader member not found.",
+            )
+
+    updates = payload.model_dump(exclude_unset=True)
+
+    for field, value in updates.items():
+        setattr(group, field, value)
+
+    write_audit_log(
+        db,
+        actor=actor,
+        action="people.community_updated",
+        entity_type="community_group",
+        entity_id=group.id,
+        metadata={
+            "name": group.name,
+            "leader_member_id": (
+                str(group.leader_member_id)
+                if group.leader_member_id
+                else None
+            ),
+        },
+    )
+
+    db.commit()
+    db.refresh(group)
+
+    return serialize_community_group(group, db)
+
+@router.post(
+    "/communities/{community_id}/members",
+    status_code=status.HTTP_201_CREATED,
+)
+def add_community_member(
+    community_id: UUID,
+    payload: CommunityMembershipCreate,
+    db: Session = Depends(get_db),
+    actor: User = Depends(
+        require_roles("pastor_leader", "receptionist")
+    ),
+) -> dict[str, object]:
+    group = db.get(CommunityGroup, community_id)
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Community not found.",
+        )
+
+    member = db.get(Member, payload.member_id)
+    if member is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Member not found.",
+        )
+
+    existing = db.scalar(
+        select(CommunityGroupMembership).where(
+            CommunityGroupMembership.community_group_id
+            == community_id,
+            CommunityGroupMembership.member_id
+            == payload.member_id,
+        )
+    )
+
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Member already belongs to this community.",
+        )
+
+    membership = CommunityGroupMembership(
+        community_group_id=community_id,
+        member_id=payload.member_id,
+        role=payload.role,
+        status=payload.status,
+        joined_at=utc_now(),
+    )
+
+    db.add(membership)
+    db.flush()
+
+    write_audit_log(
+        db,
+        actor=actor,
+        action="people.community_member_added",
+        entity_type="community_group_membership",
+        entity_id=membership.id,
+        metadata={
+            "community_id": str(community_id),
+            "member_id": str(payload.member_id),
+            "role": payload.role,
+        },
+    )
+
+    db.commit()
+    db.refresh(membership)
+
+    return serialize_community_membership(membership, db)
+
+@router.delete(
+    "/communities/{community_id}/members/{member_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def remove_community_member(
+    community_id: UUID,
+    member_id: UUID,
+    db: Session = Depends(get_db),
+    actor: User = Depends(
+        require_roles("pastor_leader", "receptionist")
+    ),
+) -> None:
+    membership = db.scalar(
+        select(CommunityGroupMembership).where(
+            CommunityGroupMembership.community_group_id
+            == community_id,
+            CommunityGroupMembership.member_id
+            == member_id,
+        )
+    )
+
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Community membership not found.",
+        )
+
+    write_audit_log(
+        db,
+        actor=actor,
+        action="people.community_member_removed",
+        entity_type="community_group_membership",
+        entity_id=membership.id,
+        metadata={
+            "community_id": str(community_id),
+            "member_id": str(member_id),
+        },
+    )
+
+    db.delete(membership)
+    db.commit()

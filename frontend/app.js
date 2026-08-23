@@ -3,6 +3,7 @@ const API_BASE = "http://127.0.0.1:8004/api/v1";
 const state = {
   auth: JSON.parse(localStorage.getItem("parishconnect_auth") || "null"),
   people: null,
+  communities: null,
   attendance: null,
   serviceTemplates: null,
   geofence: null,
@@ -415,16 +416,37 @@ const renderPeople = () => {
             tag: member.status,
             tone: member.status === "active" ? "green" : "muted",
             action: `
-              <button class="mini-button" data-edit-member="${member.id}" type="button">
-                Edit
-              </button>
-              ${memberLifecycleActions(member)}
-            `,
+  <button
+    class="mini-button"
+    data-view-member="${member.id}"
+    type="button"
+  >
+    View profile
+  </button>
+
+  <button
+    class="mini-button"
+    data-edit-member="${member.id}"
+    type="button"
+  >
+    Edit
+  </button>
+
+  ${memberLifecycleActions(member)}
+`,
+
           }),
+          
         )
+  
         .join("") || emptyState("No matching members found.")
     : emptyState("Search for a member to view records.");
-  document.querySelector("#visitorList").innerHTML =
+  document.querySelectorAll("[data-view-member]").forEach((button) => {
+  button.addEventListener("click", () => {
+    openMemberProfile(button.dataset.viewMember);
+  });
+});
+    document.querySelector("#visitorList").innerHTML =
   query
     ? visitors
         .map((visitor) =>
@@ -471,7 +493,162 @@ const renderPeople = () => {
   renderHouseholdMemberOptions();
   renderContributionMemberOptions();
   renderContributionHouseholdOptions();
+  renderCommunityLeaderOptions();
   applyRoleAccess();
+};
+const renderCommunities = () => {
+  const container = document.querySelector("#communityList");
+
+  if (!container) {
+    return;
+  }
+
+  const communities = state.communities?.communities || [];
+
+  if (!communities.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <strong>No communities yet</strong>
+        <p>
+          Create a community to begin organising members
+          into local pastoral groups.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = communities
+    .map(
+      (community) => `
+        <div class="community-card">
+          <div class="community-card-main">
+            <div>
+              <div class="community-card-title">
+                <strong>${community.name}</strong>
+
+                <span class="tag ${
+                  community.status === "active"
+                    ? "green"
+                    : ""
+                }">
+                  ${labelize(community.status)}
+                </span>
+              </div>
+
+              <p class="muted">
+                ${community.area || "Area not specified"}
+                ${
+                  community.meeting_day
+                    ? ` · Meets ${community.meeting_day}`
+                    : ""
+                }
+              </p>
+            </div>
+
+            <div class="community-card-stats">
+              <strong>${community.member_count || 0}</strong>
+              <span>Members</span>
+            </div>
+          </div>
+
+          <div class="community-card-footer">
+            <span>
+              Leader:
+              <strong>
+                ${community.leader_name || "Not assigned"}
+              </strong>
+            </span>
+
+            <button
+              class="mini-button"
+              data-view-community="${community.id}"
+              type="button"
+            >
+              View community
+            </button>
+          </div>
+        </div>
+      `,
+    )
+    .join("");
+
+  document
+    .querySelectorAll("[data-view-community]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        openCommunityDialog(button.dataset.viewCommunity);
+      });
+    });
+};
+const showCommunityForm = () => {
+  const communityForm =
+    document.querySelector("#communityForm");
+
+  const memberForm =
+    document.querySelector("#memberForm");
+
+  const visitorForm =
+    document.querySelector("#visitorForm");
+
+  if (!communityForm) {
+    return;
+  }
+
+  communityForm.hidden = false;
+
+  if (memberForm) {
+    memberForm.hidden = true;
+  }
+
+  if (visitorForm) {
+    visitorForm.hidden = true;
+  }
+
+  communityForm.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+
+  communityForm.querySelector("input")?.focus();
+};
+const hideCommunityForm = () => {
+  const form =
+    document.querySelector("#communityForm");
+
+  if (form) {
+    form.hidden = true;
+  }
+};
+const submitCommunityForm = async (form) => {
+  const payload = formPayload(form);
+
+  try {
+    setBusy(true);
+    setStatus("Creating community");
+
+    await sendJson(
+      "/members/communities",
+      "POST",
+      payload,
+    );
+
+    form.reset();
+    form.hidden = true;
+
+    await loadSection("people");
+
+    setStatus("Community created", "ok");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Community creation failed",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
 };
 
 const renderImportPreview = () => {
@@ -1307,9 +1484,17 @@ const deleteServiceTemplate = async (templateId) => {
 
 const loadSection = async (section) => {
   if (section === "people") {
-    state.people = await fetchJson("/members/");
-    renderPeople();
-  }
+  const [people, communities] = await Promise.all([
+    fetchJson("/members/"),
+    fetchJson("/members/communities"),
+  ]);
+
+  state.people = people;
+  state.communities = communities;
+
+  renderPeople();
+  renderCommunities();
+}
   if (section === "imports") {
     renderImportPreview();
   }
@@ -1702,15 +1887,20 @@ const openEventEditForm = (eventId) => {
   form.elements.event_id.value = event.id;
   form.elements.name.value = event.name || "";
   form.elements.event_type.value = event.type || "service";
-  form.elements.starts_at.value = event.starts_at
-    isoToLocalInput(event.starts_at)
-  form.elements.ends_at.value = event.ends_at
-    isoToLocalInput(event.ends_at)
-  form.elements.location.value = event.location || "";
-  form.elements.qr_opens_at.value = event.qr_opens_at
-    isoToLocalInput(event.qr_opens_at)
-  form.elements.qr_closes_at.value = event.qr_closes_at
-    isoToLocalInput(event.qr_closes_at)
+ form.elements.starts_at.value =
+  isoToLocalInput(event.starts_at);
+
+form.elements.ends_at.value =
+  isoToLocalInput(event.ends_at);
+
+form.elements.location.value =
+  event.location || "";
+
+form.elements.qr_opens_at.value =
+  isoToLocalInput(event.qr_opens_at);
+
+form.elements.qr_closes_at.value =
+  isoToLocalInput(event.qr_closes_at);
   form.elements.qr_rotation_seconds.value =
     event.qr_rotation_seconds || 60;
 
@@ -2464,6 +2654,576 @@ const openPersonDialog = (type, personId) => {
   dialog.showModal();
 };
 
+const openMemberProfile = (memberId) => {
+  const member = state.people?.members?.find(
+    (item) => item.id === memberId,
+  );
+
+  if (!member) {
+    setStatus("Member not found", "error");
+    return;
+  }
+
+  const dialog = document.querySelector("#memberProfileDialog");
+  const communities = member.communities || [];
+
+  document.querySelector("#memberProfileName").textContent =
+    member.name || "Member";
+
+  document.querySelector("#memberProfileStatus").textContent =
+    labelize(member.status || "active");
+
+  document.querySelector("#memberProfileBody").innerHTML = `
+    <div class="profile-section">
+      <h3>Contact</h3>
+      <div class="profile-grid">
+        <div>
+          <span>Phone</span>
+          <strong>${member.phone || "Not provided"}</strong>
+        </div>
+
+        <div>
+          <span>Email</span>
+          <strong>${member.email || "Not provided"}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Personal</h3>
+      <div class="profile-grid">
+        <div>
+          <span>Gender</span>
+          <strong>${labelize(member.gender || "Not specified")}</strong>
+        </div>
+
+        <div>
+          <span>Date of birth</span>
+          <strong>${member.date_of_birth || "Not provided"}</strong>
+        </div>
+
+        <div>
+          <span>Marital status</span>
+          <strong>${labelize(member.marital_status || "Not specified")}</strong>
+        </div>
+
+        <div>
+          <span>Occupation</span>
+          <strong>${member.occupation || "Not provided"}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Location</h3>
+      <div class="profile-grid">
+        <div>
+          <span>Area</span>
+          <strong>${member.area || "Not provided"}</strong>
+        </div>
+
+        <div>
+          <span>Address</span>
+          <strong>${member.address || "Not provided"}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Community</h3>
+
+      ${
+        communities.length
+          ? communities
+              .map(
+                (community) => `
+                  <div class="profile-community">
+                    <strong>${community.name}</strong>
+                    <span>
+                      ${labelize(community.role || "member")}
+                      ${
+                        community.area
+                          ? ` · ${community.area}`
+                          : ""
+                      }
+                    </span>
+                  </div>
+                `,
+              )
+              .join("")
+          : `<p>No community assigned.</p>`
+      }
+    </div>
+    <div class="profile-section">
+  <h3>Community assignment</h3>
+
+  <div class="field-row">
+    <label>
+      Community
+      <select id="memberCommunitySelect">
+        <option value="">Select community</option>
+      </select>
+    </label>
+
+    <label>
+      Role
+      <select id="memberCommunityRole">
+        <option value="member">Member</option>
+        <option value="leader">Leader</option>
+        <option value="assistant">Assistant</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="dialog-actions">
+    <button
+      class="primary-button"
+      type="button"
+      id="assignMemberCommunity"
+    >
+      Assign community
+    </button>
+  </div>
+</div>
+
+    <div class="profile-section">
+      <h3>Preferences</h3>
+      <div class="profile-grid">
+        <div>
+          <span>Preferred language</span>
+          <strong>${labelize(member.preferred_language || "Not specified")}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Notes</h3>
+      <p>${member.notes || "No notes recorded."}</p>
+    </div>
+  `;
+
+  const communitySelect =
+  document.querySelector("#memberCommunitySelect");
+
+if (communitySelect) {
+  const groups = state.communities?.communities || [];
+
+  communitySelect.innerHTML =
+    '<option value="">Select community</option>' +
+    groups
+      .filter((group) => group.status === "active")
+      .map(
+        (group) =>
+          `<option value="${group.id}">${group.name}</option>`,
+      )
+      .join("");
+}
+
+
+
+document
+  .querySelector("#assignMemberCommunity")
+  ?.addEventListener("click", async () => {
+    const communityId =
+      document.querySelector("#memberCommunitySelect")?.value;
+
+    const role =
+      document.querySelector("#memberCommunityRole")?.value || "member";
+
+    if (!communityId) {
+      setStatus("Select a community first", "error");
+      return;
+    }
+
+    try {
+      setBusy(true);
+      setStatus("Assigning community");
+
+      await sendJson(
+        `/members/communities/${communityId}/members`,
+        "POST",
+        {
+          member_id: member.id,
+          role,
+        },
+      );
+
+      await loadSection("people");
+
+      document
+        .querySelector("#memberProfileDialog")
+        ?.close();
+
+      setStatus("Community assigned", "ok");
+    } catch (error) {
+      console.error(error);
+
+      setStatus(
+        error.message || "Community assignment failed",
+        "error",
+      );
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  dialog.showModal();
+};
+const openCommunityDialog = (communityId) => {
+  const community =
+    state.communities?.communities?.find(
+      (item) => item.id === communityId,
+    );
+
+  if (!community) {
+    setStatus("Community not found", "error");
+    return;
+  }
+
+  const dialog = document.querySelector("#communityDialog");
+  const body = document.querySelector("#communityDialogBody");
+
+  document.querySelector("#communityDialogName").textContent =
+    community.name;
+
+  const members = community.members || [];
+
+  body.innerHTML = `
+    <div class="profile-section">
+      <h3>Community information</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Area</span>
+          <strong>${community.area || "Not provided"}</strong>
+        </div>
+
+        <div>
+          <span>Meeting day</span>
+          <strong>
+            ${community.meeting_day || "Not specified"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Leader</span>
+          <strong>
+            ${community.leader_name || "Not assigned"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Members</span>
+          <strong>${community.member_count || 0}</strong>
+        </div>
+      </div>
+    </div>
+    <div class="profile-section">
+  <div class="panel-header">
+    <div>
+      <h3>Edit community</h3>
+      <p class="muted">
+        Update the community details or leader.
+      </p>
+    </div>
+
+    <button
+      class="mini-button"
+      type="button"
+      id="toggleCommunityEdit"
+    >
+      Edit
+    </button>
+  </div>
+
+  <form
+    id="communityEditForm"
+    class="person-form"
+    hidden
+  >
+    <div class="field-row">
+      <label>
+        Name
+        <input
+          name="name"
+          value="${community.name || ""}"
+          required
+        >
+      </label>
+
+      <label>
+        Area
+        <input
+          name="area"
+          value="${community.area || ""}"
+        >
+      </label>
+    </div>
+
+    <div class="field-row">
+      <label>
+        Meeting day
+        <select
+          name="meeting_day"
+          id="communityEditMeetingDay"
+        >
+          <option value="">Not specified</option>
+          <option value="Monday">Monday</option>
+          <option value="Tuesday">Tuesday</option>
+          <option value="Wednesday">Wednesday</option>
+          <option value="Thursday">Thursday</option>
+          <option value="Friday">Friday</option>
+          <option value="Saturday">Saturday</option>
+          <option value="Sunday">Sunday</option>
+        </select>
+      </label>
+
+      <label>
+        Leader
+        <select
+          name="leader_member_id"
+          id="communityEditLeader"
+        >
+          <option value="">No leader</option>
+        </select>
+      </label>
+    </div>
+
+    <label>
+      Status
+      <select name="status">
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </label>
+
+    <label>
+      Notes
+      <textarea
+        name="notes"
+        rows="3"
+      >${community.notes || ""}</textarea>
+    </label>
+
+    <button
+      class="primary-button"
+      type="submit"
+    >
+      Save changes
+    </button>
+  </form>
+</div>
+    <div class="profile-section">
+      <h3>Members</h3>
+
+      ${
+        members.length
+          ? members
+              .map(
+                (membership) => `
+               <div class="community-member-row">
+  <div>
+    <strong>${membership.member_name}</strong>
+    <span>
+      ${labelize(membership.role || "member")}
+    </span>
+  </div>
+
+  <div class="row-actions">
+    <span class="tag green">
+      ${labelize(membership.status || "active")}
+    </span>
+
+    <button
+      class="mini-button danger"
+      type="button"
+      data-remove-community-member="${membership.member_id}"
+      data-community-id="${community.id}"
+    >
+      Remove
+    </button>
+  </div>
+</div>
+                `,
+              )
+              .join("")
+          : `
+              <p class="muted">
+                No members have been assigned yet.
+              </p>
+            `
+      }
+    </div>
+
+    ${
+      community.notes
+        ? `
+          <div class="profile-section">
+            <h3>Notes</h3>
+            <p>${community.notes}</p>
+          </div>
+        `
+        : ""
+    }
+  `;
+  const editForm =
+  document.querySelector("#communityEditForm");
+
+const editToggle =
+  document.querySelector("#toggleCommunityEdit");
+
+const leaderSelect =
+  document.querySelector("#communityEditLeader");
+
+const meetingDaySelect =
+  document.querySelector("#communityEditMeetingDay");
+
+if (leaderSelect) {
+  leaderSelect.innerHTML =
+    '<option value="">No leader</option>' +
+    (state.people?.members || [])
+      .filter((member) => member.status === "active")
+      .map(
+        (member) =>
+          `<option value="${member.id}">${member.name}</option>`,
+      )
+      .join("");
+
+  leaderSelect.value =
+    community.leader_member_id || "";
+}
+
+if (meetingDaySelect) {
+  meetingDaySelect.value =
+    community.meeting_day || "";
+}
+
+if (editForm) {
+  editForm.elements.status.value =
+    community.status || "active";
+}
+
+editToggle?.addEventListener("click", () => {
+  editForm.hidden = !editForm.hidden;
+
+  editToggle.textContent =
+    editForm.hidden ? "Edit" : "Hide";
+});
+editForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const payload = formPayload(event.currentTarget);
+
+  try {
+    setBusy(true);
+    setStatus("Updating community");
+
+    await sendJson(
+      `/members/communities/${community.id}`,
+      "PATCH",
+      payload,
+    );
+
+    await loadSection("people");
+
+    document
+      .querySelector("#communityDialog")
+      ?.close();
+
+    setStatus("Community updated", "ok");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Community update failed",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+});
+  document
+  .querySelectorAll("[data-remove-community-member]")
+  .forEach((button) => {
+    button.addEventListener("click", async () => {
+      const memberId =
+        button.dataset.removeCommunityMember;
+
+      const communityId =
+        button.dataset.communityId;
+
+      const membership =
+        community.members.find(
+          (item) => item.member_id === memberId,
+        );
+
+      const confirmed = window.confirm(
+        `Remove ${
+          membership?.member_name || "this member"
+        } from ${community.name}?`,
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setBusy(true);
+        setStatus("Removing member");
+
+        await sendJson(
+          `/members/communities/${communityId}/members/${memberId}`,
+          "DELETE",
+        );
+
+        await loadSection("people");
+
+        document
+          .querySelector("#communityDialog")
+          ?.close();
+
+        setStatus(
+          "Member removed from community",
+          "ok",
+        );
+      } catch (error) {
+        console.error(error);
+
+        setStatus(
+          error.message ||
+            "Could not remove community member",
+          "error",
+        );
+      } finally {
+        setBusy(false);
+      }
+    });
+  });
+
+  dialog.showModal();
+};
+
+const renderCommunityLeaderOptions = () => {
+  const select =
+    document.querySelector("#communityLeaderSelect");
+
+  if (!select) {
+    return;
+  }
+
+  const members = state.people?.members || [];
+
+  select.innerHTML =
+    '<option value="">No leader yet</option>' +
+    members
+      .filter((member) => member.status === "active")
+      .map(
+        (member) =>
+          `<option value="${member.id}">${member.name}</option>`,
+      )
+      .join("");
+};
+
 const showPeopleForm = (type) => {
   const memberForm = document.querySelector("#memberForm");
   const visitorForm = document.querySelector("#visitorForm");
@@ -2816,4 +3576,39 @@ document
   .querySelector("#hideVisitorForm")
   ?.addEventListener("click", () => {
     hidePeopleForm("visitor");
+  });
+document
+  .querySelector("#closeMemberProfile")
+  ?.addEventListener("click", () => {
+    document.querySelector("#memberProfileDialog")?.close();
+  });
+document
+  .querySelector("#showCommunityForm")
+  ?.addEventListener("click", showCommunityForm);
+
+document
+  .querySelector("#hideCommunityForm")
+  ?.addEventListener("click", hideCommunityForm);
+
+document
+  .querySelector("#communityForm")
+  ?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitCommunityForm(event.currentTarget);
+  });
+
+document
+  .querySelector("#closeCommunityDialog")
+  ?.addEventListener("click", () => {
+    document.querySelector("#communityDialog")?.close();
+  });
+
+document
+  .querySelector("#refreshCommunities")
+  ?.addEventListener("click", async () => {
+    state.communities =
+      await fetchJson("/members/communities");
+
+    renderCommunities();
+    setStatus("Communities refreshed", "ok");
   });

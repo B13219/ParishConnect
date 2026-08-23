@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, Numeric, String, Text, Time, DateTime, Date
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, Numeric, String, Text, Time, DateTime, Date, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TimestampMixin, utc_now
@@ -178,7 +178,68 @@ class HouseholdPerson(IdMixin, TimestampMixin, Base):
     can_self_check_in: Mapped[str] = mapped_column(String(5), default="yes")
     status: Mapped[str] = mapped_column(String(40), default="active")
 
+class CommunityGroup(IdMixin, TimestampMixin, Base):
+    __tablename__ = "community_groups"
 
+    branch_id: Mapped[UUID] = mapped_column(
+        ForeignKey("branches.id"),
+        nullable=False,
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(160),
+        nullable=False,
+    )
+
+    group_type: Mapped[str] = mapped_column(
+        String(80),
+        default="local_community",
+    )
+
+    leader_member_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("members.id")
+    )
+
+    area: Mapped[str | None] = mapped_column(String(120))
+    meeting_day: Mapped[str | None] = mapped_column(String(40))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    status: Mapped[str] = mapped_column(
+        String(40),
+        default="active",
+    )
+
+
+class CommunityGroupMembership(IdMixin, TimestampMixin, Base):
+    __tablename__ = "community_group_memberships"
+    __table_args__=(
+        UniqueConstraint(
+            "community_group_id","member_id",
+            name="uq_community_group_membership_member",
+        ),
+    )
+
+    community_group_id: Mapped[UUID] = mapped_column(
+        ForeignKey("community_groups.id"),
+        nullable=False,
+    )
+
+    member_id: Mapped[UUID] = mapped_column(
+        ForeignKey("members.id"),
+        nullable=False,
+    )
+
+    role: Mapped[str] = mapped_column(
+        String(40),
+        default="member",
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(40),
+        default="active",
+    )
+
+    joined_at: Mapped[datetime | None]
 class Ministry(IdMixin, TimestampMixin, Base):
     __tablename__ = "ministries"
 

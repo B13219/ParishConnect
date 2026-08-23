@@ -137,6 +137,13 @@
   >
     Download CSV
   </button>
+  <button
+  class="icon-button"
+  id="showCommunityForm"
+  type="button"
+>
+  + Add community
+</button>
 </div>
 
 <div class="form-grid" id="peopleRegistrationForms">
@@ -182,6 +189,95 @@
         <input name="email" type="email" autocomplete="email">
       </label>
     </div>
+    <details class="profile-details">
+      <summary>Additional profile information</summary>
+    <div class="field-row">
+  <label>
+    Area
+    <input
+      name="area"
+      placeholder="e.g. Mikocheni"
+    >
+  </label>
+
+  <label>
+    Address
+    <input
+      name="address"
+      placeholder="Street or local address"
+    >
+  </label>
+</div>
+
+
+<div class="field-row">
+  <label>
+    Gender
+    <select name="gender">
+      <option value="">Not specified</option>
+      <option value="male">Male</option>
+      <option value="female">Female</option>
+    </select>
+  </label>
+
+  <label>
+    Date of birth
+    <input
+      name="date_of_birth"
+      type="date"
+    >
+  </label>
+</div>
+
+<div class="field-row">
+  <label>
+    Marital status
+    <select name="marital_status">
+      <option value="">Not specified</option>
+      <option value="single">Single</option>
+      <option value="married">Married</option>
+      <option value="widowed">Widowed</option>
+      <option value="divorced">Divorced</option>
+    </select>
+  </label>
+
+  <label>
+    Occupation
+    <input
+      name="occupation"
+      placeholder="Occupation"
+    >
+  </label>
+</div>
+
+<div class="field-row">
+  <label>
+    Preferred language
+    <select name="preferred_language">
+      <option value="">Not specified</option>
+      <option value="sw">Swahili</option>
+      <option value="en">English</option>
+    </select>
+  </label>
+
+  <label>
+    Membership status
+    <select name="membership_status">
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
+  </label>
+</div>
+
+<label>
+  Notes
+  <textarea
+    name="notes"
+    rows="3"
+    placeholder="Optional pastoral or administrative notes"
+  ></textarea>
+</label>
+</details>
 
     <button class="primary-button" type="submit">
       Add member
@@ -230,11 +326,143 @@
         <input name="email" type="email" autocomplete="email">
       </label>
     </div>
+    <details class="profile-details">
+  <summary>Additional profile information</summary>
+
+  <div class="field-row">
+    <label>
+      Area
+      <input
+        name="area"
+        placeholder="e.g. Mikocheni"
+      >
+    </label>
+
+    <label>
+      Address
+      <input
+        name="address"
+        placeholder="Street or local address"
+      >
+    </label>
+  </div>
+
+  <div class="field-row">
+    <label>
+      Gender
+      <select name="gender">
+        <option value="">Not specified</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+    </label>
+
+    <label>
+      Preferred language
+      <select name="preferred_language">
+        <option value="">Not specified</option>
+        <option value="sw">Swahili</option>
+        <option value="en">English</option>
+      </select>
+    </label>
+  </div>
+
+  <label>
+    Notes
+    <textarea
+      name="notes"
+      rows="3"
+      placeholder="Optional follow-up or administrative notes"
+    ></textarea>
+  </label>
+</details>
 
     <button class="primary-button" type="submit">
       Add visitor
     </button>
   </form>
+
+  <form
+  class="person-form"
+  id="communityForm"
+  hidden
+>
+  <div class="people-form-header">
+    <div>
+      <p class="eyebrow">New record</p>
+      <h3>Add Community</h3>
+    </div>
+
+    <button
+      class="people-form-close"
+      id="hideCommunityForm"
+      type="button"
+    >
+      × Hide
+    </button>
+  </div>
+
+  <div class="field-row">
+    <label>
+      Community name
+      <input
+        name="name"
+        required
+        placeholder="St. Joseph Community"
+      >
+    </label>
+
+    <label>
+      Area
+      <input
+        name="area"
+        placeholder="Mikocheni"
+      >
+    </label>
+  </div>
+
+  <div class="field-row">
+    <label>
+      Meeting day
+      <select name="meeting_day">
+        <option value="">Not specified</option>
+        <option value="Monday">Monday</option>
+        <option value="Tuesday">Tuesday</option>
+        <option value="Wednesday">Wednesday</option>
+        <option value="Thursday">Thursday</option>
+        <option value="Friday">Friday</option>
+        <option value="Saturday">Saturday</option>
+        <option value="Sunday">Sunday</option>
+      </select>
+    </label>
+
+    <label>
+      Leader
+      <select
+        name="leader_member_id"
+        id="communityLeaderSelect"
+      >
+        <option value="">No leader yet</option>
+      </select>
+    </label>
+  </div>
+
+  <label>
+    Notes
+    <textarea
+      name="notes"
+      rows="3"
+      placeholder="Optional community notes"
+    ></textarea>
+  </label>
+
+  <button
+    class="primary-button"
+    type="submit"
+  >
+    Create community
+  </button>
+</form>
 
 </div>
           <div class="people-toolbar">
@@ -290,6 +518,30 @@
             </div>
           </div>
         </article>
+
+        <section class="panel community-panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Pastoral structure</p>
+      <h2>Communities</h2>
+      <p class="muted">
+        Local communities, cells, and fellowship groups.
+      </p>
+    </div>
+
+    <button
+      class="icon-button"
+      id="refreshCommunities"
+      type="button"
+    >
+      Refresh
+    </button>
+  </div>
+
+  <div id="communityList">
+    <p class="muted">No communities loaded.</p>
+  </div>
+</section>
 
         <article class="panel report-panel" id="imports">
           <div class="panel-header">
@@ -1185,6 +1437,55 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
       </div>
     </form>
   </dialog>
+  <dialog id="memberProfileDialog" class="dialog">
+  <div class="dialog-card profile-dialog-card">
+    <div class="panel-header">
+      <div>
+        <p class="eyebrow">Member profile</p>
+        <h2 id="memberProfileName">Member</h2>
+      </div>
+
+      <div class="row-actions">
+        <span
+          id="memberProfileStatus"
+          class="tag green"
+        >
+          Active
+        </span>
+
+        <button
+          class="icon-button"
+          type="button"
+          id="closeMemberProfile"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+
+    <div id="memberProfileBody"></div>
+  </div>
+</dialog>
+<dialog id="communityDialog" class="dialog">
+  <div class="dialog-card profile-dialog-card">
+    <div class="panel-header">
+      <div>
+        <p class="eyebrow">Local community</p>
+        <h2 id="communityDialogName">Community</h2>
+      </div>
+
+      <button
+        class="icon-button"
+        id="closeCommunityDialog"
+        type="button"
+      >
+        Close
+      </button>
+    </div>
+
+    <div id="communityDialogBody"></div>
+  </div>
+</dialog>
 
   <script
   src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
