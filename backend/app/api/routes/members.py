@@ -697,7 +697,37 @@ def convert_visitor(
                 detail="Visitor references a missing converted member.",
             )
         return {"member": serialize_member(member, db), "visitor": serialize_visitor(visitor)}
+    
+        possible_match: Member | None = None
 
+    if visitor.email:
+        possible_match = db.scalar(
+            select(Member)
+            .where(Member.email == visitor.email)
+            .limit(1)
+        )
+
+    if possible_match is None and visitor.phone:
+        possible_match = db.scalar(
+            select(Member)
+            .where(
+                Member.phone == visitor.phone,
+                Member.first_name == visitor.first_name,
+                Member.last_name == visitor.last_name,
+            )
+            .limit(1)
+        )
+
+    if possible_match is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "A possible existing member matches this visitor. "
+                f"Review member {possible_match.first_name} "
+                f"{possible_match.last_name} before converting."
+            ),
+        )
+    
     member = Member(
         branch_id=visitor.branch_id,
         first_name=visitor.first_name,

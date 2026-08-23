@@ -157,6 +157,48 @@ def test_create_update_and_convert_visitor() -> None:
     assert body["visitor"]["follow_up_status"] == "converted"
     assert body["visitor"]["converted_member_id"] == body["member"]["id"]
 
+def test_convert_visitor_blocks_possible_duplicate_member() -> None:
+    client, _ = build_client()
+    headers = auth_headers(client, "Receptionist")
+
+    member_response = client.post(
+        "/api/v1/members/",
+        json={
+            "first_name": "Existing",
+            "last_name": "Person",
+            "phone": "+255700111222",
+            "email": "existing.person@example.test",
+        },
+        headers=headers,
+    )
+
+    assert member_response.status_code == 201
+
+    visitor_response = client.post(
+        "/api/v1/members/visitors",
+        json={
+            "first_name": "Existing",
+            "last_name": "Person",
+            "phone": "+255700111222",
+            "email": "existing.person@example.test",
+        },
+        headers=headers,
+    )
+
+    assert visitor_response.status_code == 201
+
+    visitor = visitor_response.json()
+
+    convert_response = client.post(
+        f"/api/v1/members/visitors/{visitor['id']}/convert",
+        headers=headers,
+    )
+
+    assert convert_response.status_code == 409
+    assert (
+        "possible existing member"
+        in convert_response.json()["detail"].lower()
+    )
 
 def test_create_household_and_add_child() -> None:
     client, _ = build_client()

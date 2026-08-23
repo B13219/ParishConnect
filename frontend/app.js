@@ -459,17 +459,36 @@ const renderPeople = () => {
             tag: visitor.follow_up_status,
             tone: "amber",
             action: `
-              <button class="mini-button" data-edit-visitor="${visitor.id}" type="button">
-                Edit
-              </button>
-              ${
-                visitor.converted_member_id
-                  ? ""
-                  : `<button class="mini-button" data-convert-visitor="${visitor.id}" type="button">
-                      Convert
-                    </button>`
-              }
-            `,
+  <button
+    class="mini-button"
+    data-view-visitor="${visitor.id}"
+    type="button"
+  >
+    View profile
+  </button>
+
+  <button
+    class="mini-button"
+    data-edit-visitor="${visitor.id}"
+    type="button"
+  >
+    Edit
+  </button>
+
+  ${
+    visitor.converted_member_id
+      ? ""
+      : `
+        <button
+          class="mini-button"
+          data-convert-visitor="${visitor.id}"
+          type="button"
+        >
+          Convert
+        </button>
+      `
+  }
+`,
           }),
         )
         .join("") || emptyState("No matching visitors found.")
@@ -487,6 +506,15 @@ const renderPeople = () => {
     button.addEventListener("click", () => {
       const [memberId, lifecycleStatus] = button.dataset.memberStatus.split(":");
       updateMemberStatus(memberId, lifecycleStatus);
+    });
+  });
+  document
+  .querySelectorAll("[data-view-visitor]")
+  .forEach((button) => {
+    button.addEventListener("click", () => {
+      openVisitorProfile(
+        button.dataset.viewVisitor,
+      );
     });
   });
   renderCheckInPersonOptions();
@@ -2944,6 +2972,213 @@ document
   dialog.showModal();
 };
 
+const openVisitorProfile = (visitorId) => {
+  const visitor =
+    state.people?.visitors?.find(
+      (item) => item.id === visitorId,
+    );
+
+  if (!visitor) {
+    setStatus("Visitor not found", "error");
+    return;
+  }
+
+  const dialog =
+    document.querySelector("#visitorProfileDialog");
+
+  document.querySelector(
+    "#visitorProfileName",
+  ).textContent = visitor.name || "Visitor";
+
+  document.querySelector(
+    "#visitorProfileStatus",
+  ).textContent =
+    labelize(visitor.follow_up_status || "new");
+
+  document.querySelector(
+    "#visitorProfileBody",
+  ).innerHTML = `
+    <div class="profile-section">
+      <h3>Contact</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Phone</span>
+          <strong>
+            ${visitor.phone || "Not provided"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Email</span>
+          <strong>
+            ${visitor.email || "Not provided"}
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Personal</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Gender</span>
+          <strong>
+            ${labelize(
+              visitor.gender || "Not specified",
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <span>Preferred language</span>
+          <strong>
+            ${labelize(
+              visitor.preferred_language ||
+                "Not specified",
+            )}
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Location</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Area</span>
+          <strong>
+            ${visitor.area || "Not provided"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Address</span>
+          <strong>
+            ${visitor.address || "Not provided"}
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Follow-up</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Status</span>
+          <strong>
+            ${labelize(
+              visitor.follow_up_status || "new",
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <span>Conversion</span>
+          <strong>
+            ${
+              visitor.converted_member_id
+                ? "Converted to member"
+                : "Not converted"
+            }
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+  <h3>Follow-up actions</h3>
+
+  <div class="dialog-actions">
+    ${
+      visitor.follow_up_status === "new"
+        ? `
+          <button
+            class="mini-button"
+            type="button"
+            id="markVisitorContacted"
+          >
+            Mark as contacted
+          </button>
+        `
+        : ""
+    }
+
+    ${
+      !visitor.converted_member_id
+        ? `
+          <button
+            class="primary-button"
+            type="button"
+            id="convertVisitorFromProfile"
+          >
+            Convert to member
+          </button>
+        `
+        : ""
+    }
+  </div>
+</div>
+
+    <div class="profile-section">
+      <h3>Notes</h3>
+
+      <p>
+        ${visitor.notes || "No notes recorded."}
+      </p>
+    </div>
+  `;
+
+  
+  document
+  .querySelector("#markVisitorContacted")
+  ?.addEventListener("click", async () => {
+    try {
+      setBusy(true);
+      setStatus("Updating visitor");
+
+      await sendJson(
+        `/members/visitors/${visitor.id}`,
+        "PATCH",
+        {
+          follow_up_status: "contacted",
+        },
+      );
+
+      await loadSection("people");
+
+      document
+        .querySelector("#visitorProfileDialog")
+        ?.close();
+
+      setStatus("Visitor marked as contacted", "ok");
+    } catch (error) {
+      console.error(error);
+
+      setStatus(
+        error.message || "Visitor update failed",
+        "error",
+      );
+    } finally {
+      setBusy(false);
+    }
+  });
+  document
+  .querySelector("#convertVisitorFromProfile")
+  ?.addEventListener("click", async () => {
+    document
+      .querySelector("#visitorProfileDialog")
+      ?.close();
+
+    await convertVisitor(visitor.id);
+  });
+
+  dialog.showModal();
+};
+
 const openHouseholdDialog = (householdId) => {
   const household =
     state.households?.households?.find(
@@ -3001,24 +3236,36 @@ const openHouseholdDialog = (householdId) => {
           ? household.people
               .map(
                 (person) => `
-                  <div class="community-member-row">
-                    <div>
-                      <strong>${person.name}</strong>
-                      <span>
-                        ${labelize(
-                          person.relationship || "member",
-                        )}
-                      </span>
-                    </div>
+                 <div class="community-member-row">
+    <div>
+    <strong>${person.name}</strong>
+    <span>
+      ${labelize(person.relationship || "member")}
+    </span>
+    </div>
 
-                    <span class="tag ${
-                      person.status === "active"
-                        ? "green"
-                        : "muted"
-                    }">
-                      ${labelize(person.status || "active")}
-                    </span>
+    <div class="row-actions">
+    <span class="tag ${
+      person.status === "active" ? "green" : "muted"
+    }">
+      ${labelize(person.status || "active")}
+    </span>
+
+    ${
+      person.member_id
+        ? `
+          <button
+            class="mini-button"
+            type="button"
+            data-household-view-member="${person.member_id}"
+          >
+            View profile
+                          </button>
+                         `
+                      : ""
+                    }
                   </div>
+                </div>
                 `,
               )
               .join("")
@@ -3041,6 +3288,19 @@ const openHouseholdDialog = (householdId) => {
         : ""
     }
   `;
+
+  document
+  .querySelectorAll("[data-household-view-member]")
+  .forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelector("#householdDialog")?.close();
+
+      openMemberProfile(
+        button.dataset.householdViewMember,
+      );
+    });
+  });
+
 
   dialog.showModal();
 };
@@ -3242,6 +3502,7 @@ const openCommunityDialog = (communityId) => {
         : ""
     }
   `;
+  
   const editForm =
   document.querySelector("#communityEditForm");
 
@@ -3793,5 +4054,13 @@ document
   ?.addEventListener("click", () => {
     document
       .querySelector("#householdDialog")
+      ?.close();
+  });
+
+document
+  .querySelector("#closeVisitorProfile")
+  ?.addEventListener("click", () => {
+    document
+      .querySelector("#visitorProfileDialog")
       ?.close();
   });
