@@ -173,6 +173,21 @@ def serialize_member(
                 ),
             }
         )
+    
+    household_person = db.scalar(
+        select(HouseholdPerson)
+        .where(
+            HouseholdPerson.member_id == member.id,
+            HouseholdPerson.status == "active",
+        )
+        .limit(1)
+    )
+
+    household = (
+        db.get(Household, household_person.household_id)
+        if household_person
+        else None
+    )
 
     return {
         "id": str(member.id),
@@ -195,6 +210,24 @@ def serialize_member(
         "preferred_language": member.preferred_language,
         "notes": member.notes,
         "communities": communities,
+       "household": (
+    {
+        "id": str(household.id),
+        "name": household.name,
+        "relationship": household_person.relationship,
+        "primary_member_id": (
+            str(household.primary_member_id)
+            if household.primary_member_id
+            else None
+        ),
+        "is_primary_member": (
+            household.primary_member_id == member.id
+        ),
+        "primary_phone": household.primary_phone,
+    }
+    if household and household_person
+    else None
+), 
     }
 
 def serialize_visitor(visitor: Visitor) -> dict[str, object]:

@@ -203,7 +203,52 @@ def test_create_household_and_add_child() -> None:
 
     assert list_response.status_code == 200
     assert len(list_response.json()["households"][0]["people"]) == 2
+def test_member_response_includes_household_summary() -> None:
+    client, _ = build_client()
+    headers = auth_headers(client, "Receptionist")
 
+    member_response = client.post(
+        "/api/v1/members/",
+        json={
+            "first_name": "Ada",
+            "last_name": "Member",
+            "phone": "+255700000001",
+        },
+        headers=headers,
+    )
+
+    assert member_response.status_code == 201
+
+    member_id = member_response.json()["id"]
+
+    household_response = client.post(
+        "/api/v1/members/households",
+        json={
+            "name": "Member Household",
+            "primary_member_id": member_id,
+            "primary_phone": "+255700123456",
+        },
+        headers=headers,
+    )
+
+    assert household_response.status_code == 201
+
+    people = client.get(
+        "/api/v1/members/",
+        headers=headers,
+    ).json()
+
+    member = next(
+        item
+        for item in people["members"]
+        if item["id"] == member_id
+    )
+
+    assert member["household"] is not None
+    assert member["household"]["name"] == "Member Household"
+    assert member["household"]["relationship"] == "primary"
+    assert member["household"]["is_primary_member"] is True
+    assert member["household"]["primary_phone"] == "+255700123456"
 def test_people_csv_export() -> None:
     client, _ = build_client()
     receptionist_headers = auth_headers(client, "Receptionist")

@@ -2755,6 +2755,65 @@ const openMemberProfile = (memberId) => {
       }
     </div>
     <div class="profile-section">
+  <h3>Household</h3>
+
+  ${
+    member.household
+      ? `
+        <div class="profile-grid">
+       
+          <div>
+            <span>Household</span>
+            <strong>
+              ${member.household.name || "Not provided"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Relationship</span>
+            <strong>
+              ${labelize(
+                member.household.relationship || "Not specified"
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Household role</span>
+            <strong>
+              ${
+                member.household.is_primary_member
+                  ? "Primary member"
+                  : "Household member"
+              }
+            </strong>
+          </div>
+
+          <div>
+            <span>Primary phone</span>
+            <strong>
+              ${member.household.primary_phone || "Not provided"}
+            </strong>
+          </div>
+        </div>
+         <div class="dialog-actions">
+          <button
+            class="mini-button"
+            type="button"
+            data-view-household="${member.household.id}"
+          >
+          View household
+        </button>
+        </div>
+      `
+      : `
+        <p class="muted">
+          This member is not linked to a household.
+        </p>
+      `
+  }
+</div>
+    <div class="profile-section">
   <h3>Community assignment</h3>
 
   <div class="field-row">
@@ -2821,6 +2880,7 @@ if (communitySelect) {
 
 
 
+
 document
   .querySelector("#assignMemberCommunity")
   ?.addEventListener("click", async () => {
@@ -2867,8 +2927,124 @@ document
     }
   });
 
+  document
+  .querySelector("[data-view-household]")
+  ?.addEventListener("click", async (event) => {
+    const householdId =
+      event.currentTarget.dataset.viewHousehold;
+
+    if (!state.households) {
+      state.households =
+        await fetchJson("/members/households");
+    }
+
+    openHouseholdDialog(householdId);
+  });
+
   dialog.showModal();
 };
+
+const openHouseholdDialog = (householdId) => {
+  const household =
+    state.households?.households?.find(
+      (item) => item.id === householdId,
+    );
+
+  if (!household) {
+    setStatus("Household not found", "error");
+    return;
+  }
+
+  const dialog =
+    document.querySelector("#householdDialog");
+
+  const body =
+    document.querySelector("#householdDialogBody");
+
+  document.querySelector(
+    "#householdDialogName",
+  ).textContent = household.name;
+
+  body.innerHTML = `
+    <div class="profile-section">
+      <h3>Household information</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Primary contact</span>
+          <strong>
+            ${household.primary_contact || "Not assigned"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Primary phone</span>
+          <strong>
+            ${household.primary_phone || "Not provided"}
+          </strong>
+        </div>
+
+        <div>
+          <span>People</span>
+          <strong>
+            ${household.people?.length || 0}
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Household members</h3>
+
+      ${
+        household.people?.length
+          ? household.people
+              .map(
+                (person) => `
+                  <div class="community-member-row">
+                    <div>
+                      <strong>${person.name}</strong>
+                      <span>
+                        ${labelize(
+                          person.relationship || "member",
+                        )}
+                      </span>
+                    </div>
+
+                    <span class="tag ${
+                      person.status === "active"
+                        ? "green"
+                        : "muted"
+                    }">
+                      ${labelize(person.status || "active")}
+                    </span>
+                  </div>
+                `,
+              )
+              .join("")
+          : `
+              <p class="muted">
+                No household members found.
+              </p>
+            `
+      }
+    </div>
+
+    ${
+      household.notes
+        ? `
+          <div class="profile-section">
+            <h3>Notes</h3>
+            <p>${household.notes}</p>
+          </div>
+        `
+        : ""
+    }
+  `;
+
+  dialog.showModal();
+};
+
 const openCommunityDialog = (communityId) => {
   const community =
     state.communities?.communities?.find(
@@ -3611,4 +3787,11 @@ document
 
     renderCommunities();
     setStatus("Communities refreshed", "ok");
+  });
+document
+  .querySelector("#closeHouseholdDialog")
+  ?.addEventListener("click", () => {
+    document
+      .querySelector("#householdDialog")
+      ?.close();
   });
