@@ -70,7 +70,7 @@ Support small-community structures used by churches, including Catholic and Luth
 
 \- \[x] Community information in member profiles.
 
-\- \[ ] Final permissions and leadership UX review.
+\- \[x] Final permissions and leadership UX review.
 
 
 
