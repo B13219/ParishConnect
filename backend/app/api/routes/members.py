@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.security import require_roles
+from app.core.security import require_roles, user_roles
 from app.db.base import utc_now
 from app.db.session import get_db
 from app.models import (
@@ -853,6 +853,25 @@ def update_community(
             )
 
     updates = payload.model_dump(exclude_unset=True)
+    
+    sensitive_fields = {
+        "leader_member_id",
+        "status",
+    }
+
+    actor_roles = user_roles(db, actor.id)
+
+    if (
+        sensitive_fields.intersection(updates)
+        and "pastor_leader" not in actor_roles
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+               "Only a pastor or leader can change "
+               "community leadership or status."
+            ),
+        )
 
     for field, value in updates.items():
         setattr(group, field, value)

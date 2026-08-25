@@ -287,6 +287,49 @@ def test_member_profile_includes_community_membership() -> None:
 def test_update_community_and_change_leader() -> None:
     client = build_client()
 
+    pastor_headers = auth_headers(
+        client,
+        "Pastor / Leader",
+    )
+
+    member_id = client.get(
+        "/api/v1/members/",
+        headers=pastor_headers,
+    ).json()["members"][0]["id"]
+
+    community = client.post(
+        "/api/v1/members/communities",
+        json={
+            "name": "Old Community Name",
+            "area": "Old Area",
+        },
+        headers=pastor_headers,
+    ).json()
+
+    response = client.patch(
+        f"/api/v1/members/communities/{community['id']}",
+        json={
+            "name": "St. Joseph Community",
+            "area": "Mikocheni",
+            "meeting_day": "Wednesday",
+            "leader_member_id": member_id,
+        },
+        headers=pastor_headers,
+    )
+
+    assert response.status_code == 200
+
+    updated = response.json()
+
+    assert updated["name"] == "St. Joseph Community"
+    assert updated["area"] == "Mikocheni"
+    assert updated["meeting_day"] == "Wednesday"
+    assert updated["leader_member_id"] == member_id
+    assert updated["leader_name"] == "Ada Member"
+    
+def test_receptionist_cannot_change_community_leader() -> None:
+    client = build_client()
+
     receptionist_headers = auth_headers(
         client,
         "Receptionist",
@@ -300,8 +343,7 @@ def test_update_community_and_change_leader() -> None:
     community = client.post(
         "/api/v1/members/communities",
         json={
-            "name": "Old Community Name",
-            "area": "Old Area",
+            "name": "Restricted Community",
         },
         headers=receptionist_headers,
     ).json()
@@ -309,20 +351,46 @@ def test_update_community_and_change_leader() -> None:
     response = client.patch(
         f"/api/v1/members/communities/{community['id']}",
         json={
-            "name": "St. Joseph Community",
-            "area": "Mikocheni",
-            "meeting_day": "Wednesday",
             "leader_member_id": member_id,
         },
         headers=receptionist_headers,
     )
 
+    assert response.status_code == 403
+    
+def test_pastor_can_change_community_leader() -> None:
+    client = build_client()
+
+    receptionist_headers = auth_headers(
+        client,
+        "Receptionist",
+    )
+
+    pastor_headers = auth_headers(
+        client,
+        "Pastor / Leader",
+    )
+
+    member_id = client.get(
+        "/api/v1/members/",
+        headers=receptionist_headers,
+    ).json()["members"][0]["id"]
+
+    community = client.post(
+        "/api/v1/members/communities",
+        json={
+            "name": "Leadership Community",
+        },
+        headers=receptionist_headers,
+    ).json()
+
+    response = client.patch(
+        f"/api/v1/members/communities/{community['id']}",
+        json={
+            "leader_member_id": member_id,
+        },
+        headers=pastor_headers,
+    )
+
     assert response.status_code == 200
-
-    updated = response.json()
-
-    assert updated["name"] == "St. Joseph Community"
-    assert updated["area"] == "Mikocheni"
-    assert updated["meeting_day"] == "Wednesday"
-    assert updated["leader_member_id"] == member_id
-    assert updated["leader_name"] == "Ada Member"
+    assert response.json()["leader_member_id"] == member_id
