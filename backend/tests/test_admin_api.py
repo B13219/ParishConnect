@@ -124,6 +124,10 @@ def test_admin_can_update_branch_settings_and_audit_change() -> None:
             "name": "Grace Parish Main",
             "location": "Dar es Salaam",
             "contact_phone": "+255 700 111 000",
+            "denomination": "Roman Catholic",
+            "default_language":"sw",
+            "timezone": "Africa/Dar_es_Salaam",
+            "community_label":"Small Christian Community",
         },
         headers=headers,
     )
@@ -132,9 +136,14 @@ def test_admin_can_update_branch_settings_and_audit_change() -> None:
     branch = response.json()["branch"]
     assert branch["name"] == "Grace Parish Main"
     assert branch["contact_phone"] == "+255 700 111 000"
+    assert branch["denomination"] == "Roman Catholic"
+    assert branch["default_language"] == "sw"
+    assert branch["timezone"] == "Africa/Dar_es_Salaam"
+    assert branch["community_label"] == "Small Christian Community"
 
     logs = client.get("/api/v1/admin/audit-logs", headers=headers).json()["audit_logs"]
     assert logs[0]["action"] == "admin.branch_updated"
+    
 
 
 def test_admin_can_create_backup_manifest_and_audit_export() -> None:

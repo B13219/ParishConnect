@@ -49,15 +49,58 @@ const navSections = [
   "admin",
 ];
 
-const formatCurrency = (amount, currency = "TZS") =>
-  `${Number(amount || 0).toLocaleString()} ${currency}`;
 
-const formatDateTime = (value) => (value ? new Date(value).toLocaleString() : "Not set");
 
 const labelize = (value) =>
   String(value || "")
     .replaceAll("_", " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const formatCurrency = (amount, currency = "TZS") =>
+  `${Number(amount || 0).toLocaleString()} ${currency}`;
+
+const formatDateTime = (value) => (value ? new Date(value).toLocaleString() : "Not set");
+const communityLabel = () =>
+  state.admin?.branch?.community_label ||
+  state.people?.configuration?.community_label ||
+  "Community Group";
+
+const communityLabelPlural = () => {
+  const label = communityLabel();
+
+  return label.endsWith("y")
+    ? `${label.slice(0, -1)}ies`
+    : `${label}s`;
+};
+
+const renderCommunityTerminology = () => {
+  const label = communityLabel();
+
+  const mappings = {
+    addCommunityLabel: label.toLowerCase(),
+    communityFormTitleLabel: label,
+    communityNameLabel: label,
+    createCommunityLabel: label.toLowerCase(),
+    communityDialogTypeLabel: label,
+    communityPanelTitle: communityLabelPlural(),
+  };
+
+  Object.entries(mappings).forEach(([id, value]) => {
+    const element = document.querySelector(`#${id}`);
+
+    if (element) {
+      element.textContent = value;
+    }
+  });
+
+  const description =
+    document.querySelector("#communityPanelDescription");
+
+  if (description) {
+    description.textContent =
+      `Manage ${communityLabelPlural().toLowerCase()} and their members.`;
+  }
+};
 
 const rolePermissions = {
   administrator: [
@@ -310,6 +353,9 @@ const row = ({ title, subtitle, tag, tone = "", action = "" }) => `
   </div>
 `;
 
+
+
+
 const applyRoleAccess = () => {
   const hasLogin = Boolean(state.auth?.access_token);
   const roles = currentRoles();
@@ -536,9 +582,9 @@ const renderCommunities = () => {
   if (!communities.length) {
     container.innerHTML = `
       <div class="empty-state">
-        <strong>No communities yet</strong>
+        <strong>No ${communityLabelPlural().toLowerCase()} yet</strong>
         <p>
-          Create a community to begin organising members
+          Create a ${communityLabel().toLowerCase()} to begin organising members
           into local pastoral groups.
         </p>
       </div>
@@ -593,7 +639,7 @@ const renderCommunities = () => {
               data-view-community="${community.id}"
               type="button"
             >
-              View community
+              View ${communityLabel()}
             </button>
           </div>
         </div>
@@ -653,7 +699,7 @@ const submitCommunityForm = async (form) => {
 
   try {
     setBusy(true);
-    setStatus("Creating community");
+    setStatus(`Creating ${communityLabel().toLowerCase()}`);
 
     await sendJson(
       "/members/communities",
@@ -666,12 +712,12 @@ const submitCommunityForm = async (form) => {
 
     await loadSection("people");
 
-    setStatus("Community created", "ok");
+    setStatus(`${communityLabel()} created`, "ok");
   } catch (error) {
     console.error(error);
 
     setStatus(
-      error.message || "Community creation failed",
+      error.message || `${communityLabel()} creation failed`,
       "error",
     );
   } finally {
@@ -1452,10 +1498,28 @@ const renderAdmin = () => {
   document.querySelector("#branchName").value = branch.name || "";
   document.querySelector("#branchLocation").value = branch.location || "";
   document.querySelector("#branchPhone").value = branch.contact_phone || "";
-  document.querySelector("#branchSettingsSummary").textContent = branch.id
-    ? `${branch.name} - ${branch.location || "No location"} - ${
-        branch.contact_phone || "No phone"
-      }`
+  document.querySelector("#branchDenomination").value =
+  branch.denomination || "";
+
+document.querySelector("#branchCommunityLabel").value =
+  branch.community_label || "Community Group";
+
+document.querySelector("#branchDefaultLanguage").value =
+  branch.default_language || "en";
+
+document.querySelector("#branchTimezone").value =
+  branch.timezone || "Africa/Dar_es_Salaam";
+  document.querySelector("#branchSettingsSummary").textContent =
+  branch.id
+    ? [
+        branch.name,
+        branch.denomination || "Denomination not set",
+        branch.location || "No location",
+        branch.community_label || "Community Group",
+        (
+          branch.default_language || "en"
+        ).toUpperCase(),
+      ].join(" - ")
     : "No branch settings available.";
   document.querySelector("#backupManifestSummary").textContent = state.backupManifest
     ? `Last manifest: ${formatDateTime(state.backupManifest.generated_at)} - ${
@@ -1522,6 +1586,7 @@ const loadSection = async (section) => {
 
   renderPeople();
   renderCommunities();
+  renderCommunityTerminology();
 }
   if (section === "imports") {
     renderImportPreview();
@@ -2539,12 +2604,26 @@ const submitBranchSettingsForm = async (form) => {
   try {
     setBusy(true);
     setStatus("Saving branch");
-    await sendJson("/admin/branch", "PATCH", formPayload(form));
+
+    await sendJson(
+      "/admin/branch",
+      "PATCH",
+      formPayload(form),
+    );
+
     await loadSection("admin");
+
+    renderCommunityTerminology();
+    renderCommunities();
+
     setStatus("Branch settings saved", "ok");
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Branch save failed", "error");
+
+    setStatus(
+      error.message || "Branch save failed",
+      "error",
+    );
   } finally {
     setBusy(false);
   }
@@ -2758,7 +2837,7 @@ const openMemberProfile = (memberId) => {
     </div>
 
     <div class="profile-section">
-      <h3>Community</h3>
+      <h3>${communityLabel()}</h3>
 
       ${
         communities.length
@@ -2779,7 +2858,7 @@ const openMemberProfile = (memberId) => {
                 `,
               )
               .join("")
-          : `<p>No community assigned.</p>`
+          : `<p>No ${communityLabel().toLowerCase()}assigned.</p>`
       }
     </div>
     <div class="profile-section">
@@ -2842,13 +2921,13 @@ const openMemberProfile = (memberId) => {
   }
 </div>
     <div class="profile-section">
-  <h3>Community assignment</h3>
+  <h3>${communityLabel()}assignment</h3>
 
   <div class="field-row">
     <label>
-      Community
+      ${communityLabel()}
       <select id="memberCommunitySelect">
-        <option value="">Select community</option>
+        <option value="">Select ${communityLabel().toLowerCase()}</option>
       </select>
     </label>
 
@@ -2919,13 +2998,16 @@ document
       document.querySelector("#memberCommunityRole")?.value || "member";
 
     if (!communityId) {
-      setStatus("Select a community first", "error");
+      setStatus(
+  `Select a ${communityLabel().toLowerCase()} first`,
+  "error",
+);
       return;
     }
 
     try {
       setBusy(true);
-      setStatus("Assigning community");
+      setStatus(`Assigning ${communityLabel().toLowerCase()}`);
 
       await sendJson(
         `/members/communities/${communityId}/members`,
@@ -2942,12 +3024,12 @@ document
         .querySelector("#memberProfileDialog")
         ?.close();
 
-      setStatus("Community assigned", "ok");
+      setStatus(`${communityLabel()} assigned`, "ok");
     } catch (error) {
       console.error(error);
 
       setStatus(
-        error.message || "Community assignment failed",
+        error.message || `${communityLabel()} assignment failed`,
         "error",
       );
     } finally {
@@ -3326,7 +3408,7 @@ const openCommunityDialog = (communityId) => {
 
   body.innerHTML = `
     <div class="profile-section">
-      <h3>Community information</h3>
+      <h3>${communityLabel()} information</h3>
 
       <div class="profile-grid">
         <div>
@@ -3357,9 +3439,9 @@ const openCommunityDialog = (communityId) => {
     <div class="profile-section">
   <div class="panel-header">
     <div>
-      <h3>Edit community</h3>
+      <h3>Edit ${communityLabel().toLowerCase()}</h3>
       <p class="muted">
-        Update the community details or leader.
+        Update the ${communityLabel().toLowerCase()} details or leader.
       </p>
     </div>
 
@@ -3553,7 +3635,7 @@ editForm?.addEventListener("submit", async (event) => {
 
   try {
     setBusy(true);
-    setStatus("Updating community");
+    setStatus(`Updating ${communityLabel().toLowerCase()}`);
 
     await sendJson(
       `/members/communities/${community.id}`,
@@ -3567,12 +3649,12 @@ editForm?.addEventListener("submit", async (event) => {
       .querySelector("#communityDialog")
       ?.close();
 
-    setStatus("Community updated", "ok");
+    setStatus(`${communityLabel()} updated`, "ok");
   } catch (error) {
     console.error(error);
 
     setStatus(
-      error.message || "Community update failed",
+      error.message || `${communityLabel()} update failed`,
       "error",
     );
   } finally {
@@ -3620,7 +3702,7 @@ editForm?.addEventListener("submit", async (event) => {
           ?.close();
 
         setStatus(
-          "Member removed from community",
+          `Member removed from ${communityLabel().toLowerCase()}`,
           "ok",
         );
       } catch (error) {
@@ -3628,7 +3710,7 @@ editForm?.addEventListener("submit", async (event) => {
 
         setStatus(
           error.message ||
-            "Could not remove community member",
+          `Could not remove ${communityLabel().toLowerCase()} member`,
           "error",
         );
       } finally {

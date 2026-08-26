@@ -355,20 +355,46 @@ def serialize_community_group(
             for membership in memberships
         ],
     }
-
 @router.get("/")
 def list_members(
     db: Session = Depends(get_db),
     _user=Depends(require_roles("pastor_leader", "receptionist")),
 ) -> dict[str, object]:
-    members = db.scalars(select(Member).order_by(Member.created_at.desc()).limit(20)).all()
-    visitors = db.scalars(select(Visitor).order_by(Visitor.created_at.desc()).limit(20)).all()
+    branch = get_default_branch(db)
+
+    members = db.scalars(
+        select(Member)
+        .order_by(Member.created_at.desc())
+        .limit(20)
+    ).all()
+
+    visitors = db.scalars(
+        select(Visitor)
+        .order_by(Visitor.created_at.desc())
+        .limit(20)
+    ).all()
 
     return {
         "module": "members",
         "status": "demo-data-ready",
-        "members": [serialize_member(member, db) for member in members],
-        "visitors": [serialize_visitor(visitor) for visitor in visitors],
+        "configuration": {
+            "community_label": (
+                branch.community_label
+                or "Community Group"
+            ),
+            "default_language": (
+                branch.default_language
+                or "en"
+            ),
+        },
+        "members": [
+            serialize_member(member, db)
+            for member in members
+        ],
+        "visitors": [
+            serialize_visitor(visitor)
+            for visitor in visitors
+        ],
     }
 
 @router.get("/export.csv")
@@ -698,7 +724,7 @@ def convert_visitor(
             )
         return {"member": serialize_member(member, db), "visitor": serialize_visitor(visitor)}
     
-        possible_match: Member | None = None
+    possible_match: Member | None = None
 
     if visitor.email:
         possible_match = db.scalar(

@@ -15,6 +15,14 @@ class Branch(IdMixin, TimestampMixin, Base):
     location: Mapped[str | None] = mapped_column(String(240))
     contact_phone: Mapped[str | None] = mapped_column(String(40))
 
+    denomination: Mapped[str | None] = mapped_column(String(120))
+    default_language: Mapped[str] = mapped_column(String(10), default="en")
+    timezone: Mapped[str] = mapped_column(String(80), default="Africa/Dar_es_Salaam")
+    community_label: Mapped[str] = mapped_column(
+       String(120),
+       default="Community Group",
+    )
+
     latitude: Mapped[float | None] = mapped_column(Float)
     longitude: Mapped[float | None] = mapped_column(Float)
     attendance_radius_meters: Mapped[int] = mapped_column(Integer, default=100)

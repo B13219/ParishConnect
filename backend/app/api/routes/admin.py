@@ -52,6 +52,10 @@ class BranchUpdate(BaseModel):
     name: str | None = None
     location: str | None = None
     contact_phone: str | None = None
+    denomination: str | None = None
+    default_language: str | None = None
+    timezone: str | None = None
+    community_label: str | None = None
 
 class BranchGeofenceUpdate(BaseModel):
     geofence_enabled: bool
@@ -161,6 +165,10 @@ def serialize_branch(branch: Branch) -> dict[str, object]:
         "geofence_enabled": branch.geofence_enabled,
         "created_at": branch.created_at.isoformat(),
         "updated_at": branch.updated_at.isoformat(),
+        "denomination": branch.denomination,
+        "default_language": branch.default_language,
+        "timezone": branch.timezone,
+        "community_label": branch.community_label, 
     }
 
 def table_counts(db: Session) -> dict[str, int]:

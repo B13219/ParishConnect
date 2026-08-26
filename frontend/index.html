@@ -142,7 +142,7 @@
   id="showCommunityForm"
   type="button"
 >
-  + Add community
+ + Add <span id="addCommunityLabel">community</span>
 </button>
 </div>
 
@@ -390,7 +390,7 @@
   <div class="people-form-header">
     <div>
       <p class="eyebrow">New record</p>
-      <h3>Add Community</h3>
+      <h3>Add <span id="communityFormTitleLabel">Community</span></h3>
     </div>
 
     <button
@@ -404,7 +404,7 @@
 
   <div class="field-row">
     <label>
-      Community name
+      <span id="communityNameLabel">Community</span>name 
       <input
         name="name"
         required
@@ -460,7 +460,7 @@
     class="primary-button"
     type="submit"
   >
-    Create community
+    <span id="createCommunnityLabel">Community</span>
   </button>
 </form>
 
@@ -523,8 +523,8 @@
   <div class="panel-header">
     <div>
       <p class="eyebrow">Pastoral structure</p>
-      <h2>Communities</h2>
-      <p class="muted">
+      <h2 id="communityPanelTitle">Communities</h2>
+      <p class="muted" id="communityPanelDescription">
         Local communities, cells, and fellowship groups.
       </p>
     </div>
@@ -1382,6 +1382,53 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
                   <input name="contact_phone" id="branchPhone">
                 </label>
               </div>
+              <div class="field-row">
+  <label>
+    Denomination
+    <input
+      name="denomination"
+      id="branchDenomination"
+      placeholder="e.g. Roman Catholic, Lutheran, Anglican"
+    >
+  </label>
+
+  <label>
+    Community terminology
+    <input
+      name="community_label"
+      id="branchCommunityLabel"
+      placeholder="e.g. Small Christian Community, Cell Group"
+    >
+  </label>
+</div>
+
+<div class="field-row">
+  <label>
+    Default language
+    <select
+      name="default_language"
+      id="branchDefaultLanguage"
+    >
+      <option value="en">English</option>
+      <option value="sw">Kiswahili</option>
+    </select>
+  </label>
+
+  <label>
+    Timezone
+    <select
+      name="timezone"
+      id="branchTimezone"
+    >
+      <option value="Africa/Dar_es_Salaam">
+        Africa/Dar_es_Salaam
+      </option>
+      <option value="UTC">
+        UTC
+      </option>
+    </select>
+  </label>
+</div>
               <button class="primary-button" type="submit">Save branch settings</button>
             </form>
             <div class="assist-panel">
@@ -1470,7 +1517,7 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
   <div class="dialog-card profile-dialog-card">
     <div class="panel-header">
       <div>
-        <p class="eyebrow">Local community</p>
+        <p class="eyebrow"><span id="communityDialogTypeLabel"> Community</span></p>
         <h2 id="communityDialogName">Community</h2>
       </div>
 
