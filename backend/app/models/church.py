@@ -1,12 +1,24 @@
-from datetime import datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, Numeric, String, Text, Time, DateTime, Date, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    Time,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TimestampMixin, utc_now
-from datetime import datetime, time, date
+
 
 class Branch(IdMixin, TimestampMixin, Base):
     __tablename__ = "branches"
@@ -254,6 +266,40 @@ class Ministry(IdMixin, TimestampMixin, Base):
     branch_id: Mapped[UUID] = mapped_column(ForeignKey("branches.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     leader_member_id: Mapped[UUID | None] = mapped_column(ForeignKey("members.id"))
+
+class MinistryMembership(IdMixin, TimestampMixin, Base):
+    __tablename__ = "ministry_memberships"
+
+    ministry_id: Mapped[UUID] = mapped_column(
+        ForeignKey("ministries.id"),
+        nullable=False,
+    )
+
+    member_id: Mapped[UUID] = mapped_column(
+        ForeignKey("members.id"),
+        nullable=False,
+    )
+
+    role: Mapped[str] = mapped_column(
+        String(40),
+        default="member",
+        nullable=False,
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(40),
+        default="active",
+        nullable=False,
+    )
+
+    joined_at: Mapped[datetime | None]
+    
+    __table_args__=(
+        UniqueConstraint(
+            "ministry_id","member_id",
+            name="uq_ministry_membership_member",
+        ),
+    )
 
 class ServiceTemplate(IdMixin, TimestampMixin, Base):
     __tablename__ = "service_templates"

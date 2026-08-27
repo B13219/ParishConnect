@@ -19,6 +19,8 @@ from app.models import (
     Household,
     HouseholdPerson,
     Member,
+    Ministry,
+    MinistryMembership,
     User,
     Visitor,
 )
@@ -125,6 +127,21 @@ class CommunityGroupUpdate(BaseModel):
     notes: str | None = None
     status: str | None = None
 
+class MinistryCreate(BaseModel):
+    name: str
+    leader_member_id: UUID | None = None
+
+
+class MinistryUpdate(BaseModel):
+    name: str | None = None
+    leader_member_id: UUID | None = None
+
+
+class MinistryMembershipCreate(BaseModel):
+    member_id: UUID
+    role: str = "member"
+    status: str = "active"
+
 def get_default_branch(db: Session) -> Branch:
     branch = db.scalar(select(Branch).order_by(Branch.created_at.asc()))
     if branch is None:
@@ -173,7 +190,36 @@ def serialize_member(
                 ),
             }
         )
-    
+    ministry_memberships = db.scalars(
+       select(MinistryMembership)
+       .where(
+            MinistryMembership.member_id == member.id,
+            MinistryMembership.status == "active",
+        )
+        .order_by(MinistryMembership.created_at.asc())
+    ).all()
+
+    ministries = []
+
+    for membership in ministry_memberships:
+        ministry = db.get(
+           Ministry,
+           membership.ministry_id,
+        )
+
+        if ministry is None:
+           continue
+
+        ministries.append(
+            {
+               "id": str(ministry.id),
+               "name": ministry.name,
+               "role": membership.role,
+               "is_leader": (
+                    ministry.leader_member_id == member.id
+                ),
+            }
+        )
     household_person = db.scalar(
         select(HouseholdPerson)
         .where(
@@ -210,6 +256,7 @@ def serialize_member(
         "preferred_language": member.preferred_language,
         "notes": member.notes,
         "communities": communities,
+        "ministries": ministries,
        "household": (
     {
         "id": str(household.id),
@@ -355,6 +402,69 @@ def serialize_community_group(
             for membership in memberships
         ],
     }
+
+def serialize_ministry_membership(
+    membership: MinistryMembership,
+    db: Session,
+) -> dict[str, object]:
+    member = db.get(Member, membership.member_id)
+
+    return {
+        "id": str(membership.id),
+        "member_id": str(membership.member_id),
+        "member_name": (
+            f"{member.first_name} {member.last_name}"
+            if member
+            else None
+        ),
+        "role": membership.role,
+        "status": membership.status,
+        "joined_at": (
+            membership.joined_at.isoformat()
+            if membership.joined_at
+            else None
+        ),
+    }
+
+
+def serialize_ministry(
+    ministry: Ministry,
+    db: Session,
+) -> dict[str, object]:
+    leader = (
+        db.get(Member, ministry.leader_member_id)
+        if ministry.leader_member_id
+        else None
+    )
+
+    memberships = db.scalars(
+        select(MinistryMembership)
+        .where(
+            MinistryMembership.ministry_id == ministry.id
+        )
+        .order_by(MinistryMembership.created_at.asc())
+    ).all()
+
+    return {
+        "id": str(ministry.id),
+        "name": ministry.name,
+        "leader_member_id": (
+            str(ministry.leader_member_id)
+            if ministry.leader_member_id
+            else None
+        ),
+        "leader_name": (
+            f"{leader.first_name} {leader.last_name}"
+            if leader
+            else None
+        ),
+        "member_count": len(memberships),
+        "members": [
+            serialize_ministry_membership(membership, db)
+            for membership in memberships
+        ],
+    }   
+
 @router.get("/")
 def list_members(
     db: Session = Depends(get_db),
@@ -1033,4 +1143,294 @@ def remove_community_member(
     )
 
     db.delete(membership)
+    db.commit()
+    
+@router.get("/ministries")
+def list_ministries(
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "receptionist")),
+) -> dict[str, object]:
+    ministries = db.scalars(
+        select(Ministry)
+        .order_by(Ministry.created_at.desc())
+    ).all()
+
+    return {
+        "ministries": [
+            serialize_ministry(ministry, db)
+            for ministry in ministries
+        ]
+    }
+
+
+@router.post("/ministries", status_code=status.HTTP_201_CREATED)
+def create_ministry(
+    payload: MinistryCreate,
+    db: Session = Depends(get_db),
+    actor: User = Depends(
+        require_roles("pastor_leader", "receptionist")
+    ),
+) -> dict[str, object]:
+    branch = get_default_branch(db)
+
+    if payload.leader_member_id:
+        leader = db.get(Member, payload.leader_member_id)
+
+        if leader is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Leader member not found.",
+            )
+
+    ministry = Ministry(
+        branch_id=branch.id,
+        name=payload.name,
+        leader_member_id=payload.leader_member_id,
+    )
+
+    db.add(ministry)
+    db.flush()
+
+    write_audit_log(
+        db,
+        actor=actor,
+        action="people.ministry_created",
+        entity_type="ministry",
+        entity_id=ministry.id,
+        metadata={"name": ministry.name},
+    )
+
+    db.commit()
+    db.refresh(ministry)
+
+    return serialize_ministry(ministry, db)
+
+
+@router.patch("/ministries/{ministry_id}")
+def update_ministry(
+    ministry_id: UUID,
+    payload: MinistryUpdate,
+    db: Session = Depends(get_db),
+    actor: User = Depends(
+        require_roles("pastor_leader", "receptionist")
+    ),
+) -> dict[str, object]:
+    ministry = db.get(Ministry, ministry_id)
+
+    if ministry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ministry not found.",
+        )
+
+    updates = payload.model_dump(exclude_unset=True)
+
+    if "leader_member_id" in updates:
+        leader_id = updates["leader_member_id"]
+
+        if leader_id is not None:
+            leader = db.get(Member, leader_id)
+
+            if leader is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Leader member not found.",
+                )
+
+        actor_roles = user_roles(db, actor.id)
+
+        if "pastor_leader" not in actor_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Only a pastor or leader can change "
+                    "ministry leadership."
+                ),
+            )
+            
+        actor_roles = user_roles(db, actor.id)
+        
+        if "pastor_leader" not in actor_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Only a pastor or leader can change"
+                    "ministry leadership."
+                ),
+            )
+            
+        old_leader_id = ministry.leader_member_id
+        
+        if(
+            old_leader_id is not None and old_leader_id != leader_id
+        ):
+            old_membership = db.scalar(
+                select(MinistryMembership).where(
+                    MinistryMembership.ministry_id == ministry.id,
+                    MinistryMembership.member_id == old_leader_id,
+                )
+            )
+            if(
+                old_membership is not None 
+                and old_membership.role == "leader"
+            ):
+                old_membership.role = "member"    
+            
+        if leader_id is not None:
+            existing_membership = db.scalar(
+                select(MinistryMembership).where(
+                    MinistryMembership.ministry_id == ministry.id,
+                    MinistryMembership.member_id == leader_id,
+                )
+            )
+            if existing_membership is None:
+                db.add(
+                    MinistryMembership(
+                        ministry_id=ministry.id,
+                        member_id = leader_id,
+                        role="leader",
+                        status="active",
+                        joined_at=utc_now(),
+                    )
+                )
+            else:
+                existing_membership.role = "leader"
+                existing_membership.status = "active" 
+                   
+    for field, value in updates.items():
+        setattr(ministry, field, value)
+
+    write_audit_log(
+        db,
+        actor=actor,
+        action="people.ministry_updated",
+        entity_type="ministry",
+        entity_id=ministry.id,
+        metadata={
+            "name": ministry.name,
+            "leader_member_id": (
+                str(ministry.leader_member_id)
+                if ministry.leader_member_id
+                else None
+            ),
+        },
+    )
+
+    db.commit()
+    db.refresh(ministry)
+
+    return serialize_ministry(ministry, db)
+
+@router.post(
+    "/ministries/{ministry_id}/members",
+    status_code=status.HTTP_201_CREATED,
+)
+def add_ministry_member(
+    ministry_id: UUID,
+    payload: MinistryMembershipCreate,
+    db: Session = Depends(get_db),
+    actor: User = Depends(
+        require_roles("pastor_leader", "receptionist")
+    ),
+) -> dict[str, object]:
+    ministry = db.get(Ministry, ministry_id)
+
+    if ministry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ministry not found.",
+        )
+
+    member = db.get(Member, payload.member_id)
+
+    if member is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Member not found.",
+        )
+
+    existing = db.scalar(
+        select(MinistryMembership).where(
+            MinistryMembership.ministry_id == ministry_id,
+            MinistryMembership.member_id == payload.member_id,
+        )
+    )
+
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Member already belongs to this ministry.",
+        )
+
+    membership = MinistryMembership(
+        ministry_id=ministry_id,
+        member_id=payload.member_id,
+        role=payload.role,
+        status=payload.status,
+        joined_at=utc_now(),
+    )
+
+    db.add(membership)
+    db.flush()
+
+    write_audit_log(
+        db,
+        actor=actor,
+        action="people.ministry_member_added",
+        entity_type="ministry_membership",
+        entity_id=membership.id,
+        metadata={
+            "ministry_id": str(ministry_id),
+            "member_id": str(payload.member_id),
+            "role": payload.role,
+        },
+    )
+
+    db.commit()
+    db.refresh(membership)
+
+    return serialize_ministry_membership(membership, db)
+
+
+@router.delete(
+    "/ministries/{ministry_id}/members/{member_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def remove_ministry_member(
+    ministry_id: UUID,
+    member_id: UUID,
+    db: Session = Depends(get_db),
+    actor: User = Depends(
+        require_roles("pastor_leader", "receptionist")
+    ),
+) -> None:
+    membership = db.scalar(
+        select(MinistryMembership).where(
+            MinistryMembership.ministry_id == ministry_id,
+            MinistryMembership.member_id == member_id,
+        )
+    )
+
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ministry membership not found.",
+        )
+
+    membership_id = membership.id
+
+    db.delete(membership)
+
+    write_audit_log(
+        db,
+        actor=actor,
+        action="people.ministry_member_removed",
+        entity_type="ministry_membership",
+        entity_id=membership_id,
+        metadata={
+            "ministry_id": str(ministry_id),
+            "member_id": str(member_id),
+        },
+    )
+
     db.commit()

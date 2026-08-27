@@ -4,6 +4,7 @@ const state = {
   auth: JSON.parse(localStorage.getItem("parishconnect_auth") || "null"),
   people: null,
   communities: null,
+  ministries: null,
   attendance: null,
   serviceTemplates: null,
   geofence: null,
@@ -73,6 +74,62 @@ const communityLabelPlural = () => {
     : `${label}s`;
 };
 
+const renderEventMinistryOptions = () => {
+  const select =
+    document.querySelector("#eventMinistrySelect");
+
+  if (!select) {
+    return;
+  }
+
+  const ministries =
+    state.ministries?.ministries || [];
+
+  select.innerHTML =
+    '<option value="">Select ministry</option>' +
+    ministries
+      .map(
+        (ministry) =>
+          `<option value="${ministry.id}">${ministry.name}</option>`,
+      )
+      .join("");
+};
+
+
+const updateEventMinistryField = () => {
+  const form = document.querySelector("#eventForm");
+
+  if (!form) {
+    return;
+  }
+
+  const typeSelect =
+    form.elements.event_type;
+
+  const ministryField =
+    document.querySelector("#eventMinistryField");
+
+  const ministrySelect =
+    document.querySelector("#eventMinistrySelect");
+
+  if (!typeSelect || !ministryField) {
+    return;
+  }
+
+  const isMinistry =
+    typeSelect.value === "ministry";
+
+  ministryField.hidden = !isMinistry;
+
+  if (!isMinistry && ministrySelect) {
+    ministrySelect.value = "";
+  }
+
+  if (isMinistry) {
+    renderEventMinistryOptions();
+  }
+};
+
 const renderCommunityTerminology = () => {
   const label = communityLabel();
 
@@ -114,7 +171,7 @@ const rolePermissions = {
     "settings",
     "admin",
   ],
-  pastor_leader: ["people", "messages", "stewardship", "reports","settings"],
+  pastor_leader: ["people", "attendance", "messages", "stewardship", "reports","settings"],
   accountant: ["stewardship", "reports"],
   receptionist: ["people", "imports", "attendance", "households"],
   usher: ["attendance"],
@@ -655,6 +712,71 @@ const renderCommunities = () => {
       });
     });
 };
+const renderMinistries = () => {
+  const container = document.querySelector("#ministryList");
+
+  if (!container) {
+    return;
+  }
+
+  const ministries = state.ministries?.ministries || [];
+  
+  if (!ministries.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <strong>No ministries yet</strong>
+        <p>
+          Create a ministry to organise service teams and groups.
+        </p>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = ministries
+    .map(
+      (ministry) => `
+        <div class="community-card">
+          <div class="community-card-main">
+            <div>
+              <div class="community-card-title">
+                <strong>${ministry.name}</strong>
+              </div>
+
+              <p class="muted">
+                Leader:
+                ${ministry.leader_name || "Not assigned"}
+              </p>
+            </div>
+
+            <div class="community-card-stats">
+              <strong>${ministry.member_count || 0}</strong>
+              <span>Members</span>
+            </div>
+          </div>
+
+          <div class="community-card-footer">
+            <button
+              class="mini-button"
+              data-view-ministry="${ministry.id}"
+              type="button"
+            >
+              View ministry
+            </button>
+          </div>
+        </div>
+      `,
+    )
+    .join("");
+
+  document
+    .querySelectorAll("[data-view-ministry]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        openMinistryDialog(button.dataset.viewMinistry);
+      });
+    });
+};
 const showCommunityForm = () => {
   const communityForm =
     document.querySelector("#communityForm");
@@ -724,7 +846,79 @@ const submitCommunityForm = async (form) => {
     setBusy(false);
   }
 };
+const renderMinistryLeaderOptions = () => {
+  const select =
+    document.querySelector("#ministryLeaderSelect");
 
+  if (!select) {
+    return;
+  }
+
+  const members = state.people?.members || [];
+
+  select.innerHTML =
+    '<option value="">No leader yet</option>' +
+    members
+      .filter((member) => member.status === "active")
+      .map(
+        (member) =>
+          `<option value="${member.id}">${member.name}</option>`,
+      )
+      .join("");
+};
+
+const showMinistryForm = () => {
+  const form = document.querySelector("#ministryForm");
+
+  if (!form) {
+    return;
+  }
+
+  form.hidden = false;
+  renderMinistryLeaderOptions();
+
+  form.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+};
+
+const hideMinistryForm = () => {
+  const form = document.querySelector("#ministryForm");
+
+  if (form) {
+    form.hidden = true;
+  }
+};
+
+const submitMinistryForm = async (form) => {
+  try {
+    setBusy(true);
+    setStatus("Creating ministry");
+
+    await sendJson(
+      "/members/ministries",
+      "POST",
+      formPayload(form),
+    );
+
+    form.reset();
+    form.hidden = true;
+
+    await loadSection("people");
+
+    setStatus("Ministry created", "ok");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Ministry creation failed",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
 const renderImportPreview = () => {
   const preview = state.importPreview;
   const rows = preview?.rows || [];
@@ -868,7 +1062,18 @@ toggleButton.textContent = attendanceOpen
       )
       .join("") || emptyState("No check-ins for today's service yet.");
 };
+const ministryNameForEvent = (event) => {
+  if (!event.ministry_id) {
+    return null;
+  }
 
+  return (
+    state.ministries?.ministries || []
+  ).find(
+    (ministry) =>
+      ministry.id === event.ministry_id,
+  )?.name || "Unknown ministry";
+};
 const renderAttendance = () => {
   const events = state.attendance?.events || [];
   const recentCheckIns = state.attendance?.recent_check_ins || [];
@@ -937,45 +1142,51 @@ document.querySelector("#serviceTemplateList").innerHTML =
     });
   });
  
-    document.querySelector("#eventList").innerHTML =
-    events
-      .map((event) =>
-    row({
-  title: event.name,
-  subtitle: `${formatDateTime(event.starts_at)} - ${
-    event.location || "No location"
-  } - QR ${event.qr_active ? "open" : "closed"}`,
-  tag: `${event.check_ins || 0} check-ins`,
-  tone: event.qr_active ? "green" : "",
-  action: `
-    <button
-      class="mini-button"
-      data-event-qr="${event.id}"
-      type="button"
-    >
-      QR
-    </button>
+  document.querySelector("#eventList").innerHTML =
+  events
+    .map((event) =>
+      row({
+        title: event.name,
+        subtitle: [
+          formatDateTime(event.starts_at),
+          event.ministry_id
+            ? ministryNameForEvent(event)
+            : null,
+          event.location || "No location",
+          `QR ${event.qr_active ? "open" : "closed"}`,
+        ]
+          .filter(Boolean)
+          .join(" - "),
+        tag: `${event.check_ins || 0} check-ins`,
+        tone: event.qr_active ? "green" : "",
+        action: `
+          <button
+            class="mini-button"
+            data-event-qr="${event.id}"
+            type="button"
+          >
+            QR
+          </button>
 
-    <button
-      class="mini-button"
-      data-event-edit="${event.id}"
-      type="button"
-    >
-      Edit
-    </button>
+          <button
+            class="mini-button"
+            data-event-edit="${event.id}"
+            type="button"
+          >
+            Edit
+          </button>
 
-    <button
-      class="mini-button"
-      data-event-delete="${event.id}"
-      type="button"
-    >
-      Delete
-    </button>
-  `,
-})
-      )
-      .join("") || emptyState("No upcoming events found.");
-  document.querySelector("#checkInList").innerHTML =
+          <button
+            class="mini-button"
+            data-event-delete="${event.id}"
+            type="button"
+          >
+            Delete
+          </button>
+        `,
+      }),
+    )
+    .join("") || emptyState("No upcoming events found.");  document.querySelector("#checkInList").innerHTML =
     recentCheckIns
       .map((checkIn) =>
         row({
@@ -1576,10 +1787,20 @@ const deleteServiceTemplate = async (templateId) => {
 
 const loadSection = async (section) => {
   if (section === "people") {
-  const [people, communities] = await Promise.all([
-    fetchJson("/members/"),
-    fetchJson("/members/communities"),
-  ]);
+  const [people, communities, ministries] = await Promise.all([
+  fetchJson("/members/"),
+  fetchJson("/members/communities"),
+  fetchJson("/members/ministries"),
+]);
+
+state.people = people;
+state.communities = communities;
+state.ministries = ministries;
+
+renderCommunityTerminology();
+renderPeople();
+renderCommunities();
+renderMinistries();
 
   state.people = people;
   state.communities = communities;
@@ -1591,17 +1812,21 @@ const loadSection = async (section) => {
   if (section === "imports") {
     renderImportPreview();
   }
-  if (section === "attendance") {
-  const [attendance, serviceTemplates] = await Promise.all([
+ if (section === "attendance") {
+  const [attendance, serviceTemplates, ministries] = await Promise.all([
     fetchJson("/attendance/"),
     fetchJson("/attendance/service-templates"),
+    fetchJson("/members/ministries"),
   ]);
 
   state.attendance = attendance;
   state.serviceTemplates = serviceTemplates;
+  state.ministries = ministries;
 
+  renderEventMinistryOptions();
+  updateEventMinistryField();
   renderAttendance();
-  }
+}
   if (section === "households") {
     state.households = await fetchJson("/members/households");
     renderHouseholds();
@@ -1980,7 +2205,13 @@ const openEventEditForm = (eventId) => {
   form.elements.event_id.value = event.id;
   form.elements.name.value = event.name || "";
   form.elements.event_type.value = event.type || "service";
- form.elements.starts_at.value =
+  updateEventMinistryField();
+
+if (form.elements.ministry_id) {
+  form.elements.ministry_id.value =
+    event.ministry_id || "";
+} 
+  form.elements.starts_at.value =
   isoToLocalInput(event.starts_at);
 
 form.elements.ends_at.value =
@@ -2017,6 +2248,11 @@ const clearEventForm = () => {
 
   form.reset();
   form.elements.event_id.value = "";
+  if (form.elements.ministry_id) {
+  form.elements.ministry_id.value = "";
+}
+
+updateEventMinistryField();
   form.elements.qr_rotation_seconds.value = 60;
 
   document.querySelector("#eventFormTitle").textContent =
@@ -2203,6 +2439,19 @@ const openServiceTemplateEditForm = (templateId) => {
 
 const submitEventForm = async (form) => {
   const payload = eventPayload(form);
+  if (
+  payload.event_type !== "ministry" ||
+  !payload.ministry_id
+) {
+  payload.ministry_id = null;
+}
+if (
+  payload.event_type === "ministry" &&
+  !payload.ministry_id
+) {
+  setStatus("Select a ministry for this event", "error");
+  return;
+}
   const eventId = payload.event_id;
 
   delete payload.event_id;
@@ -2861,6 +3110,39 @@ const openMemberProfile = (memberId) => {
           : `<p>No ${communityLabel().toLowerCase()}assigned.</p>`
       }
     </div>
+    <div class="profile-section">
+  <h3>Ministries</h3>
+
+  ${
+    member.ministries?.length
+      ? `
+        <div class="profile-grid">
+          ${member.ministries
+            .map(
+              (ministry) => `
+                <div>
+                  <span>${ministry.name}</span>
+
+                  <strong>
+                    ${
+                      ministry.is_leader
+                        ? "Leader"
+                        : labelize(ministry.role || "member")
+                    }
+                  </strong>
+                </div>
+              `,
+            )
+            .join("")}
+        </div>
+      `
+      : `
+        <p class="muted">
+          No ministry memberships.
+        </p>
+      `
+  }
+</div>
     <div class="profile-section">
   <h3>Household</h3>
 
@@ -3742,7 +4024,465 @@ const renderCommunityLeaderOptions = () => {
       )
       .join("");
 };
+const openMinistryDialog =  async (ministryId) => {
+  const ministry = (state.ministries?.ministries || []).find(
+    (item) => item.id === ministryId,
+  );
+  if (!state.attendance) {
+  try {
+    state.attendance = await fetchJson("/attendance/");
+  } catch (error) {
+    console.warn(
+      "Could not load ministry attendance history",
+      error,
+    );
+  }
+}
+  if (!ministry) {
+    setStatus("Ministry not found", "error");
+    return;
+  }
 
+  const dialog = document.querySelector("#ministryDialog");
+  const body = document.querySelector("#ministryDialogBody");
+
+  if (!dialog || !body) {
+    return;
+  }
+
+  document.querySelector("#ministryDialogName").textContent =
+    ministry.name;
+
+  const members = ministry.members || [];
+ 
+  const ministryEvents = (state.attendance?.events || [])
+  .filter(
+    (event) => event.ministry_id === ministry.id,
+  )
+  .sort(
+    (a, b) =>
+      new Date(a.starts_at).getTime() -
+      new Date(b.starts_at).getTime(),
+  );
+
+const now = new Date();
+
+const upcomingEvents = ministryEvents.filter(
+  (event) => new Date(event.starts_at) >= now,
+);
+
+const pastEvents = ministryEvents
+  .filter(
+    (event) => new Date(event.starts_at) < now,
+  )
+  .reverse();
+
+  body.innerHTML = `
+    <div class="profile-section">
+      <h3>Ministry information</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Leader</span>
+          <strong>
+            ${ministry.leader_name || "Not assigned"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Members</span>
+          <strong>${ministry.member_count || 0}</strong>
+        </div>
+      </div>
+    </div>
+    <div class="profile-section">
+  <h3>Edit ministry</h3>
+
+  <div class="field-row">
+    <label>
+      Ministry name
+      <input
+        id="ministryEditName"
+        value="${ministry.name || ""}"
+      >
+    </label>
+
+    <label>
+      Leader
+      <select id="ministryEditLeader">
+        <option value="">No leader assigned</option>
+      </select>
+    </label>
+  </div>
+
+  <button
+    class="primary-button"
+    id="saveMinistryChanges"
+    type="button"
+  >
+    Save ministry changes
+  </button>
+</div>
+    <div class="profile-section">
+      <h3>Add member</h3>
+
+      <div class="field-row">
+        <label>
+          Member
+          <select id="ministryMemberSelect">
+            <option value="">Select member</option>
+          </select>
+        </label>
+
+        <label>
+          Role
+          <input
+            id="ministryMemberRole"
+            value="member"
+            placeholder="e.g. singer, usher"
+          >
+        </label>
+      </div>
+
+      <button
+        class="primary-button"
+        id="addMinistryMember"
+        type="button"
+      >
+        Add member
+      </button>
+    </div>
+
+    <div class="profile-section">
+  <h3>Upcoming ministry events</h3>
+
+  ${
+    upcomingEvents.length
+      ? upcomingEvents
+          .map(
+            (event) => `
+              <div class="community-member-row">
+                <div>
+                  <strong>${event.name}</strong>
+                  <span>
+                    ${formatDateTime(event.starts_at)}
+                    ${
+                      event.location
+                        ? ` · ${event.location}`
+                        : ""
+                    }
+                  </span>
+                </div>
+
+                <div class="row-actions">
+                  <span class="tag ${
+                    event.attendance_status === "open"
+                      ? "green"
+                      : "muted"
+                  }">
+                    ${labelize(
+                      event.attendance_status || "scheduled",
+                    )}
+                  </span>
+
+                  <span class="tag">
+                    ${event.check_ins || 0} check-ins
+                  </span>
+                </div>
+              </div>
+            `,
+          )
+          .join("")
+      : `
+          <p class="muted">
+            No upcoming ministry events.
+          </p>
+        `
+  }
+</div>
+
+<div class="profile-section">
+  <h3>Past ministry activity</h3>
+
+  ${
+    pastEvents.length
+      ? pastEvents
+          .slice(0, 10)
+          .map(
+            (event) => `
+              <div class="community-member-row">
+                <div>
+                  <strong>${event.name}</strong>
+                  <span>
+                    ${formatDateTime(event.starts_at)}
+                    ${
+                      event.location
+                        ? ` · ${event.location}`
+                        : ""
+                    }
+                  </span>
+                </div>
+
+                <div class="row-actions">
+                  <span class="tag">
+                    ${event.check_ins || 0} attended
+                  </span>
+                </div>
+              </div>
+            `,
+          )
+          .join("")
+      : `
+          <p class="muted">
+            No past ministry activity yet.
+          </p>
+        `
+  }
+</div>
+
+    <div class="profile-section">
+      <h3>Ministry members</h3>
+
+      <div class="community-member-list">
+        ${
+          members.length
+            ? members
+                .map(
+                  (membership) => `
+                    <div class="community-member-row">
+                      <div>
+                        <strong>
+                          ${membership.member_name || "Unknown member"}
+                        </strong>
+
+                        <p class="muted">
+                          ${labelize(membership.role || "member")}
+                        </p>
+                      </div>
+
+                      <button
+                        class="mini-button"
+                        data-remove-ministry-member="${membership.member_id}"
+                        data-ministry-id="${ministry.id}"
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  `,
+                )
+                .join("")
+            : `<p class="muted">No members assigned yet.</p>`
+        }
+      </div>
+    </div>
+  `;
+  const leaderSelect =
+  document.querySelector("#ministryEditLeader");
+
+if (leaderSelect) {
+  leaderSelect.innerHTML =
+    '<option value="">No leader assigned</option>' +
+    (state.people?.members || [])
+      .filter((member) => member.status === "active")
+      .map(
+        (member) => `
+          <option
+            value="${member.id}"
+            ${
+              member.id === ministry.leader_member_id
+                ? "selected"
+                : ""
+            }
+          >
+            ${member.name}
+          </option>
+        `,
+      )
+      .join("");
+}
+document
+  .querySelector("#saveMinistryChanges")
+  ?.addEventListener("click", async () => {
+    const name =
+      document.querySelector("#ministryEditName")?.value.trim();
+
+    const leaderMemberId =
+      document.querySelector("#ministryEditLeader")?.value || null;
+
+    if (!name) {
+      setStatus("Ministry name is required", "error");
+      return;
+    }
+
+    try {
+      setBusy(true);
+      setStatus("Updating ministry");
+
+      await sendJson(
+        `/members/ministries/${ministry.id}`,
+        "PATCH",
+        {
+          name,
+          leader_member_id: leaderMemberId,
+        },
+      );
+
+      await loadSection("people");
+
+      const refreshed = (
+        state.ministries?.ministries || []
+      ).find((item) => item.id === ministry.id);
+
+      if (refreshed) {
+        openMinistryDialog(refreshed.id);
+      }
+
+      setStatus("Ministry updated", "ok");
+    } catch (error) {
+      console.error(error);
+
+      setStatus(
+        error.message || "Ministry update failed",
+        "error",
+      );
+    } finally {
+      setBusy(false);
+    }
+  });
+  const memberSelect =
+    document.querySelector("#ministryMemberSelect");
+
+  const existingMemberIds = new Set(
+    members.map((membership) => membership.member_id),
+  );
+
+  if (memberSelect) {
+    memberSelect.innerHTML =
+      '<option value="">Select member</option>' +
+      (state.people?.members || [])
+        .filter(
+          (member) =>
+            member.status === "active" &&
+            !existingMemberIds.has(member.id),
+        )
+        .map(
+          (member) =>
+            `<option value="${member.id}">${member.name}</option>`,
+        )
+        .join("");
+  }
+
+  document
+    .querySelector("#addMinistryMember")
+    ?.addEventListener("click", async () => {
+      const memberId =
+        document.querySelector("#ministryMemberSelect")?.value;
+
+      const role =
+        document.querySelector("#ministryMemberRole")?.value.trim() ||
+        "member";
+
+      if (!memberId) {
+        setStatus("Select a member first", "error");
+        return;
+      }
+
+      try {
+        setBusy(true);
+        setStatus("Adding ministry member");
+
+        await sendJson(
+          `/members/ministries/${ministry.id}/members`,
+          "POST",
+          {
+            member_id: memberId,
+            role,
+          },
+        );
+
+        await loadSection("people");
+
+        const refreshed = (
+          state.ministries?.ministries || []
+        ).find((item) => item.id === ministry.id);
+
+        if (refreshed) {
+          openMinistryDialog(refreshed.id);
+        }
+
+        setStatus("Ministry member added", "ok");
+      } catch (error) {
+        console.error(error);
+
+        setStatus(
+          error.message || "Could not add ministry member",
+          "error",
+        );
+      } finally {
+        setBusy(false);
+      }
+    });
+
+  document
+    .querySelectorAll("[data-remove-ministry-member]")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        const memberId =
+          button.dataset.removeMinistryMember;
+
+        const ministryId =
+          button.dataset.ministryId;
+
+        const membership = members.find(
+          (item) => item.member_id === memberId,
+        );
+
+        const confirmed = window.confirm(
+          `Remove ${
+            membership?.member_name || "this member"
+          } from ${ministry.name}?`,
+        );
+
+        if (!confirmed) {
+          return;
+        }
+
+        try {
+          setBusy(true);
+          setStatus("Removing ministry member");
+
+          await sendJson(
+            `/members/ministries/${ministryId}/members/${memberId}`,
+            "DELETE",
+          );
+
+          await loadSection("people");
+
+          const refreshed = (
+            state.ministries?.ministries || []
+          ).find((item) => item.id === ministryId);
+
+          if (refreshed) {
+            openMinistryDialog(refreshed.id);
+          }
+
+          setStatus("Ministry member removed", "ok");
+        } catch (error) {
+          console.error(error);
+
+          setStatus(
+            error.message || "Could not remove ministry member",
+            "error",
+          );
+        } finally {
+          setBusy(false);
+        }
+      });
+    });
+
+  dialog.showModal();
+};
 const showPeopleForm = (type) => {
   const memberForm = document.querySelector("#memberForm");
   const visitorForm = document.querySelector("#visitorForm");
@@ -4146,3 +4886,40 @@ document
       .querySelector("#visitorProfileDialog")
       ?.close();
   });
+document
+  .querySelector("#showMinistryForm")
+  ?.addEventListener("click", showMinistryForm);
+
+document
+  .querySelector("#hideMinistryForm")
+  ?.addEventListener("click", hideMinistryForm);
+
+document
+  .querySelector("#ministryForm")
+  ?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitMinistryForm(event.currentTarget);
+  });
+
+document
+  .querySelector("#refreshMinistries")
+  ?.addEventListener("click", async () => {
+    state.ministries =
+      await fetchJson("/members/ministries");
+
+    renderMinistries();
+    setStatus("Ministries refreshed", "ok");
+  });
+
+document
+  .querySelector("#closeMinistryDialog")
+  ?.addEventListener("click", () => {
+    document.querySelector("#ministryDialog")?.close();
+  });
+document
+  .querySelector("#eventForm")
+  ?.elements.event_type
+  ?.addEventListener(
+    "change",
+    updateEventMinistryField,
+  );

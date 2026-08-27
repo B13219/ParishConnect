@@ -134,11 +134,15 @@ def create_contribution_acknowledgement(
         if contribution.member_id:
             recipient_member = db.get(Member, contribution.member_id)
 
-    elif contribution.contributor_scope == "household":
-        if contribution.household_id:
-            household = db.get(Household, contribution.household_id)
-
-            if household and household.primary_member_id:
+    elif (
+    contribution.contributor_scope == "household"
+    and contribution.household_id
+    ):
+        household = db.get(
+           Household,
+             contribution.household_id,
+        )
+        if household and household.primary_member_id:
                 recipient_member = db.get(
                     Member,
                     household.primary_member_id,
@@ -284,110 +288,3 @@ def create_contribution(
     db.refresh(contribution)
 
     return serialize_contribution(contribution, db)
-
-def test_individual_contribution_creates_acknowledgement() -> None:
-    client = build_client()
-    accountant_headers = auth_headers(client, "Accountant")
-    receptionist_headers = auth_headers(client, "Receptionist")
-    pastor_headers = auth_headers(client, "Pastor / Leader")
-
-    member_id = client.get(
-        "/api/v1/members/",
-        headers=receptionist_headers,
-    ).json()["members"][0]["id"]
-
-    response = client.post(
-        "/api/v1/stewardship/contributions",
-        json={
-            "contributor_scope": "individual",
-            "member_id": member_id,
-            "contribution_type": "tithe",
-            "amount": "25000.00",
-            "currency": "TZS",
-            "reference_code": "ACK-001",
-        },
-        headers=accountant_headers,
-    )
-
-    assert response.status_code == 201
-
-    messages = client.get(
-        "/api/v1/messages/",
-        headers=pastor_headers,
-    ).json()["messages"]
-
-    acknowledgement = next(
-        message
-        for message in messages
-        if message["audience_type"] == "contribution_acknowledgement"
-    )
-
-    assert acknowledgement["status"] == "sent"
-    assert acknowledgement["channel"] == "sms"
-    assert "25000.00" in acknowledgement["body"]
-    assert "ACK-001" in acknowledgement["body"]
-
-    recipients = client.get(
-        f"/api/v1/messages/{acknowledgement['id']}/recipients",
-        headers=pastor_headers,
-    ).json()["recipients"]
-
-    assert len(recipients) == 1
-    assert recipients[0]["member_id"] == member_id
-    
-def test_household_contribution_acknowledges_primary_member() -> None:
-    client = build_client()
-    accountant_headers = auth_headers(client, "Accountant")
-    receptionist_headers = auth_headers(client, "Receptionist")
-    pastor_headers = auth_headers(client, "Pastor / Leader")
-
-    member_id = client.get(
-        "/api/v1/members/",
-        headers=receptionist_headers,
-    ).json()["members"][0]["id"]
-
-    household_response = client.post(
-        "/api/v1/members/households",
-        json={
-            "name": "Ada Household",
-            "primary_member_id": member_id,
-        },
-        headers=receptionist_headers,
-    )
-
-    assert household_response.status_code == 201
-    household_id = household_response.json()["id"]
-
-    response = client.post(
-        "/api/v1/stewardship/contributions",
-        json={
-            "contributor_scope": "household",
-            "household_id": household_id,
-            "contribution_type": "offering",
-            "amount": "50000.00",
-            "currency": "TZS",
-            "reference_code": "HOUSE-001",
-        },
-        headers=accountant_headers,
-    )
-
-    assert response.status_code == 201
-
-    messages = client.get(
-        "/api/v1/messages/",
-        headers=pastor_headers,
-    ).json()["messages"]
-
-    acknowledgement = next(
-        message
-        for message in messages
-        if message["audience_type"] == "contribution_acknowledgement"
-    )
-
-    recipients = client.get(
-        f"/api/v1/messages/{acknowledgement['id']}/recipients",
-        headers=pastor_headers,
-    ).json()["recipients"]
-
-    assert len(recipients) == 1
-    assert recipients[0]["member_id"] == member_id

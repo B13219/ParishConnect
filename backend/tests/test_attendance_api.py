@@ -932,3 +932,105 @@ def test_close_event_attendance_is_idempotent() -> None:
         second.json()["attendance_closed_at"]
         == first.json()["attendance_closed_at"]
     ) 
+
+def test_create_ministry_event() -> None:
+    client = build_client()
+
+    pastor_headers = auth_headers(
+        client,
+        "Pastor / Leader",
+    )
+
+    ministry = client.post(
+        "/api/v1/members/ministries",
+        json={"name": "Parish Choir"},
+        headers=pastor_headers,
+    )
+
+    assert ministry.status_code == 201
+
+    ministry_id = ministry.json()["id"]
+
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={
+            "name": "Choir Practice",
+            "event_type": "ministry",
+            "ministry_id": ministry_id,
+            "location": "Choir Room",
+        },
+        headers=pastor_headers,
+    )
+
+    assert event.status_code == 201
+
+    body = event.json()
+
+    assert body["name"] == "Choir Practice"
+    assert body["type"] == "ministry"
+    assert body["ministry_id"] == ministry_id
+    
+def test_update_event_ministry() -> None:
+    client = build_client()
+
+    pastor_headers = auth_headers(
+        client,
+        "Pastor / Leader",
+    )
+
+    first_ministry = client.post(
+        "/api/v1/members/ministries",
+        json={"name": "Choir"},
+        headers=pastor_headers,
+    ).json()
+
+    second_ministry = client.post(
+        "/api/v1/members/ministries",
+        json={"name": "Youth Ministry"},
+        headers=pastor_headers,
+    ).json()
+
+    event = client.post(
+        "/api/v1/attendance/events",
+        json={
+            "name": "Ministry Meeting",
+            "event_type": "ministry",
+            "ministry_id": first_ministry["id"],
+        },
+        headers=pastor_headers,
+    ).json()
+
+    response = client.patch(
+        f"/api/v1/attendance/events/{event['id']}",
+        json={
+            "ministry_id": second_ministry["id"],
+        },
+        headers=pastor_headers,
+    )
+
+    assert response.status_code == 200
+    assert (
+        response.json()["ministry_id"]
+        == second_ministry["id"]
+    )
+    
+def test_create_event_rejects_missing_ministry() -> None:
+    client = build_client()
+
+    pastor_headers = auth_headers(
+        client,
+        "Pastor / Leader",
+    )
+
+    response = client.post(
+        "/api/v1/attendance/events",
+        json={
+            "name": "Invalid Ministry Meeting",
+            "event_type": "ministry",
+            "ministry_id": "00000000-0000-0000-0000-000000000001",
+        },
+        headers=pastor_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Ministry not found."

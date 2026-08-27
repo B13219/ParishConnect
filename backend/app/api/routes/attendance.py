@@ -1,7 +1,7 @@
 import base64
 import hashlib
 import hmac
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -9,13 +9,23 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.settings import settings
 from app.core.security import require_roles
+from app.core.settings import settings
 from app.db.base import utc_now
 from app.db.session import get_db
-from app.models import AttendanceRecord, Branch, Event, HouseholdPerson, Member, ServiceTemplate, User, Visitor
-from app.services.qr_code import make_qr_svg
+from app.models import (
+    AttendanceRecord,
+    Branch,
+    Event,
+    HouseholdPerson,
+    Member,
+    Ministry,
+    ServiceTemplate,
+    User,
+    Visitor,
+)
 from app.services.geofence import is_inside_geofence
+from app.services.qr_code import make_qr_svg
 
 router = APIRouter()
 QR_TOKEN_VERSION = "pcqr1"
@@ -48,6 +58,7 @@ class ServiceTemplateUpdate(BaseModel):
 class EventCreate(BaseModel):
     name: str
     event_type: str = "service"
+    ministry_id: UUID | None = None
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     location: str | None = None
@@ -58,6 +69,7 @@ class EventCreate(BaseModel):
 class EventUpdate(BaseModel):
     name: str | None = None
     event_type: str | None = None
+    ministry_id: UUID | None = None
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     location: str | None = None
@@ -91,7 +103,7 @@ def parse_time_value(value: str | None):
         return None
 
     try:
-        return datetime.strptime(value, "%H:%M").time()
+       return time.fromisoformat(value)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -227,6 +239,11 @@ def serialize_event(event: Event, check_ins: int = 0) -> dict[str, object]:
         "id": str(event.id),
         "name": event.name,
         "type": event.event_type,
+        "ministry_id": (
+            str(event.ministry_id)
+            if event.ministry_id
+            else None
+        ),
         "starts_at": event.starts_at.isoformat(),
         "ends_at": event.ends_at.isoformat() if event.ends_at else None,
         "location": event.location,
@@ -336,9 +353,25 @@ def create_event(
     _user=Depends(require_roles("pastor_leader", "usher")),
 ) -> dict[str, object]:
     branch = get_default_branch(db)
+    ministry = None
+    
+    if payload.ministry_id is not None:
+        ministry = db.get(Ministry, payload.ministry_id)
+        
+        if ministry is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Ministry not found.",
+            )
+        if ministry.branch_id != branch.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ministry does not belong to this branch.",
+            )
     starts_at = payload.starts_at or utc_now()
     event = Event(
         branch_id=branch.id,
+        ministry_id=payload.ministry_id,
         name=payload.name,
         event_type=payload.event_type,
         starts_at=starts_at,
@@ -369,7 +402,25 @@ def update_event(
         )
 
     updates = payload.model_dump(exclude_unset=True)
+    
+    
+    if "ministry_id" in updates:
+        ministry_id = updates["ministry_id"]
 
+        if ministry_id is not None:
+            ministry = db.get(Ministry, ministry_id)
+
+            if ministry is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Ministry not found.",
+                )
+
+            if ministry.branch_id != event.branch_id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Ministry does not belong to this event's branch.",
+                )
     for field, value in updates.items():
         if field == "qr_rotation_seconds" and value is not None:
             value = max(value, 30)
