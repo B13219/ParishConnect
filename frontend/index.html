@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ParishConnect Admin</title>
   <link rel="stylesheet" href="./styles.css">
+  <link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+>
 </head>
 <body>
   <section class="login-screen" id="loginScreen">
@@ -60,6 +66,7 @@
         <a href="#messages" data-section-link="messages">Messages</a>
         <a href="#stewardship" data-section-link="stewardship">Stewardship</a>
         <a href="#reports" data-section-link="reports">Reports</a>
+        <a href="#settings" data-section-link="settings">Settings</a>
         <a href="#admin" data-section-link="admin">Admin</a>
       </nav>
     </aside>
@@ -106,62 +113,430 @@
             </div>
             <button class="icon-button" title="Refresh people" data-refresh="people">Refresh</button>
           </div>
-          <div class="form-grid">
-            <form class="person-form" id="memberForm">
-              <h3>Add Member</h3>
-              <div class="field-row">
-                <label>
-                  First name
-                  <input name="first_name" required autocomplete="given-name">
-                </label>
-                <label>
-                  Last name
-                  <input name="last_name" required autocomplete="family-name">
-                </label>
-              </div>
-              <div class="field-row">
-                <label>
-                  Phone
-                  <input name="phone" autocomplete="tel">
-                </label>
-                <label>
-                  Email
-                  <input name="email" type="email" autocomplete="email">
-                </label>
-              </div>
-              <button class="primary-button" type="submit">Add member</button>
-            </form>
+          <div class="people-actions">
+  <button
+    class="primary-button"
+    id="showMemberForm"
+    type="button"
+  >
+    + Add member
+  </button>
 
-            <form class="person-form" id="visitorForm">
-              <h3>Add Visitor</h3>
-              <div class="field-row">
-                <label>
-                  First name
-                  <input name="first_name" required autocomplete="given-name">
-                </label>
-                <label>
-                  Last name
-                  <input name="last_name" required autocomplete="family-name">
-                </label>
-              </div>
-              <div class="field-row">
-                <label>
-                  Phone
-                  <input name="phone" autocomplete="tel">
-                </label>
-                <label>
-                  Email
-                  <input name="email" type="email" autocomplete="email">
-                </label>
-              </div>
-              <button class="primary-button" type="submit">Add visitor</button>
-            </form>
-          </div>
+  <button
+    class="icon-button"
+    id="showVisitorForm"
+    type="button"
+  >
+    + Add visitor
+  </button>
+
+  <button
+    class="icon-button"
+    id="downloadPeopleCsv"
+    type="button"
+  >
+    Download CSV
+  </button>
+  <button
+  class="icon-button"
+  id="showCommunityForm"
+  type="button"
+>
+ + Add <span id="addCommunityLabel">community</span>
+</button>
+<button class="icon-button" id="showMinistryForm" type="button">+ Add ministry</button>
+</div>
+
+<div class="form-grid" id="peopleRegistrationForms">
+
+  <form class="person-form" id="memberForm" hidden>
+<div class="people-form-header">
+  <div>
+    <p class="eyebrow">New record</p>
+    <h3>Add Member</h3>
+  </div>
+
+  <button
+    class="people-form-close"
+    id="hideMemberForm"
+    type="button"
+    aria-label="Hide member form"
+  >
+    <span aria-hidden="true">×</span>
+    Hide
+  </button>
+</div>
+
+    <div class="field-row">
+      <label>
+        First name
+        <input name="first_name" required autocomplete="given-name">
+      </label>
+
+      <label>
+        Last name
+        <input name="last_name" required autocomplete="family-name">
+      </label>
+    </div>
+
+    <div class="field-row">
+      <label>
+        Phone
+        <input name="phone" autocomplete="tel">
+      </label>
+
+      <label>
+        Email
+        <input name="email" type="email" autocomplete="email">
+      </label>
+    </div>
+    <details class="profile-details">
+      <summary>Additional profile information</summary>
+    <div class="field-row">
+  <label>
+    Area
+    <input
+      name="area"
+      placeholder="e.g. Mikocheni"
+    >
+  </label>
+
+  <label>
+    Address
+    <input
+      name="address"
+      placeholder="Street or local address"
+    >
+  </label>
+</div>
+
+
+<div class="field-row">
+  <label>
+    Gender
+    <select name="gender">
+      <option value="">Not specified</option>
+      <option value="male">Male</option>
+      <option value="female">Female</option>
+    </select>
+  </label>
+
+  <label>
+    Date of birth
+    <input
+      name="date_of_birth"
+      type="date"
+    >
+  </label>
+</div>
+
+<div class="field-row">
+  <label>
+    Marital status
+    <select name="marital_status">
+      <option value="">Not specified</option>
+      <option value="single">Single</option>
+      <option value="married">Married</option>
+      <option value="widowed">Widowed</option>
+      <option value="divorced">Divorced</option>
+    </select>
+  </label>
+
+  <label>
+    Occupation
+    <input
+      name="occupation"
+      placeholder="Occupation"
+    >
+  </label>
+</div>
+
+<div class="field-row">
+  <label>
+    Preferred language
+    <select name="preferred_language">
+      <option value="">Not specified</option>
+      <option value="sw">Swahili</option>
+      <option value="en">English</option>
+    </select>
+  </label>
+
+  <label>
+    Membership status
+    <select name="membership_status">
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
+  </label>
+</div>
+
+<label>
+  Notes
+  <textarea
+    name="notes"
+    rows="3"
+    placeholder="Optional pastoral or administrative notes"
+  ></textarea>
+</label>
+</details>
+
+    <button class="primary-button" type="submit">
+      Add member
+    </button>
+  </form>
+
+
+  <form class="person-form" id="visitorForm" hidden>
+<div class="people-form-header">
+  <div>
+    <p class="eyebrow">New record</p>
+    <h3>Add Visitor</h3>
+  </div>
+
+  <button
+    class="people-form-close"
+    id="hideVisitorForm"
+    type="button"
+    aria-label="Hide visitor form"
+  >
+    <span aria-hidden="true">×</span>
+    Hide
+  </button>
+</div>
+
+    <div class="field-row">
+      <label>
+        First name
+        <input name="first_name" required autocomplete="given-name">
+      </label>
+
+      <label>
+        Last name
+        <input name="last_name" required autocomplete="family-name">
+      </label>
+    </div>
+
+    <div class="field-row">
+      <label>
+        Phone
+        <input name="phone" autocomplete="tel">
+      </label>
+
+      <label>
+        Email
+        <input name="email" type="email" autocomplete="email">
+      </label>
+    </div>
+    <details class="profile-details">
+  <summary>Additional profile information</summary>
+
+  <div class="field-row">
+    <label>
+      Area
+      <input
+        name="area"
+        placeholder="e.g. Mikocheni"
+      >
+    </label>
+
+    <label>
+      Address
+      <input
+        name="address"
+        placeholder="Street or local address"
+      >
+    </label>
+  </div>
+
+  <div class="field-row">
+    <label>
+      Gender
+      <select name="gender">
+        <option value="">Not specified</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+    </label>
+
+    <label>
+      Preferred language
+      <select name="preferred_language">
+        <option value="">Not specified</option>
+        <option value="sw">Swahili</option>
+        <option value="en">English</option>
+      </select>
+    </label>
+  </div>
+
+  <label>
+    Notes
+    <textarea
+      name="notes"
+      rows="3"
+      placeholder="Optional follow-up or administrative notes"
+    ></textarea>
+  </label>
+</details>
+
+    <button class="primary-button" type="submit">
+      Add visitor
+    </button>
+  </form>
+
+  <form
+  class="person-form"
+  id="communityForm"
+  hidden
+>
+  <div class="people-form-header">
+    <div>
+      <p class="eyebrow">New record</p>
+      <h3>Add <span id="communityFormTitleLabel">Community</span></h3>
+    </div>
+
+    <button
+      class="people-form-close"
+      id="hideCommunityForm"
+      type="button"
+    >
+      × Hide
+    </button>
+  </div>
+  
+
+  <div class="field-row">
+    <label>
+      <span id="communityNameLabel">Community</span>name 
+      <input
+        name="name"
+        required
+        placeholder="St. Joseph Community"
+      >
+    </label>
+
+    <label>
+      Area
+      <input
+        name="area"
+        placeholder="Mikocheni"
+      >
+    </label>
+  </div>
+
+  <div class="field-row">
+    <label>
+      Meeting day
+      <select name="meeting_day">
+        <option value="">Not specified</option>
+        <option value="Monday">Monday</option>
+        <option value="Tuesday">Tuesday</option>
+        <option value="Wednesday">Wednesday</option>
+        <option value="Thursday">Thursday</option>
+        <option value="Friday">Friday</option>
+        <option value="Saturday">Saturday</option>
+        <option value="Sunday">Sunday</option>
+      </select>
+    </label>
+
+    <label>
+      Leader
+      <select
+        name="leader_member_id"
+        id="communityLeaderSelect"
+      >
+        <option value="">No leader yet</option>
+      </select>
+    </label>
+  </div>
+
+  <label>
+    Notes
+    <textarea
+      name="notes"
+      rows="3"
+      placeholder="Optional community notes"
+    ></textarea>
+  </label>
+
+  <button
+    class="primary-button"
+    type="submit"
+  >
+    <span id="createCommunnityLabel">Community</span>
+  </button>
+</form>
+
+</div>
+<form
+  class="person-form"
+  id="ministryForm"
+  hidden
+>
+  <div class="people-form-header">
+    <div>
+      <p class="eyebrow">New record</p>
+      <h3>Add Ministry</h3>
+    </div>
+
+    <button
+      class="people-form-close"
+      id="hideMinistryForm"
+      type="button"
+    >
+      × Hide
+    </button>
+  </div>
+
+  <div class="field-row">
+    <label>
+      Ministry name
+      <input
+        name="name"
+        required
+        placeholder="e.g. Choir"
+      >
+    </label>
+
+    <label>
+      Leader
+      <select
+        name="leader_member_id"
+        id="ministryLeaderSelect"
+      >
+        <option value="">No leader yet</option>
+      </select>
+    </label>
+  </div>
+
+  <button
+    class="primary-button"
+    type="submit"
+  >
+    Create ministry
+  </button>
+</form>
           <div class="people-toolbar">
             <label>
               Search people
-              <input id="peopleSearch" placeholder="Name, phone, or email">
+             <input
+                id="peopleSearch"
+                placeholder="Search by name, phone, or email — use * for all"
+              >
             </label>
+            <button
+              class="icon-button"
+              id="showAllPeople"
+              type="button"
+            >
+            Show all
+            </button>
+            <button
+              class="icon-button"
+              id="clearPeopleSearch"
+              type="button"
+            >
+              Clear
+            </button>
             <label>
               Member status
               <select id="memberStatusFilter">
@@ -193,6 +568,53 @@
             </div>
           </div>
         </article>
+
+        <section class="panel community-panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Pastoral structure</p>
+      <h2 id="communityPanelTitle">Communities</h2>
+      <p class="muted" id="communityPanelDescription">
+        Local communities, cells, and fellowship groups.
+      </p>
+    </div>
+
+    <button
+      class="icon-button"
+      id="refreshCommunities"
+      type="button"
+    >
+      Refresh
+    </button>
+  </div>
+
+  <div id="communityList">
+    <p class="muted">No communities loaded.</p>
+  </div>
+</section>
+<section class="panel community-panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Church service groups</p>
+      <h2>Ministries</h2>
+      <p class="muted">
+        Choirs, youth groups, ushers, media teams, and other ministries.
+      </p>
+    </div>
+
+    <button
+      class="icon-button"
+      id="refreshMinistries"
+      type="button"
+    >
+      Refresh
+    </button>
+  </div>
+
+  <div id="ministryList">
+    <p class="muted">No ministries loaded.</p>
+  </div>
+</section>
 
         <article class="panel report-panel" id="imports">
           <div class="panel-header">
@@ -253,9 +675,66 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
             </div>
             <button class="icon-button" title="Refresh attendance" data-refresh="attendance">Refresh</button>
           </div>
+          <section class="subpanel service-day-panel">
+  <div class="subpanel-header">
+    <div>
+      <p class="eyebrow">Service Day</p>
+      <h3 id="serviceDayTitle">No active service</h3>
+      <p id="serviceDayMeta">
+        Select or create an event scheduled for today.
+      </p>
+    </div>
+
+    <span
+      id="serviceDayStatus"
+      class="tag muted"
+    >
+      No session
+    </span>
+  </div>
+
+  <div class="service-day-stats">
+    <div class="metric-card">
+      <span>Checked in</span>
+      <strong id="serviceDayCheckInCount">0</strong>
+    </div>
+
+    <div class="metric-card">
+      <span>QR status</span>
+      <strong id="serviceDayQrStatus">Closed</strong>
+    </div>
+  </div>
+
+  <div class="dialog-actions">
+    <button
+      class="icon-button"
+      type="button"
+      id="serviceDayShowQr"
+      disabled
+    >
+      Show QR
+    </button>
+
+    <button
+      class="primary-button"
+      type="button"
+      id="serviceDayToggleAttendance"
+      disabled
+    >
+      Open Attendance
+    </button>
+  </div>
+
+  <div
+    id="serviceDayRecentCheckIns"
+    class="list"
+    aria-live="polite"
+  ></div>
+</section>
           <div class="form-grid">
             <form class="person-form" id="eventForm">
-              <h3>Create Event</h3>
+              <h3 id="eventFormTitle">Create Event</h3>
+              <input type="hidden" name="event_id" id="eventEditId">
               <label>
                 Event name
                 <input name="name" required placeholder="Sunday Main Service">
@@ -272,6 +751,10 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
                 <label>
                   Starts
                   <input name="starts_at" type="datetime-local">
+                </label>
+                <label>
+                  Ends
+                  <input name="ends_at" type="datetime-local">
                 </label>
               </div>
               <label>
@@ -292,7 +775,33 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
                 QR rotation seconds
                 <input name="qr_rotation_seconds" type="number" min="30" step="30" value="60">
               </label>
-              <button class="primary-button" type="submit">Create event</button>
+              <label id="eventMinistryField" hidden>
+                Ministry
+                <select
+                  name="ministry_id"
+                  id="eventMinistrySelect"
+                >
+                  <option value="">Select ministry</option>
+                </select>
+              </label>
+              <div class="dialog-actions">
+                <button
+                  class="icon-button"
+                  type="button"
+                  id="cancelEventEdit"
+                  hidden
+                >
+                  Cancel edit
+                </button>
+
+                <button
+                 class="primary-button"
+                 type="submit"
+                 id="eventSubmitButton"
+                >
+                  Create event
+                </button>
+              </div>
             </form>
 
             <form class="person-form" id="checkInForm">
@@ -317,6 +826,171 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
               <button class="primary-button" type="submit">Check in</button>
             </form>
           </div>
+          <section class="subpanel recurring-services-panel">
+  <div class="subpanel-header">
+    <div>
+      <h3>Recurring Services</h3>
+      <p>
+        Configure weekly church services and generate upcoming events automatically.
+      </p>
+    </div>
+
+    <button
+      class="primary-button"
+      type="button"
+      id="generateRecurringServices"
+    >
+      Generate upcoming services
+    </button>
+  </div>
+
+  <form class="person-form" id="serviceTemplateForm">
+    <input
+      type="hidden"
+      name="template_id"
+      id="serviceTemplateEditId"
+    >
+
+    <h4 id="serviceTemplateFormTitle">
+      Add recurring service
+    </h4>
+
+    <label>
+      Service name
+      <input
+        name="name"
+        type="text"
+        placeholder="Sunday Main Service"
+        required
+      >
+    </label>
+
+    <div class="field-row">
+      <label>
+        Type
+        <select name="event_type">
+          <option value="service">Service</option>
+          <option value="mass">Mass</option>
+          <option value="bible_study">Bible study</option>
+          <option value="youth">Youth</option>
+          <option value="ministry">Ministry</option>
+          <option value="choir">Choir</option>
+          <option value="meeting">Meeting</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+
+      <label>
+        Day
+        <select name="day_of_week" required>
+          <option value="0">Monday</option>
+          <option value="1">Tuesday</option>
+          <option value="2">Wednesday</option>
+          <option value="3">Thursday</option>
+          <option value="4">Friday</option>
+          <option value="5">Saturday</option>
+          <option value="6">Sunday</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="field-row">
+      <label>
+        Starts
+        <input
+          name="start_time"
+          type="time"
+          required
+        >
+      </label>
+
+      <label>
+        Ends
+        <input
+          name="end_time"
+          type="time"
+        >
+      </label>
+    </div>
+
+    <label>
+      Location
+      <input
+        name="location"
+        type="text"
+        placeholder="Main Sanctuary"
+      >
+    </label>
+
+    <div class="field-row">
+      <label>
+        QR opens before
+        <input
+          name="qr_open_minutes_before"
+          type="number"
+          min="0"
+          max="240"
+          value="30"
+        >
+      </label>
+
+      <label>
+        QR closes after
+        <input
+          name="qr_close_minutes_after"
+          type="number"
+          min="0"
+          max="240"
+          value="30"
+        >
+      </label>
+    </div>
+
+    <label>
+      QR rotation seconds
+      <input
+        name="qr_rotation_seconds"
+        type="number"
+        min="30"
+        value="60"
+      >
+    </label>
+
+    <label class="checkbox-row">
+      <input
+        name="is_active"
+        type="checkbox"
+        checked
+      >
+      Active schedule
+    </label>
+
+    <div class="dialog-actions">
+              <button
+                class="icon-button"
+                type="button"
+                id="cancelServiceTemplateEdit"
+                hidden
+              >
+                Cancel edit
+              </button>
+
+              <button
+                class="primary-button"
+                type="submit"
+                id="serviceTemplateSubmitButton"
+              >
+                Save recurring service
+              </button>
+            </div>
+          </form>
+
+            <div
+                id="serviceTemplateList"
+                class="list"
+                aria-live="polite"
+            ></div>
+          </section>
           <div id="eventList" class="list" aria-live="polite"></div>
           <div id="qrTokenPanel" class="qr-panel" aria-live="polite">
             <span>Select an event QR action to view the active attendance token.</span>
@@ -484,20 +1158,41 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
                 Amount
                 <input name="amount" type="number" min="1" step="1" required>
               </label>
-            </div>
-            <div class="field-row">
-              <label>
-                Currency
-                <select name="currency">
-                  <option value="TZS">TZS</option>
-                  <option value="USD">USD</option>
-                </select>
-              </label>
-              <label>
-                Member
-                <select name="member_id" id="contributionMemberSelect"></select>
-              </label>
-            </div>
+            </div><div class="field-row">
+  <label>
+    Currency
+    <select name="currency">
+      <option value="TZS">TZS</option>
+      <option value="USD">USD</option>
+    </select>
+  </label>
+
+  <label>
+    Contributor scope
+    <select name="contributor_scope" id="contributionScope">
+      <option value="individual">Individual</option>
+      <option value="household">Household</option>
+    </select>
+  </label>
+</div>
+
+<div class="field-row">
+  <label id="contributionMemberField">
+    Member
+    <select
+      name="member_id"
+      id="contributionMemberSelect"
+    ></select>
+  </label>
+
+  <label id="contributionHouseholdField" hidden>
+    Household
+    <select
+      name="household_id"
+      id="contributionHouseholdSelect"
+    ></select>
+  </label>
+</div>
             <div class="field-row">
               <label>
                 Payment method
@@ -559,6 +1254,136 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
           <div id="reportObservations" class="list observation-list" aria-live="polite"></div>
         </article>
 
+        <article class="panel report-panel" id="settings">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Branch Settings</p>
+      <h2>Geofence Attendance</h2>
+    </div>
+
+    <button
+      class="icon-button"
+      title="Refresh geofence settings"
+      data-refresh="settings"
+      type="button"
+    >
+      Refresh
+    </button>
+  </div>
+
+  <form class="person-form" id="geofenceSettingsForm">
+    <label class="checkbox-label">
+      <input name="geofence_enabled" id="geofenceEnabled" type="checkbox">
+      Enable geofence attendance
+    </label>
+
+    <fieldset class="location-methods">
+      <legend>How should the church location be entered?</legend>
+
+      <label>
+        <input
+          name="setup_method"
+          type="radio"
+          value="map"
+          checked
+        >
+        Choose location on map
+      </label>
+
+      <label>
+        <input
+          name="setup_method"
+          type="radio"
+          value="manual"
+        >
+        Enter coordinates manually
+      </label>
+    </fieldset>
+
+    <div id="geofenceMapMode">
+      <div class="assist-panel">
+        <strong>Map location</strong>
+        <p>
+          Click the map to place the church pin. The latitude and longitude
+          fields will fill automatically.
+        </p>
+      </div>
+
+      <div id="geofenceMap" class="geofence-map">
+        Map picker will appear here.
+      </div>
+    </div>
+
+    <div id="geofenceManualMode" hidden>
+      <div class="assist-panel">
+        <strong>Manual coordinates</strong>
+        <p>
+          Enter the latitude and longitude obtained from Google Maps or
+          another trusted map service.
+        </p>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <label>
+        Latitude
+        <input
+          name="latitude"
+          id="geofenceLatitude"
+          type="number"
+          min="-90"
+          max="90"
+          step="any"
+          placeholder="-6.7924"
+        >
+      </label>
+
+      <label>
+        Longitude
+        <input
+          name="longitude"
+          id="geofenceLongitude"
+          type="number"
+          min="-180"
+          max="180"
+          step="any"
+          placeholder="39.2083"
+        >
+      </label>
+    </div>
+
+    <label>
+      Attendance radius
+
+      <div class="radius-control">
+        <input
+          name="attendance_radius_meters"
+          id="geofenceRadius"
+          type="range"
+          min="25"
+          max="500"
+          step="25"
+          value="100"
+        >
+
+        <strong>
+          <span id="geofenceRadiusValue">100</span> metres
+        </strong>
+      </div>
+    </label>
+
+    <button class="primary-button" type="submit">
+      Save geofence settings
+    </button>
+  </form>
+
+  <div
+    id="geofenceSettingsStatus"
+    class="receipt-panel"
+    aria-live="polite"
+  ></div>
+</article> 
+        
         <article class="panel report-panel" id="admin">
           <div class="panel-header">
             <div>
@@ -639,6 +1464,53 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
                   <input name="contact_phone" id="branchPhone">
                 </label>
               </div>
+              <div class="field-row">
+  <label>
+    Denomination
+    <input
+      name="denomination"
+      id="branchDenomination"
+      placeholder="e.g. Roman Catholic, Lutheran, Anglican"
+    >
+  </label>
+
+  <label>
+    Community terminology
+    <input
+      name="community_label"
+      id="branchCommunityLabel"
+      placeholder="e.g. Small Christian Community, Cell Group"
+    >
+  </label>
+</div>
+
+<div class="field-row">
+  <label>
+    Default language
+    <select
+      name="default_language"
+      id="branchDefaultLanguage"
+    >
+      <option value="en">English</option>
+      <option value="sw">Kiswahili</option>
+    </select>
+  </label>
+
+  <label>
+    Timezone
+    <select
+      name="timezone"
+      id="branchTimezone"
+    >
+      <option value="Africa/Dar_es_Salaam">
+        Africa/Dar_es_Salaam
+      </option>
+      <option value="UTC">
+        UTC
+      </option>
+    </select>
+  </label>
+</div>
               <button class="primary-button" type="submit">Save branch settings</button>
             </form>
             <div class="assist-panel">
@@ -694,7 +1566,137 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
       </div>
     </form>
   </dialog>
+  <dialog id="memberProfileDialog" class="dialog">
+  <div class="dialog-card profile-dialog-card">
+    <div class="panel-header">
+      <div>
+        <p class="eyebrow">Member profile</p>
+        <h2 id="memberProfileName">Member</h2>
+      </div>
 
-  <script src="./app.js?v=20260713-backup-manifest"></script>
+      <div class="row-actions">
+        <span
+          id="memberProfileStatus"
+          class="tag green"
+        >
+          Active
+        </span>
+
+        <button
+          class="icon-button"
+          type="button"
+          id="closeMemberProfile"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+
+    <div id="memberProfileBody"></div>
+  </div>
+</dialog>
+<dialog id="communityDialog" class="dialog">
+  <div class="dialog-card profile-dialog-card">
+    <div class="panel-header">
+      <div>
+        <p class="eyebrow"><span id="communityDialogTypeLabel"> Community</span></p>
+        <h2 id="communityDialogName">Community</h2>
+      </div>
+
+      <button
+        class="icon-button"
+        id="closeCommunityDialog"
+        type="button"
+      >
+        Close
+      </button>
+    </div>
+
+    <div id="communityDialogBody"></div>
+  </div>
+</dialog>
+<dialog id="householdDialog" class="dialog">
+  <div class="dialog-card profile-dialog-card">
+    <div class="panel-header">
+      <div>
+        <p class="eyebrow">Household</p>
+        <h2 id="householdDialogName">Household</h2>
+      </div>
+
+      <button
+        class="icon-button"
+        id="closeHouseholdDialog"
+        type="button"
+      >
+        Close
+      </button>
+    </div>
+
+    <div id="householdDialogBody"></div>
+  </div>
+</dialog>
+<dialog
+  id="visitorProfileDialog"
+  class="dialog"
+>
+  <div class="dialog-card profile-dialog-card">
+    <div class="panel-header">
+      <div>
+        <p class="eyebrow">Visitor profile</p>
+
+        <h2 id="visitorProfileName">
+          Visitor
+        </h2>
+      </div>
+
+      <div class="row-actions">
+        <span
+          id="visitorProfileStatus"
+          class="tag amber"
+        >
+          New
+        </span>
+
+        <button
+          class="icon-button"
+          id="closeVisitorProfile"
+          type="button"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+
+    <div id="visitorProfileBody"></div>
+  </div>
+</dialog>
+<dialog id="ministryDialog" class="dialog">
+  <div class="dialog-card profile-dialog-card">
+    <div class="panel-header">
+      <div>
+        <p class="eyebrow">Ministry</p>
+        <h2 id="ministryDialogName">Ministry</h2>
+      </div>
+
+      <button
+        class="icon-button"
+        id="closeMinistryDialog"
+        type="button"
+      >
+        Close
+      </button>
+    </div>
+
+    <div id="ministryDialogBody"></div>
+  </div>
+</dialog>
+
+  <script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
+<script src="./app.js?v=20260821-geofence-map-people-ui"></script>
 </body>
 </html>

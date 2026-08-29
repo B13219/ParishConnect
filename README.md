@@ -1,84 +1,83 @@
-# ParishConnect
+## Current status
 
-ParishConnect is an ongoing church management and engagement platform designed to replace paper registers and disconnected spreadsheets with one secure, practical system.
+ParishConnect has progressed beyond the initial presentation MVP into active post-demo development. The current build provides a working administrative platform with tested backend workflows and an increasingly integrated church operations model.
+
+Current capabilities include:
+
+- Member and visitor registration, profiles, search, filtering, and status management
+- Visitor follow-up workflows and conversion from visitor to member
+- Household creation, primary contacts, dependants, and household-linked records
+- Configurable local community terminology for different church structures
+- Community group creation, leadership, membership, and member-profile integration
+- Ministry creation, editing, leadership, membership, and member-profile integration
+- Automatic ministry leader membership and leadership handover handling
+- Events and service scheduling
+- Ministry-linked events and meetings
+- Manual, QR-code, and geofence-supported attendance workflows
+- Attendance opening and closing controls
+- Ministry event attendance and activity history
+- Stewardship records for individual and household contributions
+- Announcements and messaging workflows
+- Administrative branch configuration
+- Role-based permissions for administrators, pastors/leaders, receptionists, and ushers
+- Audit-oriented backend workflows
+- Automated API regression testing
+
+The platform remains in active development. Production authentication hardening, hosted messaging integrations, member-facing mobile functionality, deployment infrastructure, and additional reporting capabilities remain planned work.
+
+## Post-demo progress
+
+Development after the first ParishConnect demonstration has focused on turning the original MVP into a more complete church operations platform.
+
+Major additions include:
+
+### Communities
+
+Churches can organise members into local communities or similar structures. Administrators can configure the terminology used by their church, while community records support leaders, membership, meeting information, and integration with member profiles.
+
+### Ministries
+
+Ministries now support creation, editing, leaders, membership management, and member-profile visibility. Ministry leadership is permission-controlled, and assigning a leader automatically maintains the appropriate ministry membership. Leadership handovers also demote the previous leader's ministry role correctly.
+
+### Events and attendance
+
+Events can be associated directly with ministries. Ministry meetings therefore use ParishConnect's existing attendance engine rather than maintaining a separate attendance system.
+
+This supports:
+
+- Ministry-linked event creation and editing
+- Ministry selection from the event interface
+- Changing or removing an event's ministry association
+- QR and manual attendance against ministry events
+- Existing geofence attendance capabilities
+- Attendance counts for ministry events
+- Upcoming ministry meetings
+- Historical ministry activity and attendance visibility
+
+This creates an integrated flow:
+
+`Ministry → Event → Attendance → Ministry activity history`
+
+### Reliability
+
+Backend regression coverage has expanded alongside the new functionality. Ministry membership, leadership changes, event integration, attendance behaviour, permissions, and related API workflows are covered by automated tests.
 
 ## What it does
 
-- Manages visitor, member, and household records.
-- Supports QR-code and usher-assisted attendance check-in.
-- Tracks events, ministries, tithes, and offerings.
-- Provides announcements and leadership reporting workflows.
-- Uses role-based access patterns to protect church information.
-
-## Current status
-
-This repository contains a working MVP foundation:
-
-- FastAPI REST API
-- SQLAlchemy models and Alembic migrations
-- PostgreSQL-ready configuration with SQLite-backed tests
-- Static administrative web interface
-- Member and household management
-- Attendance events, QR token windows, and check-in
-- Stewardship records and summary reporting
-
-The project is still in active development. Authentication hardening, hosted messaging integrations, mobile features, and production deployment are planned next.
-
-## Technology
-
-- Python
-- FastAPI
-- SQLAlchemy
-- Alembic
-- PostgreSQL / SQLite
-- HTML, CSS, and JavaScript
-- Pytest and Ruff
-
-## Repository structure
-
-The complete cleaned source is available in `ParishConnect-source.zip`.
-
-```text
-backend/    API, database models, migrations, scripts, and tests
-frontend/   Administrative web interface and QR check-in page
-mobile/     Reserved for the member mobile application
-docs/       Product requirements, architecture, data model, and API outline
-outputs/    Engineering notes and implementation handoffs
-```
-
-## Run the demo
-
-From the `backend` directory:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -e .[dev]
-.\run-demo.ps1
-```
-
-In another terminal, serve the frontend:
-
-```powershell
-cd frontend
-python -m http.server 5173
-```
-
-Then open:
-
-- Admin interface: `http://127.0.0.1:5173`
-- QR scan page: `http://127.0.0.1:5173/scan.html`
-- API documentation: `http://127.0.0.1:8003/docs`
+- Manages visitors, members, households, communities, and ministries.
+- Supports visitor follow-up and conversion into member records.
+- Organises ministry and community membership and leadership.
+- Schedules church services, events, and ministry meetings.
+- Supports manual, QR-code, and geofence-assisted attendance.
+- Links ministry events directly to attendance and activity history.
+- Tracks individual and household stewardship records.
+- Provides announcements, administrative configuration, and leadership reporting workflows.
+- Uses role-based access controls to protect church information.
 
 ## Verification
 
-- 18 backend tests passing
+- Backend automated test suite passing
+- Python route compilation checks passing
 - Ruff checks passing
-
-## Important note
-
-The credentials and QR secret included in local defaults are development-only placeholders. Production deployments must use secure environment variables and must never commit real church or member data.
-
-## Author
-
-Built by [Beka Kawanara](https://github.com/B13219) as an ongoing full-stack portfolio project.
+- Alembic migrations maintained for schema changes
+- Active development roadmap maintained in `docs/post-demo-roadmap.md`

@@ -3,7 +3,11 @@ const API_BASE = "http://127.0.0.1:8004/api/v1";
 const state = {
   auth: JSON.parse(localStorage.getItem("parishconnect_auth") || "null"),
   people: null,
+  communities: null,
+  ministries: null,
   attendance: null,
+  serviceTemplates: null,
+  geofence: null,
   households: null,
   messages: null,
   messageRecipients: null,
@@ -18,11 +22,15 @@ const state = {
     visitorStatus: "all",
   },
 };
+let geofenceMap = null;
+let geofenceMarker = null;
+let geofenceCircle = null;
 
 const sections = [
   "people",
   "imports",
   "attendance",
+  "settings",
   "households",
   "messages",
   "stewardship",
@@ -34,6 +42,7 @@ const navSections = [
   "people",
   "imports",
   "attendance",
+  "settings",
   "households",
   "messages",
   "stewardship",
@@ -41,15 +50,114 @@ const navSections = [
   "admin",
 ];
 
-const formatCurrency = (amount, currency = "TZS") =>
-  `${Number(amount || 0).toLocaleString()} ${currency}`;
 
-const formatDateTime = (value) => (value ? new Date(value).toLocaleString() : "Not set");
 
 const labelize = (value) =>
   String(value || "")
     .replaceAll("_", " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const formatCurrency = (amount, currency = "TZS") =>
+  `${Number(amount || 0).toLocaleString()} ${currency}`;
+
+const formatDateTime = (value) => (value ? new Date(value).toLocaleString() : "Not set");
+const communityLabel = () =>
+  state.admin?.branch?.community_label ||
+  state.people?.configuration?.community_label ||
+  "Community Group";
+
+const communityLabelPlural = () => {
+  const label = communityLabel();
+
+  return label.endsWith("y")
+    ? `${label.slice(0, -1)}ies`
+    : `${label}s`;
+};
+
+const renderEventMinistryOptions = () => {
+  const select =
+    document.querySelector("#eventMinistrySelect");
+
+  if (!select) {
+    return;
+  }
+
+  const ministries =
+    state.ministries?.ministries || [];
+
+  select.innerHTML =
+    '<option value="">Select ministry</option>' +
+    ministries
+      .map(
+        (ministry) =>
+          `<option value="${ministry.id}">${ministry.name}</option>`,
+      )
+      .join("");
+};
+
+
+const updateEventMinistryField = () => {
+  const form = document.querySelector("#eventForm");
+
+  if (!form) {
+    return;
+  }
+
+  const typeSelect =
+    form.elements.event_type;
+
+  const ministryField =
+    document.querySelector("#eventMinistryField");
+
+  const ministrySelect =
+    document.querySelector("#eventMinistrySelect");
+
+  if (!typeSelect || !ministryField) {
+    return;
+  }
+
+  const isMinistry =
+    typeSelect.value === "ministry";
+
+  ministryField.hidden = !isMinistry;
+
+  if (!isMinistry && ministrySelect) {
+    ministrySelect.value = "";
+  }
+
+  if (isMinistry) {
+    renderEventMinistryOptions();
+  }
+};
+
+const renderCommunityTerminology = () => {
+  const label = communityLabel();
+
+  const mappings = {
+    addCommunityLabel: label.toLowerCase(),
+    communityFormTitleLabel: label,
+    communityNameLabel: label,
+    createCommunityLabel: label.toLowerCase(),
+    communityDialogTypeLabel: label,
+    communityPanelTitle: communityLabelPlural(),
+  };
+
+  Object.entries(mappings).forEach(([id, value]) => {
+    const element = document.querySelector(`#${id}`);
+
+    if (element) {
+      element.textContent = value;
+    }
+  });
+
+  const description =
+    document.querySelector("#communityPanelDescription");
+
+  if (description) {
+    description.textContent =
+      `Manage ${communityLabelPlural().toLowerCase()} and their members.`;
+  }
+};
 
 const rolePermissions = {
   administrator: [
@@ -60,9 +168,10 @@ const rolePermissions = {
     "messages",
     "stewardship",
     "reports",
+    "settings",
     "admin",
   ],
-  pastor_leader: ["people", "messages", "stewardship", "reports"],
+  pastor_leader: ["people", "attendance", "messages", "stewardship", "reports","settings"],
   accountant: ["stewardship", "reports"],
   receptionist: ["people", "imports", "attendance", "households"],
   usher: ["attendance"],
@@ -100,6 +209,92 @@ const messageTemplates = {
     subject: "Important Church Notice",
     body: "Important notice from church leadership. Please read this update and share with your household.",
   },
+};
+
+const toggleServiceDayAttendance = async () => {
+  const event = getServiceDayEvent();
+
+  if (!event) {
+    setStatus("No service scheduled for today", "error");
+    return;
+  }
+
+  const action =
+    event.attendance_status === "open"
+      ? "close"
+      : "open";
+
+  try {
+    setBusy(true);
+
+    setStatus(
+      action === "open"
+        ? "Opening attendance"
+        : "Closing attendance",
+    );
+
+    await sendJson(
+      `/attendance/events/${event.id}/${action}`,
+      "POST",
+    );
+
+    await loadSection("attendance");
+
+    setStatus(
+      action === "open"
+        ? "Attendance opened"
+        : "Attendance closed",
+      "ok",
+    );
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Attendance status could not be changed",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
+const generateRecurringServices = async () => {
+  try {
+    setBusy(true);
+    setStatus("Generating upcoming services");
+
+    const result = await sendJson(
+      "/attendance/service-templates/generate",
+      "POST",
+    );
+
+    await loadSection("attendance");
+
+    if (result.created > 0) {
+      setStatus(
+        `${result.created} upcoming service${
+          result.created === 1 ? "" : "s"
+        } generated`,
+        "ok",
+      );
+    } else {
+      setStatus(
+        `${result.skipped || 0} service${
+          result.skipped === 1 ? "" : "s"
+        } already scheduled`,
+        "ok",
+      );
+    }
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Upcoming services could not be generated",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
 };
 
 const setStatus = (text, kind = "") => {
@@ -142,7 +337,6 @@ const fetchText = async (path) => {
   }
   return response.text();
 };
-
 const sendJson = async (path, method, payload = null) => {
   const response = await fetch(`${API_BASE}${path}`, {
     method,
@@ -152,10 +346,16 @@ const sendJson = async (path, method, payload = null) => {
     },
     body: payload ? JSON.stringify(payload) : null,
   });
+
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.detail || `${path} returned ${response.status}`);
   }
+
+  if (response.status === 204) {
+    return null;
+  }
+
   return response.json();
 };
 
@@ -175,6 +375,7 @@ const setSkeletons = () => {
     "#visitorList",
     "#importPreviewList",
     "#eventList",
+    "#serviceTemplateList",
     "#checkInList",
     "#householdList",
     "#contributionBreakdown",
@@ -208,6 +409,9 @@ const row = ({ title, subtitle, tag, tone = "", action = "" }) => `
     </div>
   </div>
 `;
+
+
+
 
 const applyRoleAccess = () => {
   const hasLogin = Boolean(state.auth?.access_token);
@@ -281,15 +485,21 @@ const memberLifecycleActions = (member) => {
 const renderPeople = () => {
   const allMembers = state.people?.members || [];
   const allVisitors = state.people?.visitors || [];
+
+  const query = state.peopleFilters.query.trim();
+
+  const showAll = query === "*";
+
   const members = allMembers.filter(
     (member) =>
-      personMatchesQuery(member, state.peopleFilters.query) &&
+      (showAll || (query && personMatchesQuery(member, query))) &&
       (state.peopleFilters.memberStatus === "all" ||
         member.status === state.peopleFilters.memberStatus),
   );
+
   const visitors = allVisitors.filter(
     (visitor) =>
-      personMatchesQuery(visitor, state.peopleFilters.query) &&
+      (showAll || (query && personMatchesQuery(visitor, query))) &&
       (state.peopleFilters.visitorStatus === "all" ||
         visitor.follow_up_status === state.peopleFilters.visitorStatus),
   );
@@ -297,40 +507,95 @@ const renderPeople = () => {
   document.querySelector("#memberCount").textContent = allMembers.length;
   document.querySelector("#visitorCount").textContent = allVisitors.length;
   document.querySelector("#memberList").innerHTML =
-    members
-      .map((member) =>
-        row({
-          title: member.name,
-          subtitle: [member.phone || "No phone", member.email || "No email"].join(" - "),
-          tag: member.status,
-          tone: member.status === "active" ? "green" : "muted",
-          action: `
-            <button class="mini-button" data-edit-member="${member.id}" type="button">Edit</button>
-            ${memberLifecycleActions(member)}
-          `,
-        }),
-      )
-      .join("") || emptyState("No members found.");
-  document.querySelector("#visitorList").innerHTML =
-    visitors
-      .map((visitor) =>
-        row({
-          title: visitor.name,
-          subtitle: [visitor.phone || "No phone", visitor.email || "No email"].join(" - "),
-          tag: visitor.follow_up_status,
-          tone: "amber",
-          action: `
-            <button class="mini-button" data-edit-visitor="${visitor.id}" type="button">Edit</button>
-            ${
-              visitor.converted_member_id
-                ? ""
-                : `<button class="mini-button" data-convert-visitor="${visitor.id}" type="button">Convert</button>`
-            }
-          `,
-        }),
-      )
-      .join("") || emptyState("No visitors found.");
+  query
+    ? members
+        .map((member) =>
+          row({
+            title: member.name,
+            subtitle: [
+              member.phone || "No phone",
+              member.email || "No email",
+            ].join(" - "),
+            tag: member.status,
+            tone: member.status === "active" ? "green" : "muted",
+            action: `
+  <button
+    class="mini-button"
+    data-view-member="${member.id}"
+    type="button"
+  >
+    View profile
+  </button>
 
+  <button
+    class="mini-button"
+    data-edit-member="${member.id}"
+    type="button"
+  >
+    Edit
+  </button>
+
+  ${memberLifecycleActions(member)}
+`,
+
+          }),
+          
+        )
+  
+        .join("") || emptyState("No matching members found.")
+    : emptyState("Search for a member to view records.");
+  document.querySelectorAll("[data-view-member]").forEach((button) => {
+  button.addEventListener("click", () => {
+    openMemberProfile(button.dataset.viewMember);
+  });
+});
+    document.querySelector("#visitorList").innerHTML =
+  query
+    ? visitors
+        .map((visitor) =>
+          row({
+            title: visitor.name,
+            subtitle: [
+              visitor.phone || "No phone",
+              visitor.email || "No email",
+            ].join(" - "),
+            tag: visitor.follow_up_status,
+            tone: "amber",
+            action: `
+  <button
+    class="mini-button"
+    data-view-visitor="${visitor.id}"
+    type="button"
+  >
+    View profile
+  </button>
+
+  <button
+    class="mini-button"
+    data-edit-visitor="${visitor.id}"
+    type="button"
+  >
+    Edit
+  </button>
+
+  ${
+    visitor.converted_member_id
+      ? ""
+      : `
+        <button
+          class="mini-button"
+          data-convert-visitor="${visitor.id}"
+          type="button"
+        >
+          Convert
+        </button>
+      `
+  }
+`,
+          }),
+        )
+        .join("") || emptyState("No matching visitors found.")
+    : emptyState("Search for a visitor to view records.");
   document.querySelectorAll("[data-edit-member]").forEach((button) => {
     button.addEventListener("click", () => openPersonDialog("member", button.dataset.editMember));
   });
@@ -346,12 +611,314 @@ const renderPeople = () => {
       updateMemberStatus(memberId, lifecycleStatus);
     });
   });
+  document
+  .querySelectorAll("[data-view-visitor]")
+  .forEach((button) => {
+    button.addEventListener("click", () => {
+      openVisitorProfile(
+        button.dataset.viewVisitor,
+      );
+    });
+  });
   renderCheckInPersonOptions();
   renderHouseholdMemberOptions();
   renderContributionMemberOptions();
+  renderContributionHouseholdOptions();
+  renderCommunityLeaderOptions();
   applyRoleAccess();
 };
+const renderCommunities = () => {
+  const container = document.querySelector("#communityList");
 
+  if (!container) {
+    return;
+  }
+
+  const communities = state.communities?.communities || [];
+
+  if (!communities.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <strong>No ${communityLabelPlural().toLowerCase()} yet</strong>
+        <p>
+          Create a ${communityLabel().toLowerCase()} to begin organising members
+          into local pastoral groups.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = communities
+    .map(
+      (community) => `
+        <div class="community-card">
+          <div class="community-card-main">
+            <div>
+              <div class="community-card-title">
+                <strong>${community.name}</strong>
+
+                <span class="tag ${
+                  community.status === "active"
+                    ? "green"
+                    : ""
+                }">
+                  ${labelize(community.status)}
+                </span>
+              </div>
+
+              <p class="muted">
+                ${community.area || "Area not specified"}
+                ${
+                  community.meeting_day
+                    ? ` · Meets ${community.meeting_day}`
+                    : ""
+                }
+              </p>
+            </div>
+
+            <div class="community-card-stats">
+              <strong>${community.member_count || 0}</strong>
+              <span>Members</span>
+            </div>
+          </div>
+
+          <div class="community-card-footer">
+            <span>
+              Leader:
+              <strong>
+                ${community.leader_name || "Not assigned"}
+              </strong>
+            </span>
+
+            <button
+              class="mini-button"
+              data-view-community="${community.id}"
+              type="button"
+            >
+              View ${communityLabel()}
+            </button>
+          </div>
+        </div>
+      `,
+    )
+    .join("");
+
+  document
+    .querySelectorAll("[data-view-community]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        openCommunityDialog(button.dataset.viewCommunity);
+      });
+    });
+};
+const renderMinistries = () => {
+  const container = document.querySelector("#ministryList");
+
+  if (!container) {
+    return;
+  }
+
+  const ministries = state.ministries?.ministries || [];
+  
+  if (!ministries.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <strong>No ministries yet</strong>
+        <p>
+          Create a ministry to organise service teams and groups.
+        </p>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = ministries
+    .map(
+      (ministry) => `
+        <div class="community-card">
+          <div class="community-card-main">
+            <div>
+              <div class="community-card-title">
+                <strong>${ministry.name}</strong>
+              </div>
+
+              <p class="muted">
+                Leader:
+                ${ministry.leader_name || "Not assigned"}
+              </p>
+            </div>
+
+            <div class="community-card-stats">
+              <strong>${ministry.member_count || 0}</strong>
+              <span>Members</span>
+            </div>
+          </div>
+
+          <div class="community-card-footer">
+            <button
+              class="mini-button"
+              data-view-ministry="${ministry.id}"
+              type="button"
+            >
+              View ministry
+            </button>
+          </div>
+        </div>
+      `,
+    )
+    .join("");
+
+  document
+    .querySelectorAll("[data-view-ministry]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        openMinistryDialog(button.dataset.viewMinistry);
+      });
+    });
+};
+const showCommunityForm = () => {
+  const communityForm =
+    document.querySelector("#communityForm");
+
+  const memberForm =
+    document.querySelector("#memberForm");
+
+  const visitorForm =
+    document.querySelector("#visitorForm");
+
+  if (!communityForm) {
+    return;
+  }
+
+  communityForm.hidden = false;
+
+  if (memberForm) {
+    memberForm.hidden = true;
+  }
+
+  if (visitorForm) {
+    visitorForm.hidden = true;
+  }
+
+  communityForm.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+
+  communityForm.querySelector("input")?.focus();
+};
+const hideCommunityForm = () => {
+  const form =
+    document.querySelector("#communityForm");
+
+  if (form) {
+    form.hidden = true;
+  }
+};
+const submitCommunityForm = async (form) => {
+  const payload = formPayload(form);
+
+  try {
+    setBusy(true);
+    setStatus(`Creating ${communityLabel().toLowerCase()}`);
+
+    await sendJson(
+      "/members/communities",
+      "POST",
+      payload,
+    );
+
+    form.reset();
+    form.hidden = true;
+
+    await loadSection("people");
+
+    setStatus(`${communityLabel()} created`, "ok");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || `${communityLabel()} creation failed`,
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+const renderMinistryLeaderOptions = () => {
+  const select =
+    document.querySelector("#ministryLeaderSelect");
+
+  if (!select) {
+    return;
+  }
+
+  const members = state.people?.members || [];
+
+  select.innerHTML =
+    '<option value="">No leader yet</option>' +
+    members
+      .filter((member) => member.status === "active")
+      .map(
+        (member) =>
+          `<option value="${member.id}">${member.name}</option>`,
+      )
+      .join("");
+};
+
+const showMinistryForm = () => {
+  const form = document.querySelector("#ministryForm");
+
+  if (!form) {
+    return;
+  }
+
+  form.hidden = false;
+  renderMinistryLeaderOptions();
+
+  form.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+};
+
+const hideMinistryForm = () => {
+  const form = document.querySelector("#ministryForm");
+
+  if (form) {
+    form.hidden = true;
+  }
+};
+
+const submitMinistryForm = async (form) => {
+  try {
+    setBusy(true);
+    setStatus("Creating ministry");
+
+    await sendJson(
+      "/members/ministries",
+      "POST",
+      formPayload(form),
+    );
+
+    form.reset();
+    form.hidden = true;
+
+    await loadSection("people");
+
+    setStatus("Ministry created", "ok");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Ministry creation failed",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
 const renderImportPreview = () => {
   const preview = state.importPreview;
   const rows = preview?.rows || [];
@@ -377,27 +944,249 @@ const renderImportPreview = () => {
       )
       .join("") || emptyState("Preview rows will appear here.");
 };
+const getServiceDayEvent = () => {
+  const events = state.attendance?.events || [];
+  const now = new Date();
 
+  const todaysEvents = events.filter((event) => {
+    if (!event.starts_at) {
+      return false;
+    }
+
+    const startsAt = new Date(event.starts_at);
+
+    return (
+      startsAt.getFullYear() === now.getFullYear() &&
+      startsAt.getMonth() === now.getMonth() &&
+      startsAt.getDate() === now.getDate()
+    );
+  });
+
+  if (!todaysEvents.length) {
+    return null;
+  }
+
+  // If one service already has attendance open, always show that one.
+  const openEvent = todaysEvents.find(
+    (event) => event.attendance_status === "open",
+  );
+
+  if (openEvent) {
+    return openEvent;
+  }
+
+  // Otherwise show the service closest to the current time.
+  return todaysEvents.sort((a, b) => {
+    const aDifference = Math.abs(
+      new Date(a.starts_at).getTime() - now.getTime(),
+    );
+
+    const bDifference = Math.abs(
+      new Date(b.starts_at).getTime() - now.getTime(),
+    );
+
+    return aDifference - bDifference;
+  })[0];
+};
+
+const renderServiceDay = () => {
+  const event = getServiceDayEvent();
+
+  const title = document.querySelector("#serviceDayTitle");
+  const meta = document.querySelector("#serviceDayMeta");
+  const status = document.querySelector("#serviceDayStatus");
+  const count = document.querySelector("#serviceDayCheckInCount");
+  const qrStatus = document.querySelector("#serviceDayQrStatus");
+  const showQrButton = document.querySelector("#serviceDayShowQr");
+  const toggleButton = document.querySelector("#serviceDayToggleAttendance");
+  const recentList = document.querySelector("#serviceDayRecentCheckIns");
+
+  if (!event) {
+    title.textContent = "No active service";
+    meta.textContent = "No service is scheduled for today.";
+    status.textContent = "No session";
+    status.className = "tag muted";
+    count.textContent = "0";
+    qrStatus.textContent = "Closed";
+    showQrButton.disabled = true;
+    toggleButton.disabled = true;
+    recentList.innerHTML = emptyState("No service-day check-ins yet.");
+    return;
+  }
+
+  title.textContent = event.name;
+
+  meta.textContent = [
+    formatDateTime(event.starts_at),
+    event.location || "No location",
+  ].join(" - ");
+
+  count.textContent = event.check_ins || 0;
+
+ qrStatus.textContent = event.qr_active ? "Open" : "Closed";
+
+const attendanceOpen = event.attendance_status === "open";
+
+status.textContent =
+  event.attendance_status === "closed"
+    ? "Attendance closed"
+    : attendanceOpen
+      ? "Attendance open"
+      : "Scheduled";
+
+status.className = `tag ${attendanceOpen ? "green" : "muted"}`;
+
+showQrButton.disabled = false;
+showQrButton.dataset.eventId = event.id;
+
+toggleButton.disabled = false;
+toggleButton.dataset.eventId = event.id;
+
+toggleButton.textContent = attendanceOpen
+  ? "Close Attendance"
+  : "Open Attendance";
+  const recentCheckIns = (state.attendance?.recent_check_ins || []).filter(
+    (checkIn) => checkIn.event_id === event.id,
+  );
+
+  recentList.innerHTML =
+    recentCheckIns
+      .slice(0, 5)
+      .map((checkIn) =>
+        row({
+          title: checkIn.person_name,
+          subtitle: formatDateTime(checkIn.checked_in_at),
+          tag: checkIn.person_type,
+          tone: checkIn.check_in_method === "qr" ? "green" : "amber",
+        }),
+      )
+      .join("") || emptyState("No check-ins for today's service yet.");
+};
+const ministryNameForEvent = (event) => {
+  if (!event.ministry_id) {
+    return null;
+  }
+
+  return (
+    state.ministries?.ministries || []
+  ).find(
+    (ministry) =>
+      ministry.id === event.ministry_id,
+  )?.name || "Unknown ministry";
+};
 const renderAttendance = () => {
   const events = state.attendance?.events || [];
   const recentCheckIns = state.attendance?.recent_check_ins || [];
+  const serviceTemplates = state.serviceTemplates || [];
 
   document.querySelector("#checkInCount").textContent = state.attendance?.total_check_ins || 0;
+  const dayNames = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+document.querySelector("#serviceTemplateList").innerHTML =
+  serviceTemplates
+    .map((template) =>
+      row({
+        title: template.name,
+        subtitle: `${dayNames[template.day_of_week]} · ${
+          template.start_time
+        }${template.end_time ? `–${template.end_time}` : ""} · ${
+          template.location || "No location"
+        }`,
+        tag: template.is_active ? "Active" : "Inactive",
+        tone: template.is_active ? "green" : "muted",
+        action: `
+          <button
+            class="mini-button"
+            type="button"
+            data-service-template-edit="${template.id}"
+          >
+            Edit
+          </button>
+       
+
+          <button
+            class="mini-button"
+            type="button"
+            data-service-template-delete="${template.id}"
+          >
+            Delete
+          </button>
+        `,
+      }),
+    )
+    .join("") || emptyState("No recurring services configured.");
+  document
+  .querySelectorAll("[data-service-template-delete]")
+  .forEach((button) => {
+    button.addEventListener("click", () => {
+      deleteServiceTemplate(
+        button.dataset.serviceTemplateDelete,
+      );
+    });
+  });
+    document
+  .querySelectorAll("[data-service-template-edit]")
+  .forEach((button) => {
+    button.addEventListener("click", () => {
+      openServiceTemplateEditForm(
+        button.dataset.serviceTemplateEdit,
+      );
+    });
+  });
+ 
   document.querySelector("#eventList").innerHTML =
-    events
-      .map((event) =>
-        row({
-          title: event.name,
-          subtitle: `${formatDateTime(event.starts_at)} - ${
-            event.location || "No location"
-          } - QR ${event.qr_active ? "open" : "closed"}`,
-          tag: `${event.check_ins || 0} check-ins`,
-          tone: event.qr_active ? "green" : "",
-          action: `<button class="mini-button" data-event-qr="${event.id}" type="button">QR</button>`,
-        }),
-      )
-      .join("") || emptyState("No upcoming events found.");
-  document.querySelector("#checkInList").innerHTML =
+  events
+    .map((event) =>
+      row({
+        title: event.name,
+        subtitle: [
+          formatDateTime(event.starts_at),
+          event.ministry_id
+            ? ministryNameForEvent(event)
+            : null,
+          event.location || "No location",
+          `QR ${event.qr_active ? "open" : "closed"}`,
+        ]
+          .filter(Boolean)
+          .join(" - "),
+        tag: `${event.check_ins || 0} check-ins`,
+        tone: event.qr_active ? "green" : "",
+        action: `
+          <button
+            class="mini-button"
+            data-event-qr="${event.id}"
+            type="button"
+          >
+            QR
+          </button>
+
+          <button
+            class="mini-button"
+            data-event-edit="${event.id}"
+            type="button"
+          >
+            Edit
+          </button>
+
+          <button
+            class="mini-button"
+            data-event-delete="${event.id}"
+            type="button"
+          >
+            Delete
+          </button>
+        `,
+      }),
+    )
+    .join("") || emptyState("No upcoming events found.");  document.querySelector("#checkInList").innerHTML =
     recentCheckIns
       .map((checkIn) =>
         row({
@@ -408,11 +1197,25 @@ const renderAttendance = () => {
         }),
       )
       .join("") || emptyState("No recent check-ins found.");
-  document.querySelectorAll("[data-event-qr]").forEach((button) => {
-    button.addEventListener("click", () => showQrToken(button.dataset.eventQr));
+ document.querySelectorAll("[data-event-qr]").forEach((button) => {
+  button.addEventListener("click", () => showQrToken(button.dataset.eventQr));
+});
+
+document.querySelectorAll("[data-event-edit]").forEach((button) => {
+  button.addEventListener("click", () => {
+    openEventEditForm(button.dataset.eventEdit);
   });
-  renderCheckInEventOptions();
-  applyRoleAccess();
+});
+
+document.querySelectorAll("[data-event-delete]").forEach((button) => {
+  button.addEventListener("click", () => {
+    deleteEvent(button.dataset.eventDelete);
+  });
+});
+
+renderServiceDay();
+renderCheckInEventOptions();
+applyRoleAccess();
 };
 
 const renderHouseholds = () => {
@@ -535,7 +1338,9 @@ const renderStewardship = () => {
             contribution.currency,
           )}`,
           subtitle: [
-            contribution.member_name || "Anonymous / Visitor",
+            contribution.household_name ||
+              contribution.member_name ||
+              "Unknown contributor",
             labelize(contribution.payment_method || "cash"),
             contribution.reference_code ? `Ref: ${contribution.reference_code}` : null,
             formatDateTime(contribution.received_at),
@@ -548,6 +1353,8 @@ const renderStewardship = () => {
       )
       .join("") || emptyState("No contribution records found.");
   renderContributionMemberOptions();
+  renderContributionHouseholdOptions();
+  updateContributionScope();
   applyRoleAccess();
 };
 
@@ -654,6 +1461,203 @@ const renderWeeklyReport = () => {
   applyRoleAccess();
 };
 
+const setGeofenceCoordinates = (latitude, longitude, moveMap = true) => {
+  const latitudeValue = Number(latitude);
+  const longitudeValue = Number(longitude);
+
+  if (
+    !Number.isFinite(latitudeValue) ||
+    !Number.isFinite(longitudeValue)
+  ) {
+    return;
+  }
+
+  document.querySelector("#geofenceLatitude").value =
+    latitudeValue.toFixed(6);
+
+  document.querySelector("#geofenceLongitude").value =
+    longitudeValue.toFixed(6);
+
+  if (geofenceMarker) {
+    geofenceMarker.setLatLng([latitudeValue, longitudeValue]);
+  }
+
+  if (geofenceCircle) {
+    geofenceCircle.setLatLng([latitudeValue, longitudeValue]);
+  }
+
+  if (moveMap && geofenceMap) {
+    geofenceMap.setView([latitudeValue, longitudeValue], 17);
+  }
+};
+
+const initializeGeofenceMap = () => {
+  const mapElement = document.querySelector("#geofenceMap");
+
+  if (!mapElement || typeof L === "undefined") {
+    return;
+  }
+
+  const latitudeInput = document.querySelector("#geofenceLatitude");
+  const longitudeInput = document.querySelector("#geofenceLongitude");
+  const radiusInput = document.querySelector("#geofenceRadius");
+
+  const savedLatitude = Number(latitudeInput.value);
+  const savedLongitude = Number(longitudeInput.value);
+
+  const hasSavedCoordinates =
+    Number.isFinite(savedLatitude) &&
+    Number.isFinite(savedLongitude) &&
+    latitudeInput.value !== "" &&
+    longitudeInput.value !== "";
+
+  // Dar es Salaam is the fallback starting position.
+  const startingLatitude = hasSavedCoordinates
+    ? savedLatitude
+    : -6.7924;
+
+  const startingLongitude = hasSavedCoordinates
+    ? savedLongitude
+    : 39.2083;
+
+  const startingPosition = [
+    startingLatitude,
+    startingLongitude,
+  ];
+
+  const radius = Number(radiusInput.value || 100);
+
+  if (!geofenceMap) {
+    geofenceMap = L.map("geofenceMap").setView(
+      startingPosition,
+      hasSavedCoordinates ? 17 : 12,
+    );
+
+    L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      },
+    ).addTo(geofenceMap);
+
+    geofenceMarker = L.marker(startingPosition, {
+      draggable: true,
+    }).addTo(geofenceMap);
+
+    geofenceCircle = L.circle(startingPosition, {
+      radius,
+    }).addTo(geofenceMap);
+
+    geofenceMarker.bindPopup(
+      "Church location. Drag this pin to adjust it.",
+    );
+
+    geofenceMap.on("click", (event) => {
+      setGeofenceCoordinates(
+        event.latlng.lat,
+        event.latlng.lng,
+        false,
+      );
+    });
+
+    geofenceMarker.on("dragend", () => {
+      const position = geofenceMarker.getLatLng();
+
+      setGeofenceCoordinates(
+        position.lat,
+        position.lng,
+        false,
+      );
+    });
+  } else {
+    geofenceMarker.setLatLng(startingPosition);
+    geofenceCircle.setLatLng(startingPosition);
+    geofenceCircle.setRadius(radius);
+
+    if (hasSavedCoordinates) {
+      geofenceMap.setView(startingPosition, 17);
+    }
+  }
+
+  // The dashboard is hidden before login, so Leaflet must recalculate its size.
+  window.setTimeout(() => {
+    geofenceMap.invalidateSize();
+  }, 100);
+};
+
+const renderGeofenceSettings = () => {
+  const geofence = state.geofence || {};
+
+  document.querySelector("#geofenceEnabled").checked =
+    Boolean(geofence.geofence_enabled);
+
+  document.querySelector("#geofenceLatitude").value =
+    geofence.latitude ?? "";
+
+  document.querySelector("#geofenceLongitude").value =
+    geofence.longitude ?? "";
+
+  const radius = Number(geofence.attendance_radius_meters || 100);
+
+  document.querySelector("#geofenceRadius").value = radius;
+  document.querySelector("#geofenceRadiusValue").textContent = radius;
+
+  const configured =
+    geofence.latitude !== null &&
+    geofence.latitude !== undefined &&
+    geofence.longitude !== null &&
+    geofence.longitude !== undefined;
+
+  document.querySelector("#geofenceSettingsStatus").innerHTML = configured
+    ? `
+        <strong>Church location configured.</strong>
+        <span>
+          ${geofence.latitude}, ${geofence.longitude} —
+          ${radius} metre radius.
+        </span>
+      `
+    : `
+        <strong>Church location not configured.</strong>
+        <span>Select a setup method and enter the church location.</span>
+      `;
+  updateGeofenceSetupMethod();
+  initializeGeofenceMap();
+};
+
+const updateGeofenceSetupMethod = () => {
+  const selectedMethod =
+    document.querySelector(
+      'input[name="setup_method"]:checked',
+    )?.value || "map";
+
+  const mapMode = document.querySelector("#geofenceMapMode");
+  const manualMode = document.querySelector(
+    "#geofenceManualMode",
+  );
+
+  const latitudeInput = document.querySelector(
+    "#geofenceLatitude",
+  );
+
+  const longitudeInput = document.querySelector(
+    "#geofenceLongitude",
+  );
+
+  mapMode.hidden = selectedMethod !== "map";
+  manualMode.hidden = selectedMethod !== "manual";
+
+  latitudeInput.readOnly = selectedMethod === "map";
+  longitudeInput.readOnly = selectedMethod === "map";
+
+  if (selectedMethod === "map" && geofenceMap) {
+    window.setTimeout(() => {
+      geofenceMap.invalidateSize();
+    }, 100);
+  }
+};
+
 const renderAdmin = () => {
   const roles = state.admin?.roles || [];
   const users = state.admin?.users || [];
@@ -705,10 +1709,28 @@ const renderAdmin = () => {
   document.querySelector("#branchName").value = branch.name || "";
   document.querySelector("#branchLocation").value = branch.location || "";
   document.querySelector("#branchPhone").value = branch.contact_phone || "";
-  document.querySelector("#branchSettingsSummary").textContent = branch.id
-    ? `${branch.name} - ${branch.location || "No location"} - ${
-        branch.contact_phone || "No phone"
-      }`
+  document.querySelector("#branchDenomination").value =
+  branch.denomination || "";
+
+document.querySelector("#branchCommunityLabel").value =
+  branch.community_label || "Community Group";
+
+document.querySelector("#branchDefaultLanguage").value =
+  branch.default_language || "en";
+
+document.querySelector("#branchTimezone").value =
+  branch.timezone || "Africa/Dar_es_Salaam";
+  document.querySelector("#branchSettingsSummary").textContent =
+  branch.id
+    ? [
+        branch.name,
+        branch.denomination || "Denomination not set",
+        branch.location || "No location",
+        branch.community_label || "Community Group",
+        (
+          branch.default_language || "en"
+        ).toUpperCase(),
+      ].join(" - ")
     : "No branch settings available.";
   document.querySelector("#backupManifestSummary").textContent = state.backupManifest
     ? `Last manifest: ${formatDateTime(state.backupManifest.generated_at)} - ${
@@ -722,18 +1744,89 @@ const renderAdmin = () => {
   applyRoleAccess();
 };
 
+const deleteServiceTemplate = async (templateId) => {
+  const template = (state.serviceTemplates || []).find(
+    (item) => item.id === templateId,
+  );
+
+  if (!template) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete recurring service "${template.name}"?`,
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    setBusy(true);
+    setStatus("Deleting recurring service");
+
+    await sendJson(
+      `/attendance/service-templates/${templateId}`,
+      "DELETE",
+    );
+
+    await loadSection("attendance");
+
+    setStatus("Recurring service deleted", "ok");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Recurring service could not be deleted",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
 const loadSection = async (section) => {
   if (section === "people") {
-    state.people = await fetchJson("/members/");
-    renderPeople();
-  }
+  const [people, communities, ministries] = await Promise.all([
+  fetchJson("/members/"),
+  fetchJson("/members/communities"),
+  fetchJson("/members/ministries"),
+]);
+
+state.people = people;
+state.communities = communities;
+state.ministries = ministries;
+
+renderCommunityTerminology();
+renderPeople();
+renderCommunities();
+renderMinistries();
+
+  state.people = people;
+  state.communities = communities;
+
+  renderPeople();
+  renderCommunities();
+  renderCommunityTerminology();
+}
   if (section === "imports") {
     renderImportPreview();
   }
-  if (section === "attendance") {
-    state.attendance = await fetchJson("/attendance/");
-    renderAttendance();
-  }
+ if (section === "attendance") {
+  const [attendance, serviceTemplates, ministries] = await Promise.all([
+    fetchJson("/attendance/"),
+    fetchJson("/attendance/service-templates"),
+    fetchJson("/members/ministries"),
+  ]);
+
+  state.attendance = attendance;
+  state.serviceTemplates = serviceTemplates;
+  state.ministries = ministries;
+
+  renderEventMinistryOptions();
+  updateEventMinistryField();
+  renderAttendance();
+}
   if (section === "households") {
     state.households = await fetchJson("/members/households");
     renderHouseholds();
@@ -743,12 +1836,26 @@ const loadSection = async (section) => {
     renderMessages();
   }
   if (section === "stewardship") {
-    state.stewardship = await fetchJson("/stewardship/");
-    renderStewardship();
+  state.stewardship = await fetchJson("/stewardship/");
+
+  if (!state.people) {
+    state.people = await fetchJson("/members/");
   }
+
+  if (!state.households) {
+    state.households = await fetchJson("/members/households");
+  }
+
+  renderStewardship();
+}
   if (section === "reports") {
     state.reports = await fetchJson("/reports/weekly");
     renderWeeklyReport();
+  }
+  if (section === "settings") {
+    const response = await fetchJson("/admin/branch/geofence");
+    state.geofence = response.geofence || null;
+    renderGeofenceSettings();
   }
   if (section === "admin") {
     const [roles, users, auditLogs, branch] = await Promise.all([
@@ -979,6 +2086,50 @@ const renderContributionMemberOptions = () => {
       .join("");
 };
 
+const renderContributionHouseholdOptions = () => {
+  const select = document.querySelector("#contributionHouseholdSelect");
+
+  if (!select) {
+    return;
+  }
+
+  const households = state.households?.households || [];
+
+  select.innerHTML =
+    '<option value="">Select household</option>' +
+    households
+      .map(
+        (household) =>
+          `<option value="${household.id}">${household.name}</option>`,
+      )
+      .join("");
+};
+
+const updateContributionScope = () => {
+  const scope = document.querySelector("#contributionScope")?.value || "individual";
+  const memberField = document.querySelector("#contributionMemberField");
+  const householdField = document.querySelector("#contributionHouseholdField");
+  const memberSelect = document.querySelector("#contributionMemberSelect");
+  const householdSelect = document.querySelector("#contributionHouseholdSelect");
+
+  if (!memberField || !householdField) {
+    return;
+  }
+
+  const isHousehold = scope === "household";
+
+  memberField.hidden = isHousehold;
+  householdField.hidden = !isHousehold;
+
+  if (isHousehold && memberSelect) {
+    memberSelect.value = "";
+  }
+
+  if (!isHousehold && householdSelect) {
+    householdSelect.value = "";
+  }
+};
+
 const dateInputToIso = (value) => (value ? new Date(value).toISOString() : null);
 
 const scanUrlFor = (eventId, token) =>
@@ -1040,17 +2191,309 @@ const showQrToken = async (eventId) => {
   }
 };
 
-const submitEventForm = async (form) => {
+const openEventEditForm = (eventId) => {
+  const event = state.attendance?.events?.find(
+    (item) => item.id === eventId,
+  );
+
+  if (!event) {
+    return;
+  }
+
+  const form = document.querySelector("#eventForm");
+
+  form.elements.event_id.value = event.id;
+  form.elements.name.value = event.name || "";
+  form.elements.event_type.value = event.type || "service";
+  updateEventMinistryField();
+
+if (form.elements.ministry_id) {
+  form.elements.ministry_id.value =
+    event.ministry_id || "";
+} 
+  form.elements.starts_at.value =
+  isoToLocalInput(event.starts_at);
+
+form.elements.ends_at.value =
+  isoToLocalInput(event.ends_at);
+
+form.elements.location.value =
+  event.location || "";
+
+form.elements.qr_opens_at.value =
+  isoToLocalInput(event.qr_opens_at);
+
+form.elements.qr_closes_at.value =
+  isoToLocalInput(event.qr_closes_at);
+  form.elements.qr_rotation_seconds.value =
+    event.qr_rotation_seconds || 60;
+
+  document.querySelector("#eventFormTitle").textContent =
+    `Edit ${event.name}`;
+
+  document.querySelector("#eventSubmitButton").textContent =
+    "Save changes";
+
+  document.querySelector("#cancelEventEdit").hidden = false;
+
+  form.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+};
+
+
+const clearEventForm = () => {
+  const form = document.querySelector("#eventForm");
+
+  form.reset();
+  form.elements.event_id.value = "";
+  if (form.elements.ministry_id) {
+  form.elements.ministry_id.value = "";
+}
+
+updateEventMinistryField();
+  form.elements.qr_rotation_seconds.value = 60;
+
+  document.querySelector("#eventFormTitle").textContent =
+    "Create Event";
+
+  document.querySelector("#eventSubmitButton").textContent =
+    "Create event";
+
+  document.querySelector("#cancelEventEdit").hidden = true;
+};
+const isoToLocalInput = (value) => {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  const pad = (number) => String(number).padStart(2, "0");
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate(),
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const deleteEvent = async (eventId) => {
+  const event = state.attendance?.events?.find(
+    (item) => item.id === eventId,
+  );
+
+  if (!event) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Delete "${event.name}"?`,
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
   try {
     setBusy(true);
-    setStatus("Creating event");
-    await sendJson("/attendance/events", "POST", eventPayload(form));
-    form.reset();
+    setStatus("Deleting event");
+
+    await sendJson(
+      `/attendance/events/${eventId}`,
+      "DELETE",
+    );
+
     await loadSection("attendance");
-    setStatus("Event created", "ok");
+
+    setStatus("Event deleted", "ok");
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Event failed", "error");
+
+    setStatus(
+      error.message || "Event could not be deleted",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
+const clearServiceTemplateForm = () => {
+  const form = document.querySelector("#serviceTemplateForm");
+
+  form.reset();
+  form.elements.template_id.value = "";
+  form.elements.qr_open_minutes_before.value = 30;
+  form.elements.qr_close_minutes_after.value = 30;
+  form.elements.qr_rotation_seconds.value = 60;
+  form.elements.is_active.checked = true;
+
+  document.querySelector("#serviceTemplateFormTitle").textContent =
+    "Add recurring service";
+
+  document.querySelector("#serviceTemplateSubmitButton").textContent =
+    "Save recurring service";
+
+  document.querySelector("#cancelServiceTemplateEdit").hidden = true;
+}; 
+
+
+const submitServiceTemplateForm = async (form) => {
+  const payload = formPayload(form);
+  const templateId = payload.template_id;
+
+  delete payload.template_id;
+
+  payload.day_of_week = Number(payload.day_of_week);
+  payload.qr_open_minutes_before = Number(
+    payload.qr_open_minutes_before || 30,
+  );
+  payload.qr_close_minutes_after = Number(
+    payload.qr_close_minutes_after || 30,
+  );
+  payload.qr_rotation_seconds = Number(
+    payload.qr_rotation_seconds || 60,
+  );
+
+  payload.is_active = form.elements.is_active.checked;
+
+  try {
+    setBusy(true);
+
+    if (templateId) {
+      setStatus("Updating recurring service");
+
+      await sendJson(
+        `/attendance/service-templates/${templateId}`,
+        "PATCH",
+        payload,
+      );
+
+      setStatus("Recurring service updated", "ok");
+    } else {
+      setStatus("Creating recurring service");
+
+      await sendJson(
+        "/attendance/service-templates",
+        "POST",
+        payload,
+      );
+
+      setStatus("Recurring service created", "ok");
+    }
+    clearServiceTemplateForm();
+
+    await loadSection("attendance");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Recurring service save failed",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
+const openServiceTemplateEditForm = (templateId) => {
+  const template = (state.serviceTemplates || []).find(
+    (item) => item.id === templateId,
+  );
+
+  if (!template) {
+    setStatus("Recurring service not found", "error");
+    return;
+  }
+
+  const form = document.querySelector("#serviceTemplateForm");
+
+  form.elements.template_id.value = template.id;
+  form.elements.name.value = template.name || "";
+  form.elements.event_type.value = template.event_type || "service";
+  form.elements.day_of_week.value = String(template.day_of_week);
+  form.elements.start_time.value = template.start_time || "";
+  form.elements.end_time.value = template.end_time || "";
+  form.elements.location.value = template.location || "";
+  form.elements.qr_open_minutes_before.value =
+    template.qr_open_minutes_before ?? 30;
+  form.elements.qr_close_minutes_after.value =
+    template.qr_close_minutes_after ?? 30;
+  form.elements.qr_rotation_seconds.value =
+    template.qr_rotation_seconds ?? 60;
+  form.elements.is_active.checked = Boolean(template.is_active);
+
+  document.querySelector("#serviceTemplateFormTitle").textContent =
+    `Edit ${template.name}`;
+
+  document.querySelector("#serviceTemplateSubmitButton").textContent =
+    "Save changes";
+
+  document.querySelector("#cancelServiceTemplateEdit").hidden = false;
+
+  form.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+};
+
+const submitEventForm = async (form) => {
+  const payload = eventPayload(form);
+  if (
+  payload.event_type !== "ministry" ||
+  !payload.ministry_id
+) {
+  payload.ministry_id = null;
+}
+if (
+  payload.event_type === "ministry" &&
+  !payload.ministry_id
+) {
+  setStatus("Select a ministry for this event", "error");
+  return;
+}
+  const eventId = payload.event_id;
+
+  delete payload.event_id;
+
+  payload.qr_rotation_seconds = Number(
+    payload.qr_rotation_seconds || 60,
+  );
+
+  try {
+    setBusy(true);
+
+    if (eventId) {
+      setStatus("Updating event");
+
+      await sendJson(
+        `/attendance/events/${eventId}`,
+        "PATCH",
+        payload,
+      );
+
+      setStatus("Event updated", "ok");
+    } else {
+      setStatus("Creating event");
+
+      await sendJson(
+        "/attendance/events",
+        "POST",
+        payload,
+      );
+
+      setStatus("Event created", "ok");
+    }
+
+    clearEventForm();
+    await loadSection("attendance");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "Event save failed",
+      "error",
+    );
   } finally {
     setBusy(false);
   }
@@ -1159,24 +2602,65 @@ const dispatchMessage = async (messageId) => {
 
 const submitContributionForm = async (form) => {
   const payload = formPayload(form);
+
   payload.amount = Number(payload.amount || 0);
+
+  if (payload.contributor_scope === "individual") {
+    payload.household_id = null;
+  }
+
+  if (payload.contributor_scope === "household") {
+    payload.member_id = null;
+  }
 
   try {
     setBusy(true);
     setStatus("Recording contribution");
-    const contribution = await sendJson("/stewardship/contributions", "POST", payload);
+
+    const contribution = await sendJson(
+      "/stewardship/contributions",
+      "POST",
+      payload,
+    );
+
+    const contributorName =
+      contribution.household_name ||
+      contribution.member_name ||
+      "Unknown contributor";
+
     form.reset();
+    updateContributionScope();
+
     document.querySelector("#contributionReceipt").innerHTML = `
-      <strong>Recorded ${formatCurrency(contribution.amount, contribution.currency)}</strong>
-      <span>${contribution.member_name || "Anonymous / Visitor"} - ${
-        contribution.reference_code ? `Ref: ${contribution.reference_code}` : labelize(contribution.payment_method)
-      }</span>
+      <strong>
+        Recorded ${formatCurrency(
+          contribution.amount,
+          contribution.currency,
+        )}
+      </strong>
+
+      <span>
+        ${contributorName} - ${
+          contribution.reference_code
+            ? `Ref: ${contribution.reference_code}`
+            : labelize(contribution.payment_method)
+        }
+      </span>
+
+      <span>
+        Contribution acknowledgement created
+      </span>
     `;
+
     await loadSection("stewardship");
+
     setStatus("Contribution recorded", "ok");
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Contribution failed", "error");
+    setStatus(
+      error.message || "Contribution failed",
+      "error",
+    );
   } finally {
     setBusy(false);
   }
@@ -1296,16 +2780,99 @@ const submitAdminUserForm = async (form) => {
   }
 };
 
+const submitGeofenceSettingsForm = async (form) => {
+  const payload = formPayload(form);
+
+  payload.geofence_enabled =
+    form.elements.geofence_enabled.checked;
+
+  payload.setup_method =
+    form.elements.setup_method.value;
+
+  payload.latitude =
+    payload.latitude === null
+      ? null
+      : Number(payload.latitude);
+
+  payload.longitude =
+    payload.longitude === null
+      ? null
+      : Number(payload.longitude);
+
+  payload.attendance_radius_meters = Number(
+    payload.attendance_radius_meters || 100,
+  );
+
+  const statusPanel = document.querySelector(
+    "#geofenceSettingsStatus",
+  );
+
+  try {
+    setBusy(true);
+    setStatus("Saving geofence");
+
+    const response = await sendJson(
+      "/admin/branch/geofence",
+      "PUT",
+      payload,
+    );
+
+    state.geofence = response.geofence;
+
+    renderGeofenceSettings();
+
+    statusPanel.innerHTML = `
+      <strong>Geofence settings saved.</strong>
+      <span>
+        ${response.geofence.latitude},
+        ${response.geofence.longitude} —
+        ${response.geofence.attendance_radius_meters}
+        metre radius.
+      </span>
+    `;
+
+    setStatus("Geofence saved", "ok");
+  } catch (error) {
+    console.error(error);
+
+    statusPanel.innerHTML = `
+      <strong>Geofence settings could not be saved.</strong>
+      <span>${error.message || "Please check the values."}</span>
+    `;
+
+    setStatus(
+      error.message || "Geofence save failed",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
 const submitBranchSettingsForm = async (form) => {
   try {
     setBusy(true);
     setStatus("Saving branch");
-    await sendJson("/admin/branch", "PATCH", formPayload(form));
+
+    await sendJson(
+      "/admin/branch",
+      "PATCH",
+      formPayload(form),
+    );
+
     await loadSection("admin");
+
+    renderCommunityTerminology();
+    renderCommunities();
+
     setStatus("Branch settings saved", "ok");
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Branch save failed", "error");
+
+    setStatus(
+      error.message || "Branch save failed",
+      "error",
+    );
   } finally {
     setBusy(false);
   }
@@ -1443,6 +3010,1550 @@ const openPersonDialog = (type, personId) => {
   dialog.showModal();
 };
 
+const openMemberProfile = (memberId) => {
+  const member = state.people?.members?.find(
+    (item) => item.id === memberId,
+  );
+
+  if (!member) {
+    setStatus("Member not found", "error");
+    return;
+  }
+
+  const dialog = document.querySelector("#memberProfileDialog");
+  const communities = member.communities || [];
+
+  document.querySelector("#memberProfileName").textContent =
+    member.name || "Member";
+
+  document.querySelector("#memberProfileStatus").textContent =
+    labelize(member.status || "active");
+
+  document.querySelector("#memberProfileBody").innerHTML = `
+    <div class="profile-section">
+      <h3>Contact</h3>
+      <div class="profile-grid">
+        <div>
+          <span>Phone</span>
+          <strong>${member.phone || "Not provided"}</strong>
+        </div>
+
+        <div>
+          <span>Email</span>
+          <strong>${member.email || "Not provided"}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Personal</h3>
+      <div class="profile-grid">
+        <div>
+          <span>Gender</span>
+          <strong>${labelize(member.gender || "Not specified")}</strong>
+        </div>
+
+        <div>
+          <span>Date of birth</span>
+          <strong>${member.date_of_birth || "Not provided"}</strong>
+        </div>
+
+        <div>
+          <span>Marital status</span>
+          <strong>${labelize(member.marital_status || "Not specified")}</strong>
+        </div>
+
+        <div>
+          <span>Occupation</span>
+          <strong>${member.occupation || "Not provided"}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Location</h3>
+      <div class="profile-grid">
+        <div>
+          <span>Area</span>
+          <strong>${member.area || "Not provided"}</strong>
+        </div>
+
+        <div>
+          <span>Address</span>
+          <strong>${member.address || "Not provided"}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>${communityLabel()}</h3>
+
+      ${
+        communities.length
+          ? communities
+              .map(
+                (community) => `
+                  <div class="profile-community">
+                    <strong>${community.name}</strong>
+                    <span>
+                      ${labelize(community.role || "member")}
+                      ${
+                        community.area
+                          ? ` · ${community.area}`
+                          : ""
+                      }
+                    </span>
+                  </div>
+                `,
+              )
+              .join("")
+          : `<p>No ${communityLabel().toLowerCase()}assigned.</p>`
+      }
+    </div>
+    <div class="profile-section">
+  <h3>Ministries</h3>
+
+  ${
+    member.ministries?.length
+      ? `
+        <div class="profile-grid">
+          ${member.ministries
+            .map(
+              (ministry) => `
+                <div>
+                  <span>${ministry.name}</span>
+
+                  <strong>
+                    ${
+                      ministry.is_leader
+                        ? "Leader"
+                        : labelize(ministry.role || "member")
+                    }
+                  </strong>
+                </div>
+              `,
+            )
+            .join("")}
+        </div>
+      `
+      : `
+        <p class="muted">
+          No ministry memberships.
+        </p>
+      `
+  }
+</div>
+    <div class="profile-section">
+  <h3>Household</h3>
+
+  ${
+    member.household
+      ? `
+        <div class="profile-grid">
+       
+          <div>
+            <span>Household</span>
+            <strong>
+              ${member.household.name || "Not provided"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Relationship</span>
+            <strong>
+              ${labelize(
+                member.household.relationship || "Not specified"
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Household role</span>
+            <strong>
+              ${
+                member.household.is_primary_member
+                  ? "Primary member"
+                  : "Household member"
+              }
+            </strong>
+          </div>
+
+          <div>
+            <span>Primary phone</span>
+            <strong>
+              ${member.household.primary_phone || "Not provided"}
+            </strong>
+          </div>
+        </div>
+         <div class="dialog-actions">
+          <button
+            class="mini-button"
+            type="button"
+            data-view-household="${member.household.id}"
+          >
+          View household
+        </button>
+        </div>
+      `
+      : `
+        <p class="muted">
+          This member is not linked to a household.
+        </p>
+      `
+  }
+</div>
+    <div class="profile-section">
+  <h3>${communityLabel()}assignment</h3>
+
+  <div class="field-row">
+    <label>
+      ${communityLabel()}
+      <select id="memberCommunitySelect">
+        <option value="">Select ${communityLabel().toLowerCase()}</option>
+      </select>
+    </label>
+
+    <label>
+      Role
+      <select id="memberCommunityRole">
+        <option value="member">Member</option>
+        <option value="leader">Leader</option>
+        <option value="assistant">Assistant</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="dialog-actions">
+    <button
+      class="primary-button"
+      type="button"
+      id="assignMemberCommunity"
+    >
+      Assign community
+    </button>
+  </div>
+</div>
+
+    <div class="profile-section">
+      <h3>Preferences</h3>
+      <div class="profile-grid">
+        <div>
+          <span>Preferred language</span>
+          <strong>${labelize(member.preferred_language || "Not specified")}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Notes</h3>
+      <p>${member.notes || "No notes recorded."}</p>
+    </div>
+  `;
+
+  const communitySelect =
+  document.querySelector("#memberCommunitySelect");
+
+if (communitySelect) {
+  const groups = state.communities?.communities || [];
+
+  communitySelect.innerHTML =
+    '<option value="">Select community</option>' +
+    groups
+      .filter((group) => group.status === "active")
+      .map(
+        (group) =>
+          `<option value="${group.id}">${group.name}</option>`,
+      )
+      .join("");
+}
+
+
+
+
+document
+  .querySelector("#assignMemberCommunity")
+  ?.addEventListener("click", async () => {
+    const communityId =
+      document.querySelector("#memberCommunitySelect")?.value;
+
+    const role =
+      document.querySelector("#memberCommunityRole")?.value || "member";
+
+    if (!communityId) {
+      setStatus(
+  `Select a ${communityLabel().toLowerCase()} first`,
+  "error",
+);
+      return;
+    }
+
+    try {
+      setBusy(true);
+      setStatus(`Assigning ${communityLabel().toLowerCase()}`);
+
+      await sendJson(
+        `/members/communities/${communityId}/members`,
+        "POST",
+        {
+          member_id: member.id,
+          role,
+        },
+      );
+
+      await loadSection("people");
+
+      document
+        .querySelector("#memberProfileDialog")
+        ?.close();
+
+      setStatus(`${communityLabel()} assigned`, "ok");
+    } catch (error) {
+      console.error(error);
+
+      setStatus(
+        error.message || `${communityLabel()} assignment failed`,
+        "error",
+      );
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  document
+  .querySelector("[data-view-household]")
+  ?.addEventListener("click", async (event) => {
+    const householdId =
+      event.currentTarget.dataset.viewHousehold;
+
+    if (!state.households) {
+      state.households =
+        await fetchJson("/members/households");
+    }
+
+    openHouseholdDialog(householdId);
+  });
+
+  dialog.showModal();
+};
+
+const openVisitorProfile = (visitorId) => {
+  const visitor =
+    state.people?.visitors?.find(
+      (item) => item.id === visitorId,
+    );
+
+  if (!visitor) {
+    setStatus("Visitor not found", "error");
+    return;
+  }
+
+  const dialog =
+    document.querySelector("#visitorProfileDialog");
+
+  document.querySelector(
+    "#visitorProfileName",
+  ).textContent = visitor.name || "Visitor";
+
+  document.querySelector(
+    "#visitorProfileStatus",
+  ).textContent =
+    labelize(visitor.follow_up_status || "new");
+
+  document.querySelector(
+    "#visitorProfileBody",
+  ).innerHTML = `
+    <div class="profile-section">
+      <h3>Contact</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Phone</span>
+          <strong>
+            ${visitor.phone || "Not provided"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Email</span>
+          <strong>
+            ${visitor.email || "Not provided"}
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Personal</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Gender</span>
+          <strong>
+            ${labelize(
+              visitor.gender || "Not specified",
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <span>Preferred language</span>
+          <strong>
+            ${labelize(
+              visitor.preferred_language ||
+                "Not specified",
+            )}
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Location</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Area</span>
+          <strong>
+            ${visitor.area || "Not provided"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Address</span>
+          <strong>
+            ${visitor.address || "Not provided"}
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Follow-up</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Status</span>
+          <strong>
+            ${labelize(
+              visitor.follow_up_status || "new",
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <span>Conversion</span>
+          <strong>
+            ${
+              visitor.converted_member_id
+                ? "Converted to member"
+                : "Not converted"
+            }
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+  <h3>Follow-up actions</h3>
+
+  <div class="dialog-actions">
+    ${
+      visitor.follow_up_status === "new"
+        ? `
+          <button
+            class="mini-button"
+            type="button"
+            id="markVisitorContacted"
+          >
+            Mark as contacted
+          </button>
+        `
+        : ""
+    }
+
+    ${
+      !visitor.converted_member_id
+        ? `
+          <button
+            class="primary-button"
+            type="button"
+            id="convertVisitorFromProfile"
+          >
+            Convert to member
+          </button>
+        `
+        : ""
+    }
+  </div>
+</div>
+
+    <div class="profile-section">
+      <h3>Notes</h3>
+
+      <p>
+        ${visitor.notes || "No notes recorded."}
+      </p>
+    </div>
+  `;
+
+  
+  document
+  .querySelector("#markVisitorContacted")
+  ?.addEventListener("click", async () => {
+    try {
+      setBusy(true);
+      setStatus("Updating visitor");
+
+      await sendJson(
+        `/members/visitors/${visitor.id}`,
+        "PATCH",
+        {
+          follow_up_status: "contacted",
+        },
+      );
+
+      await loadSection("people");
+
+      document
+        .querySelector("#visitorProfileDialog")
+        ?.close();
+
+      setStatus("Visitor marked as contacted", "ok");
+    } catch (error) {
+      console.error(error);
+
+      setStatus(
+        error.message || "Visitor update failed",
+        "error",
+      );
+    } finally {
+      setBusy(false);
+    }
+  });
+  document
+  .querySelector("#convertVisitorFromProfile")
+  ?.addEventListener("click", async () => {
+    document
+      .querySelector("#visitorProfileDialog")
+      ?.close();
+
+    await convertVisitor(visitor.id);
+  });
+
+  dialog.showModal();
+};
+
+const openHouseholdDialog = (householdId) => {
+  const household =
+    state.households?.households?.find(
+      (item) => item.id === householdId,
+    );
+
+  if (!household) {
+    setStatus("Household not found", "error");
+    return;
+  }
+
+  const dialog =
+    document.querySelector("#householdDialog");
+
+  const body =
+    document.querySelector("#householdDialogBody");
+
+  document.querySelector(
+    "#householdDialogName",
+  ).textContent = household.name;
+
+  body.innerHTML = `
+    <div class="profile-section">
+      <h3>Household information</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Primary contact</span>
+          <strong>
+            ${household.primary_contact || "Not assigned"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Primary phone</span>
+          <strong>
+            ${household.primary_phone || "Not provided"}
+          </strong>
+        </div>
+
+        <div>
+          <span>People</span>
+          <strong>
+            ${household.people?.length || 0}
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Household members</h3>
+
+      ${
+        household.people?.length
+          ? household.people
+              .map(
+                (person) => `
+                 <div class="community-member-row">
+    <div>
+    <strong>${person.name}</strong>
+    <span>
+      ${labelize(person.relationship || "member")}
+    </span>
+    </div>
+
+    <div class="row-actions">
+    <span class="tag ${
+      person.status === "active" ? "green" : "muted"
+    }">
+      ${labelize(person.status || "active")}
+    </span>
+
+    ${
+      person.member_id
+        ? `
+          <button
+            class="mini-button"
+            type="button"
+            data-household-view-member="${person.member_id}"
+          >
+            View profile
+                          </button>
+                         `
+                      : ""
+                    }
+                  </div>
+                </div>
+                `,
+              )
+              .join("")
+          : `
+              <p class="muted">
+                No household members found.
+              </p>
+            `
+      }
+    </div>
+
+    ${
+      household.notes
+        ? `
+          <div class="profile-section">
+            <h3>Notes</h3>
+            <p>${household.notes}</p>
+          </div>
+        `
+        : ""
+    }
+  `;
+
+  document
+  .querySelectorAll("[data-household-view-member]")
+  .forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelector("#householdDialog")?.close();
+
+      openMemberProfile(
+        button.dataset.householdViewMember,
+      );
+    });
+  });
+
+
+  dialog.showModal();
+};
+
+const openCommunityDialog = (communityId) => {
+  const community =
+    state.communities?.communities?.find(
+      (item) => item.id === communityId,
+    );
+
+  if (!community) {
+    setStatus("Community not found", "error");
+    return;
+  }
+
+  const dialog = document.querySelector("#communityDialog");
+  const body = document.querySelector("#communityDialogBody");
+
+  document.querySelector("#communityDialogName").textContent =
+    community.name;
+
+  const members = community.members || [];
+
+  body.innerHTML = `
+    <div class="profile-section">
+      <h3>${communityLabel()} information</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Area</span>
+          <strong>${community.area || "Not provided"}</strong>
+        </div>
+
+        <div>
+          <span>Meeting day</span>
+          <strong>
+            ${community.meeting_day || "Not specified"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Leader</span>
+          <strong>
+            ${community.leader_name || "Not assigned"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Members</span>
+          <strong>${community.member_count || 0}</strong>
+        </div>
+      </div>
+    </div>
+    <div class="profile-section">
+  <div class="panel-header">
+    <div>
+      <h3>Edit ${communityLabel().toLowerCase()}</h3>
+      <p class="muted">
+        Update the ${communityLabel().toLowerCase()} details or leader.
+      </p>
+    </div>
+
+    <button
+      class="mini-button"
+      type="button"
+      id="toggleCommunityEdit"
+    >
+      Edit
+    </button>
+  </div>
+
+  <form
+    id="communityEditForm"
+    class="person-form"
+    hidden
+  >
+    <div class="field-row">
+      <label>
+        Name
+        <input
+          name="name"
+          value="${community.name || ""}"
+          required
+        >
+      </label>
+
+      <label>
+        Area
+        <input
+          name="area"
+          value="${community.area || ""}"
+        >
+      </label>
+    </div>
+
+    <div class="field-row">
+      <label>
+        Meeting day
+        <select
+          name="meeting_day"
+          id="communityEditMeetingDay"
+        >
+          <option value="">Not specified</option>
+          <option value="Monday">Monday</option>
+          <option value="Tuesday">Tuesday</option>
+          <option value="Wednesday">Wednesday</option>
+          <option value="Thursday">Thursday</option>
+          <option value="Friday">Friday</option>
+          <option value="Saturday">Saturday</option>
+          <option value="Sunday">Sunday</option>
+        </select>
+      </label>
+
+      <label>
+        Leader
+        <select
+          name="leader_member_id"
+          id="communityEditLeader"
+        >
+          <option value="">No leader</option>
+        </select>
+      </label>
+    </div>
+
+    <label>
+      Status
+      <select name="status">
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </label>
+
+    <label>
+      Notes
+      <textarea
+        name="notes"
+        rows="3"
+      >${community.notes || ""}</textarea>
+    </label>
+
+    <button
+      class="primary-button"
+      type="submit"
+    >
+      Save changes
+    </button>
+  </form>
+</div>
+    <div class="profile-section">
+      <h3>Members</h3>
+
+      ${
+        members.length
+          ? members
+              .map(
+                (membership) => `
+               <div class="community-member-row">
+  <div>
+    <strong>${membership.member_name}</strong>
+    <span>
+      ${labelize(membership.role || "member")}
+    </span>
+  </div>
+
+  <div class="row-actions">
+    <span class="tag green">
+      ${labelize(membership.status || "active")}
+    </span>
+
+    <button
+      class="mini-button danger"
+      type="button"
+      data-remove-community-member="${membership.member_id}"
+      data-community-id="${community.id}"
+    >
+      Remove
+    </button>
+  </div>
+</div>
+                `,
+              )
+              .join("")
+          : `
+              <p class="muted">
+                No members have been assigned yet.
+              </p>
+            `
+      }
+    </div>
+
+    ${
+      community.notes
+        ? `
+          <div class="profile-section">
+            <h3>Notes</h3>
+            <p>${community.notes}</p>
+          </div>
+        `
+        : ""
+    }
+  `;
+  
+  const editForm =
+  document.querySelector("#communityEditForm");
+
+const editToggle =
+  document.querySelector("#toggleCommunityEdit");
+
+const leaderSelect =
+  document.querySelector("#communityEditLeader");
+
+const meetingDaySelect =
+  document.querySelector("#communityEditMeetingDay");
+
+if (leaderSelect) {
+  leaderSelect.innerHTML =
+    '<option value="">No leader</option>' +
+    (state.people?.members || [])
+      .filter((member) => member.status === "active")
+      .map(
+        (member) =>
+          `<option value="${member.id}">${member.name}</option>`,
+      )
+      .join("");
+
+  leaderSelect.value =
+    community.leader_member_id || "";
+}
+
+if (meetingDaySelect) {
+  meetingDaySelect.value =
+    community.meeting_day || "";
+}
+
+if (editForm) {
+  editForm.elements.status.value =
+    community.status || "active";
+}
+
+editToggle?.addEventListener("click", () => {
+  editForm.hidden = !editForm.hidden;
+
+  editToggle.textContent =
+    editForm.hidden ? "Edit" : "Hide";
+});
+editForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const payload = formPayload(event.currentTarget);
+
+  try {
+    setBusy(true);
+    setStatus(`Updating ${communityLabel().toLowerCase()}`);
+
+    await sendJson(
+      `/members/communities/${community.id}`,
+      "PATCH",
+      payload,
+    );
+
+    await loadSection("people");
+
+    document
+      .querySelector("#communityDialog")
+      ?.close();
+
+    setStatus(`${communityLabel()} updated`, "ok");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || `${communityLabel()} update failed`,
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+});
+  document
+  .querySelectorAll("[data-remove-community-member]")
+  .forEach((button) => {
+    button.addEventListener("click", async () => {
+      const memberId =
+        button.dataset.removeCommunityMember;
+
+      const communityId =
+        button.dataset.communityId;
+
+      const membership =
+        community.members.find(
+          (item) => item.member_id === memberId,
+        );
+
+      const confirmed = window.confirm(
+        `Remove ${
+          membership?.member_name || "this member"
+        } from ${community.name}?`,
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setBusy(true);
+        setStatus("Removing member");
+
+        await sendJson(
+          `/members/communities/${communityId}/members/${memberId}`,
+          "DELETE",
+        );
+
+        await loadSection("people");
+
+        document
+          .querySelector("#communityDialog")
+          ?.close();
+
+        setStatus(
+          `Member removed from ${communityLabel().toLowerCase()}`,
+          "ok",
+        );
+      } catch (error) {
+        console.error(error);
+
+        setStatus(
+          error.message ||
+          `Could not remove ${communityLabel().toLowerCase()} member`,
+          "error",
+        );
+      } finally {
+        setBusy(false);
+      }
+    });
+  });
+
+  dialog.showModal();
+};
+
+const renderCommunityLeaderOptions = () => {
+  const select =
+    document.querySelector("#communityLeaderSelect");
+
+  if (!select) {
+    return;
+  }
+
+  const members = state.people?.members || [];
+
+  select.innerHTML =
+    '<option value="">No leader yet</option>' +
+    members
+      .filter((member) => member.status === "active")
+      .map(
+        (member) =>
+          `<option value="${member.id}">${member.name}</option>`,
+      )
+      .join("");
+};
+const openMinistryDialog =  async (ministryId) => {
+  const ministry = (state.ministries?.ministries || []).find(
+    (item) => item.id === ministryId,
+  );
+  if (!state.attendance) {
+  try {
+    state.attendance = await fetchJson("/attendance/");
+  } catch (error) {
+    console.warn(
+      "Could not load ministry attendance history",
+      error,
+    );
+  }
+}
+  if (!ministry) {
+    setStatus("Ministry not found", "error");
+    return;
+  }
+
+  const dialog = document.querySelector("#ministryDialog");
+  const body = document.querySelector("#ministryDialogBody");
+
+  if (!dialog || !body) {
+    return;
+  }
+
+  document.querySelector("#ministryDialogName").textContent =
+    ministry.name;
+
+  const members = ministry.members || [];
+ 
+  const ministryEvents = (state.attendance?.events || [])
+  .filter(
+    (event) => event.ministry_id === ministry.id,
+  )
+  .sort(
+    (a, b) =>
+      new Date(a.starts_at).getTime() -
+      new Date(b.starts_at).getTime(),
+  );
+
+const now = new Date();
+
+const upcomingEvents = ministryEvents.filter(
+  (event) => new Date(event.starts_at) >= now,
+);
+
+const pastEvents = ministryEvents
+  .filter(
+    (event) => new Date(event.starts_at) < now,
+  )
+  .reverse();
+
+  body.innerHTML = `
+    <div class="profile-section">
+      <h3>Ministry information</h3>
+
+      <div class="profile-grid">
+        <div>
+          <span>Leader</span>
+          <strong>
+            ${ministry.leader_name || "Not assigned"}
+          </strong>
+        </div>
+
+        <div>
+          <span>Members</span>
+          <strong>${ministry.member_count || 0}</strong>
+        </div>
+      </div>
+    </div>
+    <div class="profile-section">
+  <h3>Edit ministry</h3>
+
+  <div class="field-row">
+    <label>
+      Ministry name
+      <input
+        id="ministryEditName"
+        value="${ministry.name || ""}"
+      >
+    </label>
+
+    <label>
+      Leader
+      <select id="ministryEditLeader">
+        <option value="">No leader assigned</option>
+      </select>
+    </label>
+  </div>
+
+  <button
+    class="primary-button"
+    id="saveMinistryChanges"
+    type="button"
+  >
+    Save ministry changes
+  </button>
+</div>
+    <div class="profile-section">
+      <h3>Add member</h3>
+
+      <div class="field-row">
+        <label>
+          Member
+          <select id="ministryMemberSelect">
+            <option value="">Select member</option>
+          </select>
+        </label>
+
+        <label>
+          Role
+          <input
+            id="ministryMemberRole"
+            value="member"
+            placeholder="e.g. singer, usher"
+          >
+        </label>
+      </div>
+
+      <button
+        class="primary-button"
+        id="addMinistryMember"
+        type="button"
+      >
+        Add member
+      </button>
+    </div>
+
+    <div class="profile-section">
+  <h3>Upcoming ministry events</h3>
+
+  ${
+    upcomingEvents.length
+      ? upcomingEvents
+          .map(
+            (event) => `
+              <div class="community-member-row">
+                <div>
+                  <strong>${event.name}</strong>
+                  <span>
+                    ${formatDateTime(event.starts_at)}
+                    ${
+                      event.location
+                        ? ` · ${event.location}`
+                        : ""
+                    }
+                  </span>
+                </div>
+
+                <div class="row-actions">
+                  <span class="tag ${
+                    event.attendance_status === "open"
+                      ? "green"
+                      : "muted"
+                  }">
+                    ${labelize(
+                      event.attendance_status || "scheduled",
+                    )}
+                  </span>
+
+                  <span class="tag">
+                    ${event.check_ins || 0} check-ins
+                  </span>
+                </div>
+              </div>
+            `,
+          )
+          .join("")
+      : `
+          <p class="muted">
+            No upcoming ministry events.
+          </p>
+        `
+  }
+</div>
+
+<div class="profile-section">
+  <h3>Past ministry activity</h3>
+
+  ${
+    pastEvents.length
+      ? pastEvents
+          .slice(0, 10)
+          .map(
+            (event) => `
+              <div class="community-member-row">
+                <div>
+                  <strong>${event.name}</strong>
+                  <span>
+                    ${formatDateTime(event.starts_at)}
+                    ${
+                      event.location
+                        ? ` · ${event.location}`
+                        : ""
+                    }
+                  </span>
+                </div>
+
+                <div class="row-actions">
+                  <span class="tag">
+                    ${event.check_ins || 0} attended
+                  </span>
+                </div>
+              </div>
+            `,
+          )
+          .join("")
+      : `
+          <p class="muted">
+            No past ministry activity yet.
+          </p>
+        `
+  }
+</div>
+
+    <div class="profile-section">
+      <h3>Ministry members</h3>
+
+      <div class="community-member-list">
+        ${
+          members.length
+            ? members
+                .map(
+                  (membership) => `
+                    <div class="community-member-row">
+                      <div>
+                        <strong>
+                          ${membership.member_name || "Unknown member"}
+                        </strong>
+
+                        <p class="muted">
+                          ${labelize(membership.role || "member")}
+                        </p>
+                      </div>
+
+                      <button
+                        class="mini-button"
+                        data-remove-ministry-member="${membership.member_id}"
+                        data-ministry-id="${ministry.id}"
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  `,
+                )
+                .join("")
+            : `<p class="muted">No members assigned yet.</p>`
+        }
+      </div>
+    </div>
+  `;
+  const leaderSelect =
+  document.querySelector("#ministryEditLeader");
+
+if (leaderSelect) {
+  leaderSelect.innerHTML =
+    '<option value="">No leader assigned</option>' +
+    (state.people?.members || [])
+      .filter((member) => member.status === "active")
+      .map(
+        (member) => `
+          <option
+            value="${member.id}"
+            ${
+              member.id === ministry.leader_member_id
+                ? "selected"
+                : ""
+            }
+          >
+            ${member.name}
+          </option>
+        `,
+      )
+      .join("");
+}
+document
+  .querySelector("#saveMinistryChanges")
+  ?.addEventListener("click", async () => {
+    const name =
+      document.querySelector("#ministryEditName")?.value.trim();
+
+    const leaderMemberId =
+      document.querySelector("#ministryEditLeader")?.value || null;
+
+    if (!name) {
+      setStatus("Ministry name is required", "error");
+      return;
+    }
+
+    try {
+      setBusy(true);
+      setStatus("Updating ministry");
+
+      await sendJson(
+        `/members/ministries/${ministry.id}`,
+        "PATCH",
+        {
+          name,
+          leader_member_id: leaderMemberId,
+        },
+      );
+
+      await loadSection("people");
+
+      const refreshed = (
+        state.ministries?.ministries || []
+      ).find((item) => item.id === ministry.id);
+
+      if (refreshed) {
+        openMinistryDialog(refreshed.id);
+      }
+
+      setStatus("Ministry updated", "ok");
+    } catch (error) {
+      console.error(error);
+
+      setStatus(
+        error.message || "Ministry update failed",
+        "error",
+      );
+    } finally {
+      setBusy(false);
+    }
+  });
+  const memberSelect =
+    document.querySelector("#ministryMemberSelect");
+
+  const existingMemberIds = new Set(
+    members.map((membership) => membership.member_id),
+  );
+
+  if (memberSelect) {
+    memberSelect.innerHTML =
+      '<option value="">Select member</option>' +
+      (state.people?.members || [])
+        .filter(
+          (member) =>
+            member.status === "active" &&
+            !existingMemberIds.has(member.id),
+        )
+        .map(
+          (member) =>
+            `<option value="${member.id}">${member.name}</option>`,
+        )
+        .join("");
+  }
+
+  document
+    .querySelector("#addMinistryMember")
+    ?.addEventListener("click", async () => {
+      const memberId =
+        document.querySelector("#ministryMemberSelect")?.value;
+
+      const role =
+        document.querySelector("#ministryMemberRole")?.value.trim() ||
+        "member";
+
+      if (!memberId) {
+        setStatus("Select a member first", "error");
+        return;
+      }
+
+      try {
+        setBusy(true);
+        setStatus("Adding ministry member");
+
+        await sendJson(
+          `/members/ministries/${ministry.id}/members`,
+          "POST",
+          {
+            member_id: memberId,
+            role,
+          },
+        );
+
+        await loadSection("people");
+
+        const refreshed = (
+          state.ministries?.ministries || []
+        ).find((item) => item.id === ministry.id);
+
+        if (refreshed) {
+          openMinistryDialog(refreshed.id);
+        }
+
+        setStatus("Ministry member added", "ok");
+      } catch (error) {
+        console.error(error);
+
+        setStatus(
+          error.message || "Could not add ministry member",
+          "error",
+        );
+      } finally {
+        setBusy(false);
+      }
+    });
+
+  document
+    .querySelectorAll("[data-remove-ministry-member]")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        const memberId =
+          button.dataset.removeMinistryMember;
+
+        const ministryId =
+          button.dataset.ministryId;
+
+        const membership = members.find(
+          (item) => item.member_id === memberId,
+        );
+
+        const confirmed = window.confirm(
+          `Remove ${
+            membership?.member_name || "this member"
+          } from ${ministry.name}?`,
+        );
+
+        if (!confirmed) {
+          return;
+        }
+
+        try {
+          setBusy(true);
+          setStatus("Removing ministry member");
+
+          await sendJson(
+            `/members/ministries/${ministryId}/members/${memberId}`,
+            "DELETE",
+          );
+
+          await loadSection("people");
+
+          const refreshed = (
+            state.ministries?.ministries || []
+          ).find((item) => item.id === ministryId);
+
+          if (refreshed) {
+            openMinistryDialog(refreshed.id);
+          }
+
+          setStatus("Ministry member removed", "ok");
+        } catch (error) {
+          console.error(error);
+
+          setStatus(
+            error.message || "Could not remove ministry member",
+            "error",
+          );
+        } finally {
+          setBusy(false);
+        }
+      });
+    });
+
+  dialog.showModal();
+};
+const showPeopleForm = (type) => {
+  const memberForm = document.querySelector("#memberForm");
+  const visitorForm = document.querySelector("#visitorForm");
+
+  if (!memberForm || !visitorForm) {
+    return;
+  }
+
+  if (type === "member") {
+    memberForm.hidden = false;
+    visitorForm.hidden = true;
+
+    memberForm.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    memberForm.querySelector("input")?.focus();
+  }
+
+  if (type === "visitor") {
+    visitorForm.hidden = false;
+    memberForm.hidden = true;
+
+    visitorForm.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    visitorForm.querySelector("input")?.focus();
+  }
+};
+
+const hidePeopleForm = (type) => {
+  const form =
+    type === "member"
+      ? document.querySelector("#memberForm")
+      : document.querySelector("#visitorForm");
+
+  if (!form) {
+    return;
+  }
+
+  form.hidden = true;
+};
+const downloadPeopleCsv = async () => {
+  try {
+    setBusy(true);
+    setStatus("Preparing people CSV");
+
+    const text = await fetchText("/members/export.csv");
+
+    downloadTextFile(
+      "vinard-people.csv",
+      text,
+      "text/csv",
+    );
+
+    setStatus("People CSV ready", "ok");
+  } catch (error) {
+    console.error(error);
+
+    setStatus(
+      error.message || "People CSV export failed",
+      "error",
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
 const submitEditForm = async (form) => {
   const payload = formPayload(form);
   const type = payload.type;
@@ -1530,7 +4641,9 @@ document.querySelectorAll("[data-refresh]").forEach((button) => {
     }
   });
 });
-
+document
+  .querySelector("#cancelEventEdit")
+  ?.addEventListener("click", clearEventForm);
 document.querySelector("#refreshAll").addEventListener("click", loadDashboard);
 document.querySelector("#loginForm").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -1552,6 +4665,12 @@ document.querySelector("#eventForm").addEventListener("submit", (event) => {
   event.preventDefault();
   submitEventForm(event.currentTarget);
 });
+document
+  .querySelector("#serviceTemplateForm")
+  ?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitServiceTemplateForm(event.currentTarget);
+  });
 document.querySelector("#checkInForm").addEventListener("submit", (event) => {
   event.preventDefault();
   submitCheckInForm(event.currentTarget);
@@ -1599,15 +4718,208 @@ document.querySelector("#personEditForm").addEventListener("submit", (event) => 
 document.querySelector("#closePersonDialog").addEventListener("click", () => {
   document.querySelector("#personDialog").close();
 });
+document
+  .querySelectorAll('input[name="setup_method"]')
+  .forEach((radio) => {
+    radio.addEventListener("change", updateGeofenceSetupMethod);
+  });
+
+document
+  .querySelector("#geofenceRadius")
+  .addEventListener("input", (event) => {
+    const radius = Number(event.currentTarget.value);
+
+    document.querySelector(
+      "#geofenceRadiusValue",
+    ).textContent = radius;
+
+    if (geofenceCircle) {
+      geofenceCircle.setRadius(radius);
+    }
+  });
+  document
+  .querySelector("#generateRecurringServices")
+  ?.addEventListener("click", generateRecurringServices);
+document
+  .querySelector("#geofenceSettingsForm")
+  .addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitGeofenceSettingsForm(event.currentTarget);
+  });
+[
+  "#geofenceLatitude",
+  "#geofenceLongitude",
+].forEach((selector) => {
+  document
+    .querySelector(selector)
+    .addEventListener("change", () => {
+      const latitude = document.querySelector(
+        "#geofenceLatitude",
+      ).value;
+
+      const longitude = document.querySelector(
+        "#geofenceLongitude",
+      ).value;
+
+      setGeofenceCoordinates(latitude, longitude);
+    });
+});
+updateGeofenceSetupMethod();
 document.querySelector("#peopleSearch").addEventListener("input", updatePeopleFilters);
 document.querySelector("#memberStatusFilter").addEventListener("change", updatePeopleFilters);
 document.querySelector("#visitorStatusFilter").addEventListener("change", updatePeopleFilters);
+document
+  .querySelector("#serviceDayToggleAttendance")
+  ?.addEventListener("click", toggleServiceDayAttendance);
+
+document
+  .querySelector("#serviceDayShowQr")
+  ?.addEventListener("click", () => {
+    const eventId =
+      document.querySelector("#serviceDayShowQr")?.dataset.eventId;
+
+    if (eventId) {
+      showQrToken(eventId);
+    }
+  });
 
 setupStickyNavigation();
 applyRoleAccess();
 updateMessageAssist();
+
 if (state.auth?.access_token) {
   loadDashboard();
 } else {
   setStatus("Login required");
 }
+document
+  .querySelector("#cancelServiceTemplateEdit")
+  ?.addEventListener("click", clearServiceTemplateForm);
+document
+  .querySelector("#contributionScope")
+  ?.addEventListener("change", updateContributionScope);
+document
+  .querySelector("#showMemberForm")
+  ?.addEventListener("click", () => {
+    showPeopleForm("member");
+  });
+
+document
+  .querySelector("#showVisitorForm")
+  ?.addEventListener("click", () => {
+    showPeopleForm("visitor");
+  });
+
+document
+  .querySelector("#downloadPeopleCsv")
+  ?.addEventListener("click", downloadPeopleCsv);
+document
+  .querySelector("#showAllPeople")
+  ?.addEventListener("click", () => {
+    document.querySelector("#peopleSearch").value = "*";
+    updatePeopleFilters();
+  });
+document
+  .querySelector("#clearPeopleSearch")
+  ?.addEventListener("click", () => {
+    document.querySelector("#peopleSearch").value = "";
+    updatePeopleFilters();
+  });
+document
+  .querySelector("#hideMemberForm")
+  ?.addEventListener("click", () => {
+    hidePeopleForm("member");
+  });
+
+document
+  .querySelector("#hideVisitorForm")
+  ?.addEventListener("click", () => {
+    hidePeopleForm("visitor");
+  });
+document
+  .querySelector("#closeMemberProfile")
+  ?.addEventListener("click", () => {
+    document.querySelector("#memberProfileDialog")?.close();
+  });
+document
+  .querySelector("#showCommunityForm")
+  ?.addEventListener("click", showCommunityForm);
+
+document
+  .querySelector("#hideCommunityForm")
+  ?.addEventListener("click", hideCommunityForm);
+
+document
+  .querySelector("#communityForm")
+  ?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitCommunityForm(event.currentTarget);
+  });
+
+document
+  .querySelector("#closeCommunityDialog")
+  ?.addEventListener("click", () => {
+    document.querySelector("#communityDialog")?.close();
+  });
+
+document
+  .querySelector("#refreshCommunities")
+  ?.addEventListener("click", async () => {
+    state.communities =
+      await fetchJson("/members/communities");
+
+    renderCommunities();
+    setStatus("Communities refreshed", "ok");
+  });
+document
+  .querySelector("#closeHouseholdDialog")
+  ?.addEventListener("click", () => {
+    document
+      .querySelector("#householdDialog")
+      ?.close();
+  });
+
+document
+  .querySelector("#closeVisitorProfile")
+  ?.addEventListener("click", () => {
+    document
+      .querySelector("#visitorProfileDialog")
+      ?.close();
+  });
+document
+  .querySelector("#showMinistryForm")
+  ?.addEventListener("click", showMinistryForm);
+
+document
+  .querySelector("#hideMinistryForm")
+  ?.addEventListener("click", hideMinistryForm);
+
+document
+  .querySelector("#ministryForm")
+  ?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitMinistryForm(event.currentTarget);
+  });
+
+document
+  .querySelector("#refreshMinistries")
+  ?.addEventListener("click", async () => {
+    state.ministries =
+      await fetchJson("/members/ministries");
+
+    renderMinistries();
+    setStatus("Ministries refreshed", "ok");
+  });
+
+document
+  .querySelector("#closeMinistryDialog")
+  ?.addEventListener("click", () => {
+    document.querySelector("#ministryDialog")?.close();
+  });
+document
+  .querySelector("#eventForm")
+  ?.elements.event_type
+  ?.addEventListener(
+    "change",
+    updateEventMinistryField,
+  );

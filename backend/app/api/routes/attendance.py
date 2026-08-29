@@ -1,28 +1,64 @@
 import base64
 import hashlib
 import hmac
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.settings import settings
 from app.core.security import require_roles
+from app.core.settings import settings
 from app.db.base import utc_now
 from app.db.session import get_db
-from app.models import AttendanceRecord, Branch, Event, HouseholdPerson, Member, Visitor
+from app.models import (
+    AttendanceRecord,
+    Branch,
+    Event,
+    HouseholdPerson,
+    Member,
+    Ministry,
+    ServiceTemplate,
+    User,
+    Visitor,
+)
+from app.services.geofence import is_inside_geofence
 from app.services.qr_code import make_qr_svg
 
 router = APIRouter()
 QR_TOKEN_VERSION = "pcqr1"
 
+class ServiceTemplateCreate(BaseModel):
+    name: str
+    event_type: str = "service"
+    day_of_week: int = Field(ge=0, le=6)
+    start_time: str
+    end_time: str | None = None
+    location: str | None = None
+    qr_open_minutes_before: int = Field(default=30, ge=0, le=240)
+    qr_close_minutes_after: int = Field(default=30, ge=0, le=240)
+    qr_rotation_seconds: int = Field(default=60, ge=30)
+    is_active: bool = True
+
+
+class ServiceTemplateUpdate(BaseModel):
+    name: str | None = None
+    event_type: str | None = None
+    day_of_week: int | None = Field(default=None, ge=0, le=6)
+    start_time: str | None = None
+    end_time: str | None = None
+    location: str | None = None
+    qr_open_minutes_before: int | None = Field(default=None, ge=0, le=240)
+    qr_close_minutes_after: int | None = Field(default=None, ge=0, le=240)
+    qr_rotation_seconds: int | None = Field(default=None, ge=30)
+    is_active: bool | None = None
 
 class EventCreate(BaseModel):
     name: str
     event_type: str = "service"
+    ministry_id: UUID | None = None
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     location: str | None = None
@@ -30,6 +66,16 @@ class EventCreate(BaseModel):
     qr_closes_at: datetime | None = None
     qr_rotation_seconds: int = 60
 
+class EventUpdate(BaseModel):
+    name: str | None = None
+    event_type: str | None = None
+    ministry_id: UUID | None = None
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    location: str | None = None
+    qr_opens_at: datetime | None = None
+    qr_closes_at: datetime | None = None
+    qr_rotation_seconds: int | None = None
 
 class CheckInCreate(BaseModel):
     event_id: UUID
@@ -44,6 +90,69 @@ class QrCheckInCreate(BaseModel):
     person_type: str
     person_id: UUID
 
+class GeofenceCheckInCreate(BaseModel):
+    event_id: UUID
+    person_type: str
+    person_id: UUID
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_meters: float | None = Field(default=None, gt=0)
+
+def parse_time_value(value: str | None):
+    if value is None:
+        return None
+
+    try:
+       return time.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Time values must use HH:MM format.",
+        ) from exc
+
+def serialize_service_template(
+    template: ServiceTemplate,
+) -> dict[str, object]:
+    return {
+        "id": str(template.id),
+        "name": template.name,
+        "event_type": template.event_type,
+        "day_of_week": template.day_of_week,
+        "start_time": template.start_time.strftime("%H:%M"),
+        "end_time": (
+            template.end_time.strftime("%H:%M")
+            if template.end_time
+            else None
+        ),
+        "location": template.location,
+        "qr_open_minutes_before": template.qr_open_minutes_before,
+        "qr_close_minutes_after": template.qr_close_minutes_after,
+        "qr_rotation_seconds": template.qr_rotation_seconds,
+        "is_active": template.is_active,
+    }
+
+def next_service_occurrence(
+    day_of_week: int,
+    start_time,
+    *,
+    from_date: datetime | None = None,
+) -> datetime:
+    now = from_date or utc_now()
+
+    days_ahead = (day_of_week - now.weekday()) % 7
+
+    occurrence = datetime.combine(
+        (now + timedelta(days=days_ahead)).date(),
+        start_time,
+        tzinfo=now.tzinfo,
+    )
+
+    # If today's service time has already passed,
+    # generate next week's occurrence instead.
+    if occurrence <= now:
+        occurrence += timedelta(days=7)
+
+    return occurrence
 
 def get_default_branch(db: Session) -> Branch:
     branch = db.scalar(select(Branch).order_by(Branch.created_at.asc()))
@@ -86,6 +195,12 @@ def sign_qr_token(event_id: UUID, bucket: int) -> str:
 
 
 def validate_qr_token(event: Event, token: str, now: datetime) -> None:
+    if event.attendance_status != "open":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Attendance is not open for this event.",
+        )
+        
     opens_at, closes_at = qr_window(event)
     current = to_utc(now)
     if current < opens_at or current > closes_at:
@@ -124,6 +239,11 @@ def serialize_event(event: Event, check_ins: int = 0) -> dict[str, object]:
         "id": str(event.id),
         "name": event.name,
         "type": event.event_type,
+        "ministry_id": (
+            str(event.ministry_id)
+            if event.ministry_id
+            else None
+        ),
         "starts_at": event.starts_at.isoformat(),
         "ends_at": event.ends_at.isoformat() if event.ends_at else None,
         "location": event.location,
@@ -132,6 +252,17 @@ def serialize_event(event: Event, check_ins: int = 0) -> dict[str, object]:
         "qr_rotation_seconds": event.qr_rotation_seconds,
         "qr_active": opens_at <= now <= closes_at,
         "check_ins": check_ins,
+        "attendance_status": event.attendance_status,
+        "attendance_opened_at": (
+           event.attendance_opened_at.isoformat()
+           if event.attendance_opened_at
+           else None
+        ),
+        "attendance_closed_at": (
+           event.attendance_closed_at.isoformat()
+           if event.attendance_closed_at
+           else None
+        ),
     }
 
 
@@ -193,6 +324,27 @@ def attendance_summary(
         "recent_check_ins": [serialize_attendance_record(record, db) for record in recent_records],
     }
 
+@router.get("/events")
+def list_events(
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "receptionist", "usher")),
+) -> list[dict[str, object]]:
+    events = db.scalars(
+        select(Event).order_by(Event.starts_at.asc())
+    ).all()
+
+    return [
+        serialize_event(
+            event,
+            db.scalar(
+                select(func.count())
+                .select_from(AttendanceRecord)
+                .where(AttendanceRecord.event_id == event.id)
+            )
+            or 0,
+        )
+        for event in events
+    ]
 
 @router.post("/events", status_code=status.HTTP_201_CREATED)
 def create_event(
@@ -201,9 +353,25 @@ def create_event(
     _user=Depends(require_roles("pastor_leader", "usher")),
 ) -> dict[str, object]:
     branch = get_default_branch(db)
+    ministry = None
+    
+    if payload.ministry_id is not None:
+        ministry = db.get(Ministry, payload.ministry_id)
+        
+        if ministry is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Ministry not found.",
+            )
+        if ministry.branch_id != branch.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ministry does not belong to this branch.",
+            )
     starts_at = payload.starts_at or utc_now()
     event = Event(
         branch_id=branch.id,
+        ministry_id=payload.ministry_id,
         name=payload.name,
         event_type=payload.event_type,
         starts_at=starts_at,
@@ -217,6 +385,335 @@ def create_event(
     db.commit()
     db.refresh(event)
     return serialize_event(event)
+
+@router.patch("/events/{event_id}")
+def update_event(
+    event_id: UUID,
+    payload: EventUpdate,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader")),
+) -> dict[str, object]:
+    event = db.get(Event, event_id)
+
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found.",
+        )
+
+    updates = payload.model_dump(exclude_unset=True)
+    
+    
+    if "ministry_id" in updates:
+        ministry_id = updates["ministry_id"]
+
+        if ministry_id is not None:
+            ministry = db.get(Ministry, ministry_id)
+
+            if ministry is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Ministry not found.",
+                )
+
+            if ministry.branch_id != event.branch_id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Ministry does not belong to this event's branch.",
+                )
+    for field, value in updates.items():
+        if field == "qr_rotation_seconds" and value is not None:
+            value = max(value, 30)
+
+        setattr(event, field, value)
+
+    db.commit()
+    db.refresh(event)
+
+    return serialize_event(event)
+
+@router.post("/events/{event_id}/open")
+def open_event_attendance(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("administrator", "pastor_leader")),
+):
+    event = db.get(Event, event_id)
+
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found",
+        )
+
+    if current_user.branch_id and event.branch_id != current_user.branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Event does not belong to your branch",
+        )
+
+    if event.attendance_status == "open":
+        return serialize_event(event)
+
+    event.attendance_status = "open"
+    event.attendance_opened_at = utc_now()
+    event.attendance_closed_at = None
+
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+
+    return serialize_event(event)
+
+
+@router.post("/events/{event_id}/close")
+def close_event_attendance(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("administrator", "pastor_leader")),
+):
+    event = db.get(Event, event_id)
+
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found",
+        )
+
+    if current_user.branch_id and event.branch_id != current_user.branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Event does not belong to your branch",
+        )
+
+    if event.attendance_status == "closed":
+        return serialize_event(event)
+
+    event.attendance_status = "closed"
+    event.attendance_closed_at = utc_now()
+
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+
+    return serialize_event(event)
+
+@router.get("/service-templates")
+def list_service_templates(
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "administrator")),
+) -> list[dict[str, object]]:
+    templates = db.scalars(
+        select(ServiceTemplate).order_by(
+            ServiceTemplate.day_of_week.asc(),
+            ServiceTemplate.start_time.asc(),
+        )
+    ).all()
+
+    return [serialize_service_template(template) for template in templates]
+
+@router.post("/service-templates", status_code=status.HTTP_201_CREATED)
+def create_service_template(
+    payload: ServiceTemplateCreate,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "administrator")),
+) -> dict[str, object]:
+    branch = get_default_branch(db)
+
+    template = ServiceTemplate(
+        branch_id=branch.id,
+        name=payload.name,
+        event_type=payload.event_type,
+        day_of_week=payload.day_of_week,
+        start_time=parse_time_value(payload.start_time),
+        end_time=parse_time_value(payload.end_time),
+        location=payload.location,
+        qr_open_minutes_before=payload.qr_open_minutes_before,
+        qr_close_minutes_after=payload.qr_close_minutes_after,
+        qr_rotation_seconds=max(payload.qr_rotation_seconds, 30),
+        is_active=payload.is_active,
+    )
+
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+
+    return serialize_service_template(template)
+
+@router.post("/service-templates/generate")
+def generate_service_events(
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "administrator")),
+) -> dict[str, object]:
+    templates = db.scalars(
+        select(ServiceTemplate).where(
+            ServiceTemplate.is_active.is_(True)
+        )
+    ).all()
+
+    created_events = []
+    skipped = 0
+
+    for template in templates:
+        starts_at = next_service_occurrence(
+            template.day_of_week,
+            template.start_time,
+        )
+
+        existing = db.scalar(
+            select(Event).where(
+                Event.branch_id == template.branch_id,
+                Event.name == template.name,
+                Event.starts_at == starts_at,
+            )
+        )
+
+        if existing is not None:
+            skipped += 1
+            continue
+
+        ends_at = None
+
+        if template.end_time:
+            ends_at = datetime.combine(
+                starts_at.date(),
+                template.end_time,
+                tzinfo=starts_at.tzinfo,
+            )
+
+            if ends_at <= starts_at:
+                ends_at += timedelta(days=1)
+
+        event = Event(
+            branch_id=template.branch_id,
+            name=template.name,
+            event_type=template.event_type,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            location=template.location,
+            qr_opens_at=(
+                starts_at
+                - timedelta(
+                    minutes=template.qr_open_minutes_before
+                )
+            ),
+            qr_closes_at=(
+                (ends_at or starts_at)
+                + timedelta(
+                    minutes=template.qr_close_minutes_after
+                )
+            ),
+            qr_rotation_seconds=template.qr_rotation_seconds,
+        )
+
+        db.add(event)
+        created_events.append(event)
+
+    db.commit()
+
+    for event in created_events:
+        db.refresh(event)
+
+    return {
+        "created": len(created_events),
+        "skipped": skipped,
+        "events": [
+            serialize_event(event)
+            for event in created_events
+        ],
+    }
+@router.patch("/service-templates/{template_id}")
+def update_service_template(
+    template_id: UUID,
+    payload: ServiceTemplateUpdate,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "administrator")),
+) -> dict[str, object]:
+    template = db.get(ServiceTemplate, template_id)
+
+    if template is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service template not found.",
+        )
+
+    updates = payload.model_dump(exclude_unset=True)
+
+    if "start_time" in updates:
+        updates["start_time"] = parse_time_value(updates["start_time"])
+
+    if "end_time" in updates:
+        updates["end_time"] = parse_time_value(updates["end_time"])
+
+    if "qr_rotation_seconds" in updates and updates["qr_rotation_seconds"] is not None:
+        updates["qr_rotation_seconds"] = max(
+            updates["qr_rotation_seconds"],
+            30,
+        )
+
+    for field, value in updates.items():
+        setattr(template, field, value)
+
+    db.commit()
+    db.refresh(template)
+
+    return serialize_service_template(template)
+
+@router.delete(
+    "/service-templates/{template_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_service_template(
+    template_id: UUID,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader", "administrator")),
+) -> Response:
+    template = db.get(ServiceTemplate, template_id)
+
+    if template is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service template not found.",
+        )
+
+    db.delete(template)
+    db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@router.delete(
+    "/events/{event_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_event(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("pastor_leader")),
+) -> Response:
+    event = db.get(Event, event_id)
+
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found.",
+        )
+
+    attendance_count = db.scalar(
+        select(func.count())
+        .select_from(AttendanceRecord)
+        .where(AttendanceRecord.event_id == event.id)
+    ) or 0
+
+    if attendance_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Events with attendance records cannot be deleted.",
+        )
+
+    db.delete(event)
+    db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/events/{event_id}/qr-token")
@@ -346,3 +843,92 @@ def create_qr_check_in(payload: QrCheckInCreate, db: Session = Depends(get_db)) 
         db,
         require_qr_token=payload.qr_token,
     )
+
+
+
+@router.post("/geofence-check-ins", status_code=status.HTTP_201_CREATED)
+def create_geofence_check_in(
+    payload: GeofenceCheckInCreate,
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    event = db.get(Event, payload.event_id)
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found.",
+        )
+    if event.attendance_status != "open":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Attendance is not open for this event.",
+        )
+    branch = db.get(Branch, event.branch_id)
+    if branch is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event branch not found.",
+        )
+
+    if not branch.geofence_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Geofence attendance is disabled for this branch.",
+        )
+
+    if branch.latitude is None or branch.longitude is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The branch geofence location has not been configured.",
+        )
+
+    opens_at, closes_at = qr_window(event)
+    now = utc_now()
+
+    if now < opens_at or now > closes_at:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Geofence check-in is outside the allowed attendance window.",
+        )
+
+    if (
+        payload.accuracy_meters is not None
+        and payload.accuracy_meters > branch.attendance_radius_meters
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Location accuracy is too low to confirm attendance.",
+        )
+
+    inside, distance_meters = is_inside_geofence(
+        church_latitude=branch.latitude,
+        church_longitude=branch.longitude,
+        device_latitude=payload.latitude,
+        device_longitude=payload.longitude,
+        radius_meters=branch.attendance_radius_meters,
+    )
+
+    if not inside:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "reason": "outside_geofence",
+                "distance_meters": round(distance_meters, 1),
+                "allowed_radius_meters": branch.attendance_radius_meters,
+            },
+        )
+
+    attendance = create_attendance_record(
+        CheckInCreate(
+            event_id=payload.event_id,
+            person_type=payload.person_type,
+            person_id=payload.person_id,
+            check_in_method="geofence",
+        ),
+        db,
+    )
+
+    attendance["distance_meters"] = round(distance_meters, 1)
+    attendance["allowed_radius_meters"] = branch.attendance_radius_meters
+    attendance["inside_geofence"] = True
+
+    return attendance

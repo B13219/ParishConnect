@@ -2,7 +2,7 @@ import json
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -52,7 +52,28 @@ class BranchUpdate(BaseModel):
     name: str | None = None
     location: str | None = None
     contact_phone: str | None = None
+    denomination: str | None = None
+    default_language: str | None = None
+    timezone: str | None = None
+    community_label: str | None = None
 
+class BranchGeofenceUpdate(BaseModel):
+    geofence_enabled: bool
+    setup_method: str = Field(pattern="^(map|manual)$")
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    attendance_radius_meters: int = Field(default=100, ge=25, le=500)
+
+    @model_validator(mode="after")
+    def validate_coordinates(self) -> "BranchGeofenceUpdate":
+        if self.geofence_enabled and (
+            self.latitude is None or self.longitude is None
+        ):
+            raise ValueError(
+                "Latitude and longitude are required when geofencing is enabled."
+            )
+
+        return self
 
 BACKUP_MODELS = {
     "attendance_records": AttendanceRecord,
@@ -138,10 +159,17 @@ def serialize_branch(branch: Branch) -> dict[str, object]:
         "name": branch.name,
         "location": branch.location,
         "contact_phone": branch.contact_phone,
+        "latitude": branch.latitude,
+        "longitude": branch.longitude,
+        "attendance_radius_meters": branch.attendance_radius_meters,
+        "geofence_enabled": branch.geofence_enabled,
         "created_at": branch.created_at.isoformat(),
         "updated_at": branch.updated_at.isoformat(),
+        "denomination": branch.denomination,
+        "default_language": branch.default_language,
+        "timezone": branch.timezone,
+        "community_label": branch.community_label, 
     }
-
 
 def table_counts(db: Session) -> dict[str, int]:
     return {
@@ -180,6 +208,73 @@ def update_branch_settings(
     db.refresh(branch)
     return {"module": "admin", "branch": serialize_branch(branch)}
 
+@router.get("/branch/geofence")
+def get_branch_geofence_settings(
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("administrator", "pastor_leader")),
+) -> dict[str, object]:
+    branch = get_default_branch(db)
+
+    return {
+        "module": "admin",
+        "geofence": {
+            "branch_id": str(branch.id),
+            "branch_name": branch.name,
+            "latitude": branch.latitude,
+            "longitude": branch.longitude,
+            "attendance_radius_meters": branch.attendance_radius_meters,
+            "geofence_enabled": branch.geofence_enabled,
+        },
+    }
+
+
+@router.put("/branch/geofence")
+def update_branch_geofence_settings(
+    payload: BranchGeofenceUpdate,
+    db: Session = Depends(get_db),
+    actor: User = Depends(
+        require_roles("administrator", "pastor_leader")
+    ),
+) -> dict[str, object]:
+    branch = get_default_branch(db)
+
+    branch.latitude = payload.latitude
+    branch.longitude = payload.longitude
+    branch.attendance_radius_meters = payload.attendance_radius_meters
+    branch.geofence_enabled = payload.geofence_enabled
+
+    write_audit_log(
+        db,
+        actor=actor,
+        action="admin.branch_geofence_updated",
+        entity_type="branch",
+        entity_id=branch.id,
+        metadata={
+            "setup_method": payload.setup_method,
+            "geofence_enabled": payload.geofence_enabled,
+            "attendance_radius_meters": payload.attendance_radius_meters,
+            "coordinates_configured": (
+                payload.latitude is not None
+                and payload.longitude is not None
+            ),
+        },
+    )
+
+    db.commit()
+    db.refresh(branch)
+
+    return {
+        "module": "admin",
+        "geofence": {
+            "branch_id": str(branch.id),
+            "branch_name": branch.name,
+            "setup_method": payload.setup_method,
+            "latitude": branch.latitude,
+            "longitude": branch.longitude,
+            "attendance_radius_meters": branch.attendance_radius_meters,
+            "geofence_enabled": branch.geofence_enabled,
+        },
+    }
 
 @router.post("/backup-manifest")
 def create_backup_manifest(

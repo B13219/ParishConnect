@@ -29,6 +29,7 @@ def build_client() -> tuple[TestClient, sessionmaker[Session]]:
         add_test_user(db, branch, "Receptionist")
         add_test_user(db, branch, "Accountant")
         add_test_user(db, branch, "Usher")
+        add_test_user(db, branch, "Pastor / Leader")
         db.commit()
 
     app = create_app()
@@ -123,6 +124,10 @@ def test_admin_can_update_branch_settings_and_audit_change() -> None:
             "name": "Grace Parish Main",
             "location": "Dar es Salaam",
             "contact_phone": "+255 700 111 000",
+            "denomination": "Roman Catholic",
+            "default_language":"sw",
+            "timezone": "Africa/Dar_es_Salaam",
+            "community_label":"Small Christian Community",
         },
         headers=headers,
     )
@@ -131,9 +136,14 @@ def test_admin_can_update_branch_settings_and_audit_change() -> None:
     branch = response.json()["branch"]
     assert branch["name"] == "Grace Parish Main"
     assert branch["contact_phone"] == "+255 700 111 000"
+    assert branch["denomination"] == "Roman Catholic"
+    assert branch["default_language"] == "sw"
+    assert branch["timezone"] == "Africa/Dar_es_Salaam"
+    assert branch["community_label"] == "Small Christian Community"
 
     logs = client.get("/api/v1/admin/audit-logs", headers=headers).json()["audit_logs"]
     assert logs[0]["action"] == "admin.branch_updated"
+    
 
 
 def test_admin_can_create_backup_manifest_and_audit_export() -> None:
@@ -160,3 +170,87 @@ def test_non_admin_cannot_create_backup_manifest() -> None:
     response = client.post("/api/v1/admin/backup-manifest", headers=headers)
 
     assert response.status_code == 403
+
+def test_administrator_can_update_geofence_settings() -> None:
+    client, _ = build_client()
+    headers = auth_headers(client, "Administrator")
+
+    response = client.put(
+        "/api/v1/admin/branch/geofence",
+        json={
+            "setup_method": "manual",
+            "latitude": -6.7924,
+            "longitude": 39.2083,
+            "attendance_radius_meters": 120,
+            "geofence_enabled": True,
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()["geofence"]
+    assert data["setup_method"] == "manual"
+    assert data["latitude"] == -6.7924
+    assert data["longitude"] == 39.2083
+    assert data["attendance_radius_meters"] == 120
+    assert data["geofence_enabled"] is True
+
+
+def test_pastor_leader_can_update_geofence_settings() -> None:
+    client, _ = build_client()
+    headers = auth_headers(client, "Pastor / Leader")
+
+    response = client.put(
+        "/api/v1/admin/branch/geofence",
+        json={
+            "setup_method": "map",
+            "latitude": -6.7924,
+            "longitude": 39.2083,
+            "attendance_radius_meters": 100,
+            "geofence_enabled": True,
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["geofence"]["setup_method"] == "map"
+
+
+def test_geofence_requires_coordinates_when_enabled() -> None:
+    client, _ = build_client()
+    headers = auth_headers(client, "Administrator")
+
+    response = client.put(
+        "/api/v1/admin/branch/geofence",
+        json={
+            "setup_method": "manual",
+            "latitude": None,
+            "longitude": None,
+            "attendance_radius_meters": 100,
+            "geofence_enabled": True,
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+
+
+def test_geofence_can_be_disabled_without_coordinates() -> None:
+    client, _ = build_client()
+    headers = auth_headers(client, "Pastor / Leader")
+
+    response = client.put(
+        "/api/v1/admin/branch/geofence",
+        json={
+            "setup_method": "manual",
+            "latitude": None,
+            "longitude": None,
+            "attendance_radius_meters": 100,
+            "geofence_enabled": False,
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["geofence"]["geofence_enabled"] is False

@@ -978,9 +978,56 @@ select:focus {
   background: #fff;
 }
 
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.profile-dialog-card {
+  max-width: 760px;
+  width: min(92vw, 760px);
+}
+
+.profile-section {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.profile-section:first-child {
+  border-top: 0;
+}
+
+.profile-section h3 {
+  margin: 0 0 10px;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.profile-grid > div,
+.profile-community {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-grid span,
+.profile-community span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.profile-community {
+  padding: 10px 0;
+}
+
+@media (max-width: 620px) {
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 980px) {
@@ -1078,6 +1125,14 @@ select:focus {
   .field-row {
     grid-template-columns: 1fr;
   }
+  .people-form-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .people-form-close {
+    width: auto;
+  }
 }
 
 @media print {
@@ -1120,5 +1175,359 @@ select:focus {
   .report-period {
     break-inside: avoid;
     box-shadow: none;
+  }
+}
+/* Geofence settings */
+
+#settings {
+  grid-column: 1 / -1;
+}
+
+#geofenceSettingsForm {
+  max-width: 920px;
+  gap: 16px;
+  padding: 18px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+
+.location-methods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.location-methods legend {
+  padding: 0 6px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.location-methods label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcff;
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.location-methods label:hover {
+  border-color: #aac4e6;
+  background: #f4f8ff;
+}
+
+.location-methods input[type="radio"] {
+  width: 17px;
+  height: 17px;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+
+#geofenceMapMode,
+#geofenceManualMode {
+  display: grid;
+  gap: 10px;
+}
+
+.assist-panel {
+  padding: 12px 14px;
+  border: 1px solid #cfdaf0;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.assist-panel strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.assist-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.geofence-map {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  border: 1px dashed #aac4e6;
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(15, 91, 181, 0.04), rgba(15, 91, 181, 0.04)),
+    #f8fbff;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
+#geofenceLatitude[readonly],
+#geofenceLongitude[readonly] {
+  background: #f1f4f9;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.radius-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.radius-control input[type="range"] {
+  width: 100%;
+  min-height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+
+.radius-control strong {
+  color: var(--blue);
+  font-size: 14px;
+  text-align: right;
+}
+
+#geofenceSettingsStatus {
+  max-width: 920px;
+  margin-top: 14px;
+}
+
+#geofenceSettingsStatus strong,
+#geofenceSettingsStatus span {
+  display: block;
+}
+
+#geofenceSettingsStatus strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+#geofenceSettingsStatus span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .location-methods {
+    grid-template-columns: 1fr;
+  }
+
+  .radius-control {
+    grid-template-columns: 1fr;
+  }
+
+  .radius-control strong {
+    text-align: left;
+  }
+
+  .geofence-map {
+    min-height: 240px;
+  }
+}
+
+.people-form-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  margin-bottom: 1.25rem;
+}
+
+.people-form-header > div {
+  min-width: 0;
+}
+
+.people-form-header .eyebrow {
+  margin: 0 0 0.2rem;
+}
+
+.people-form-header h3 {
+  margin: 0;
+}
+
+.people-form-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+
+  flex: 0 0 auto;
+  width: auto;
+
+  padding: 0.55rem 0.85rem;
+  margin: 0;
+
+  border: 1px solid var(--line);
+  border-radius: 10px;
+
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.people-form-close span {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.people-form-close:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.people-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.people-form-header h3 {
+  margin: 0;
+}
+
+.people-form-header .eyebrow {
+  margin: 0 0 2px;
+}
+
+.people-form-close {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--blue);
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.people-form-close:hover {
+  background: #f2f6ff;
+}
+.community-panel {
+  margin-top: 18px;
+}
+
+#communityList {
+  display: grid;
+  gap: 12px;
+}
+
+.community-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.community-card-main,
+.community-card-footer,
+.community-card-title,
+.community-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.community-card-title {
+  justify-content: flex-start;
+}
+
+.community-card-main p {
+  margin: 5px 0 0;
+}
+
+.community-card-stats {
+  display: grid;
+  text-align: center;
+}
+
+.community-card-stats strong {
+  font-size: 22px;
+}
+
+.community-card-stats span,
+.community-member-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.community-card-footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.community-member-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.community-member-row > div {
+  display: grid;
+  gap: 3px;
+}
+
+@media (max-width: 620px) {
+  .community-card-main,
+  .community-card-footer,
+  .community-member-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
