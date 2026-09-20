@@ -49,6 +49,11 @@ class MessageCreate(BaseModel):
     sender_user_id: UUID | None = None
 
 
+class SmsTestRequest(BaseModel):
+    phone: str
+    body: str = "VINYRD SMS sandbox connection test."
+
+
 def get_default_branch(db: Session) -> Branch:
     branch = db.scalar(select(Branch).order_by(Branch.created_at.asc()))
     if branch is None:
@@ -270,6 +275,45 @@ def get_sms_provider(
     provider = sms_provider_status()
     provider["delivery_report_path"] = "/api/v1/messages/sms/delivery-report"
     return provider
+
+
+@router.post("/sms/test")
+def send_test_sms(
+    payload: SmsTestRequest,
+    actor: User = Depends(require_roles("pastor_leader")),
+) -> dict[str, object]:
+    mode = settings.sms_mode.lower().strip()
+    if mode not in {"simulate", "sandbox"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Test SMS is only available in simulate or sandbox mode.",
+        )
+
+    phone = normalize_phone_number(payload.phone)
+    if phone is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Enter a valid phone number.",
+        )
+
+    try:
+        result = send_sms(payload.body.strip() or "VINYRD SMS sandbox connection test.", [phone])[0]
+    except SmsProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    return {
+        "provider": settings.sms_provider,
+        "mode": mode,
+        "phone": result.phone,
+        "delivery_status": result.delivery_status,
+        "provider_reference": result.provider_reference,
+        "status_code": result.status_code,
+        "cost": result.cost,
+        "error": result.error,
+    }
 
 
 @router.post("/sms/delivery-report")
