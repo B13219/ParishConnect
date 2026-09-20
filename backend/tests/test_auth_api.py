@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.security import password_hash, require_roles
+from app.core.settings import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import create_app
@@ -118,7 +119,8 @@ def test_logout_requires_current_user() -> None:
     assert response.json()["status"] == "logged_out"
 
 
-def test_password_reset_round_trip_updates_password() -> None:
+def test_password_reset_round_trip_updates_password(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "environment", "local")
     client = build_client()
 
     request = client.post(
@@ -166,3 +168,17 @@ def test_role_dependency_allows_admin_and_denies_usher() -> None:
 
     assert admin_response.status_code == 200
     assert usher_response.status_code == 403
+
+
+def test_password_reset_does_not_expose_token_in_production(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "environment", "production")
+    client = build_client()
+
+    response = client.post(
+        "/api/v1/auth/password-reset/request",
+        json={"email": "admin@test.local"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "accepted"
+    assert "demo_reset_token" not in response.json()
