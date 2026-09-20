@@ -2604,3 +2604,14 @@ textarea:focus {
     padding: 14px;
   }
 }
+
+
+.snapshot-item button.mini-status {
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.snapshot-item button.mini-status:hover {
+  filter: brightness(.96);
+}
