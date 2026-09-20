@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title">
+  <title id="title">Vinyrd circular leaf crest</title>
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E7C978"/>
+      <stop offset="1" stop-color="#B98D32"/>
+    </linearGradient>
+    <linearGradient id="leafA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#B7C093"/>
+      <stop offset="1" stop-color="#75855B"/>
+    </linearGradient>
+    <linearGradient id="leafB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E5E0BB"/>
+      <stop offset="1" stop-color="#A7AF82"/>
+    </linearGradient>
+  </defs>
+  <circle cx="48" cy="48" r="47" fill="#102019"/>
+  <circle cx="48" cy="48" r="40" fill="none" stroke="url(#gold)" stroke-width="3.5"/>
+  <path d="M48 80V47M48 58L31 48M48 63L66 49" fill="none" stroke="#F4F0E5" stroke-width="2.8" stroke-linecap="round"/>
+  <path d="M48 22C39 28 38 40 48 49C58 40 57 28 48 22Z" fill="url(#leafA)"/>
+  <path d="M45 58C37 44 25 43 18 49C23 64 34 68 45 62Z" fill="url(#leafA)"/>
+  <path d="M51 61C60 45 73 43 80 49C76 64 64 69 51 65Z" fill="url(#leafB)"/>
+  <path d="M48 25V46M21 50L43 60M77 50L53 63" fill="none" stroke="#F8F4E8" stroke-width="1.2" stroke-linecap="round" opacity=".9"/>
+</svg>
