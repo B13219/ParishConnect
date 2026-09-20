@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 import os
 import time
-from decimal import Decimal
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import uuid4
@@ -161,7 +161,7 @@ def main() -> int:
         },
     )
     assert isinstance(giving, dict)
-    assert Decimal(str(giving["amount"])) == Decimal("10000")
+    assert Decimal(str(giving["amount"])) == Decimal(10000)
 
     prayer = request(
         "POST",
