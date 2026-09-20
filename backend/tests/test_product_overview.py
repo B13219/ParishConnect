@@ -41,9 +41,8 @@ def test_same_origin_frontends_are_served() -> None:
     assert landing.status_code == 200
     assert "Belong deeper" in landing.text
     assert "vinyrd-crest.webp" in landing.text
-    assert "vinyrd-full-logo.webp" in landing.text
     assert "landing-nav-crest" in landing.text
-    assert "landing-hero-full-logo" in landing.text
+    assert "landing-hero-crest" in landing.text
 
     member = client.get("/member/login.html")
     assert member.status_code == 200

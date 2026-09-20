@@ -1798,7 +1798,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   backdrop-filter: blur(12px);
 }
 
-.landing-hero-full-logo {
+.landing-hero-crest {
   width: min(310px, 100%);
   height: auto;
   display: block;
@@ -1843,7 +1843,36 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     border-radius: 22px;
   }
 
-  .landing-hero-full-logo {
+  .landing-hero-crest {
+    width: min(240px, 100%);
+  }
+}
+
+
+/* Circular crest hero fit */
+.landing-logo-stage {
+  width: min(360px, 88%);
+  aspect-ratio: 1;
+  padding: 18px;
+  border-radius: 28px;
+}
+
+.landing-hero-crest {
+  width: min(320px, 100%);
+  height: auto;
+  display: block;
+  object-fit: contain;
+  border-radius: 50%;
+  filter: drop-shadow(0 14px 28px rgba(36, 53, 38, .16));
+}
+
+@media (max-width: 620px) {
+  .landing-logo-stage {
+    width: min(270px, 92%);
+    padding: 14px;
+  }
+
+  .landing-hero-crest {
     width: min(240px, 100%);
   }
 }
