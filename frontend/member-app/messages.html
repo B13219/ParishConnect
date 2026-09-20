@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0F3D2E">
+  <title>Messages - Vinyrd</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="vinyrd-app messages-app" aria-label="Vinyrd member messages">
+    <header class="section-header">
+      <div class="section-brand">VINYRD</div>
+      <h1>Messages</h1>
+    </header>
+
+    <section class="messages-content">
+      <article class="messages-hero-card">
+        <div class="messages-hero-icon">
+          <img src="./assets/icon-messages.svg" alt="">
+        </div>
+        <div>
+          <span>Church communication</span>
+          <strong id="messageCount">0</strong>
+          <p>Announcements and messages shared with your member account.</p>
+        </div>
+      </article>
+
+      <article class="messages-list-card">
+        <div class="messages-heading">
+          <div>
+            <h2>Inbox</h2>
+            <p>Newest messages appear first</p>
+          </div>
+        </div>
+        <div class="messages-list" id="messagesList" aria-live="polite">
+          <div class="messages-empty">Loading messages...</div>
+        </div>
+      </article>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Primary member navigation">
+      <a class="nav-item" href="./index.html"><img src="./assets/nav-home.svg" alt=""><span>Home</span></a>
+      <a class="nav-item" href="./groups.html"><img src="./assets/nav-groups.svg" alt=""><span>Groups</span></a>
+      <a class="nav-item" href="./giving.html"><img src="./assets/nav-giving.svg" alt=""><span>Giving</span></a>
+      <a class="nav-item" href="./events.html"><img src="./assets/nav-events.svg" alt=""><span>Events</span></a>
+      <a class="nav-item" href="./profile.html"><img src="./assets/nav-profile.svg" alt=""><span>Profile</span></a>
+    </nav>
+
+    <div class="status-toast" id="statusToast" role="status" aria-live="polite"></div>
+  </main>
+  <script src="./client.js"></script>
+  <script src="./messages.js"></script>
+</body>
+</html>

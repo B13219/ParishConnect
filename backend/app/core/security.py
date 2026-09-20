@@ -51,6 +51,7 @@ def user_profile(db: Session, user: User) -> dict[str, object]:
     roles = user_roles(db, user.id)
     return {
         "id": str(user.id),
+        "member_id": str(user.member_id) if user.member_id else None,
         "name": user.name,
         "email": user.email,
         "phone": user.phone,

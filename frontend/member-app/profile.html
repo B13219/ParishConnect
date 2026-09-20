@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0F3D2E">
+  <title>Profile - Vinyrd</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="vinyrd-app profile-app" aria-label="Vinyrd member profile">
+    <header class="profile-header">
+      <div class="profile-brand">VINYRD</div>
+      <h1>Profile</h1>
+    </header>
+
+    <section class="profile-content">
+      <article class="profile-card">
+        <div class="profile-avatar" id="profileInitials">--</div>
+        <div class="profile-summary">
+          <h2 id="profileName">Member</h2>
+          <p id="profileMeta">Member - Church branch</p>
+          <button class="edit-profile-button" id="editProfileButton" type="button">Edit Profile</button>
+        </div>
+      </article>
+
+      <article class="account-card">
+        <h2>Account Details</h2>
+        <dl>
+          <div><dt>Phone</dt><dd id="profilePhone">-</dd></div>
+          <div><dt>Email</dt><dd id="profileEmail">-</dd></div>
+          <div><dt>Branch</dt><dd id="profileBranch">-</dd></div>
+          <div><dt>Member ID</dt><dd id="profileMemberCode">-</dd></div>
+        </dl>
+      </article>
+
+      <button class="signout-button" id="signOutButton" type="button">Sign out</button>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Primary member navigation">
+      <a class="nav-item" href="./index.html"><img src="./assets/nav-home.svg" alt=""><span>Home</span></a>
+      <a class="nav-item" href="./groups.html"><img src="./assets/nav-groups.svg" alt=""><span>Groups</span></a>
+      <a class="nav-item" href="./giving.html"><img src="./assets/nav-giving.svg" alt=""><span>Giving</span></a>
+      <a class="nav-item" href="./events.html"><img src="./assets/nav-events.svg" alt=""><span>Events</span></a>
+      <a class="nav-item active" href="./profile.html" aria-current="page"><img src="./assets/nav-profile.svg" alt=""><span>Profile</span></a>
+    </nav>
+
+    <div class="status-toast" id="statusToast" role="status" aria-live="polite"></div>
+  </main>
+  <script src="./client.js"></script>
+  <script src="./profile.js"></script>
+</body>
+</html>

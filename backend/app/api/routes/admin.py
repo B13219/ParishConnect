@@ -375,11 +375,11 @@ def update_user(
         if existing is not None and existing.id != user.id:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists.")
         user.email = str(updates.pop("email"))
-    if "password" in updates and updates["password"]:
+    if updates.get("password"):
         user.password_hash = password_hash(updates.pop("password"))
     elif "password" in updates:
         updates.pop("password")
-    if "role" in updates and updates["role"]:
+    if updates.get("role"):
         role = role_by_slug(db, updates.pop("role"))
         assign_primary_role(db, user, role)
         updates["role"] = role_slug(role.name)

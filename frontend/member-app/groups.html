@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0F3D2E">
+  <title>My Groups - Vinyrd</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="vinyrd-app groups-app" aria-label="Vinyrd member groups">
+    <header class="section-header">
+      <div class="section-brand">VINYRD</div>
+      <h1>My Groups</h1>
+    </header>
+
+    <section class="groups-content">
+      <article class="groups-overview-card">
+        <div class="groups-overview-icon">
+          <img src="./assets/icon-groups.svg" alt="">
+        </div>
+        <div>
+          <span>Active memberships</span>
+          <strong id="groupMembershipCount">0</strong>
+          <p>Your communities and ministries in this church branch.</p>
+        </div>
+      </article>
+
+      <article class="groups-section-card">
+        <div class="groups-heading">
+          <div>
+            <h2 id="communityHeading">Community Groups</h2>
+            <p>Local fellowship and community connections</p>
+          </div>
+          <span id="communityCount">0</span>
+        </div>
+        <div class="groups-list" id="communityGroups" aria-live="polite">
+          <div class="groups-empty">Loading community groups...</div>
+        </div>
+      </article>
+
+      <article class="groups-section-card">
+        <div class="groups-heading">
+          <div>
+            <h2>Ministries</h2>
+            <p>Teams and ministry areas you serve with</p>
+          </div>
+          <span id="ministryCount">0</span>
+        </div>
+        <div class="groups-list" id="ministries" aria-live="polite">
+          <div class="groups-empty">Loading ministries...</div>
+        </div>
+      </article>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Primary member navigation">
+      <a class="nav-item" href="./index.html"><img src="./assets/nav-home.svg" alt=""><span>Home</span></a>
+      <a class="nav-item active" href="./groups.html" aria-current="page"><img src="./assets/nav-groups.svg" alt=""><span>Groups</span></a>
+      <a class="nav-item" href="./giving.html"><img src="./assets/nav-giving.svg" alt=""><span>Giving</span></a>
+      <a class="nav-item" href="./events.html"><img src="./assets/nav-events.svg" alt=""><span>Events</span></a>
+      <a class="nav-item" href="./profile.html"><img src="./assets/nav-profile.svg" alt=""><span>Profile</span></a>
+    </nav>
+
+    <div class="status-toast" id="statusToast" role="status" aria-live="polite"></div>
+  </main>
+  <script src="./client.js"></script>
+  <script src="./groups.js"></script>
+</body>
+</html>

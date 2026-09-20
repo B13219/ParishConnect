@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0F3D2E">
+  <title>Bible & Lessons - Vinyrd</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="vinyrd-app bible-app" aria-label="Vinyrd Bible and sermon lessons">
+    <header class="section-header">
+      <div class="section-brand">VINYRD</div>
+      <h1>Bible & Lessons</h1>
+    </header>
+
+    <section class="bible-content">
+      <article class="bible-verse-card">
+        <span>Daily Verse</span>
+        <p>"I am the vine; you are the branches. If you remain in me and I in you, you will bear much fruit."</p>
+        <strong>John 15:5</strong>
+      </article>
+
+      <article class="sermon-form-card">
+        <div class="sermon-heading">
+          <div>
+            <h2>Save a Sermon Lesson</h2>
+            <p>Your lesson notes are private to your member account.</p>
+          </div>
+        </div>
+
+        <form id="sermonLessonForm" class="sermon-form">
+          <label>
+            Service or event
+            <select name="event_id" id="lessonEvent">
+              <option value="">Not linked to an event</option>
+            </select>
+          </label>
+
+          <label>
+            Sermon title
+            <input name="sermon_title" maxlength="160" required placeholder="e.g. Walking by Faith">
+          </label>
+
+          <label>
+            Speaker
+            <input name="speaker_name" maxlength="160" placeholder="Optional">
+          </label>
+
+          <label>
+            Scripture reference
+            <input name="scripture_reference" maxlength="160" placeholder="e.g. Hebrews 11:1-6">
+          </label>
+
+          <label>
+            What did you learn?
+            <textarea name="key_lesson" maxlength="3000" required placeholder="Write the main lesson you want to remember..."></textarea>
+          </label>
+
+          <label>
+            Action point
+            <textarea class="sermon-action-textarea" name="action_point" maxlength="1000" placeholder="How will you apply this lesson?"></textarea>
+          </label>
+
+          <button class="primary-sermon-button" id="submitSermonLesson" type="submit">Save lesson</button>
+        </form>
+      </article>
+
+      <article class="sermon-history-card">
+        <div class="sermon-heading">
+          <div>
+            <h2>My Sermon Lessons</h2>
+            <p>Personal notes from sermons and services.</p>
+          </div>
+          <span id="sermonLessonCount">0</span>
+        </div>
+        <div class="sermon-lessons-list" id="sermonLessonsList" aria-live="polite">
+          <div class="sermon-empty">Loading sermon lessons...</div>
+        </div>
+      </article>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Primary member navigation">
+      <a class="nav-item" href="./index.html"><img src="./assets/nav-home.svg" alt=""><span>Home</span></a>
+      <a class="nav-item" href="./groups.html"><img src="./assets/nav-groups.svg" alt=""><span>Groups</span></a>
+      <a class="nav-item" href="./giving.html"><img src="./assets/nav-giving.svg" alt=""><span>Giving</span></a>
+      <a class="nav-item" href="./events.html"><img src="./assets/nav-events.svg" alt=""><span>Events</span></a>
+      <a class="nav-item" href="./profile.html"><img src="./assets/nav-profile.svg" alt=""><span>Profile</span></a>
+    </nav>
+
+    <div class="status-toast" id="statusToast" role="status" aria-live="polite"></div>
+  </main>
+  <script src="./client.js"></script>
+  <script src="./bible.js"></script>
+</body>
+</html>

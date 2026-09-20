@@ -44,6 +44,10 @@ class User(IdMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
     branch_id: Mapped[UUID | None] = mapped_column(ForeignKey("branches.id"))
+    member_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("members.id"),
+        unique=True,
+    )
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     phone: Mapped[str | None] = mapped_column(String(40))
@@ -428,6 +432,69 @@ class MessageRecipient(IdMixin, TimestampMixin, Base):
     phone: Mapped[str | None] = mapped_column(String(40))
     delivery_status: Mapped[str] = mapped_column(String(40), default="queued")
     provider_reference: Mapped[str | None] = mapped_column(String(120))
+
+
+class PrayerRequest(IdMixin, TimestampMixin, Base):
+    __tablename__ = "prayer_requests"
+
+    branch_id: Mapped[UUID] = mapped_column(
+        ForeignKey("branches.id"),
+        nullable=False,
+    )
+    member_id: Mapped[UUID] = mapped_column(
+        ForeignKey("members.id"),
+        nullable=False,
+    )
+    category: Mapped[str] = mapped_column(
+        String(60),
+        default="general",
+        nullable=False,
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    visibility: Mapped[str] = mapped_column(
+        String(40),
+        default="pastoral_team",
+        nullable=False,
+    )
+    allow_contact: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        String(40),
+        default="submitted",
+        nullable=False,
+    )
+
+
+class SermonLesson(IdMixin, TimestampMixin, Base):
+    __tablename__ = "sermon_lessons"
+
+    branch_id: Mapped[UUID] = mapped_column(
+        ForeignKey("branches.id"),
+        nullable=False,
+    )
+    member_id: Mapped[UUID] = mapped_column(
+        ForeignKey("members.id"),
+        nullable=False,
+    )
+    event_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("events.id"),
+    )
+    sermon_title: Mapped[str] = mapped_column(
+        String(160),
+        nullable=False,
+    )
+    speaker_name: Mapped[str | None] = mapped_column(String(160))
+    scripture_reference: Mapped[str | None] = mapped_column(String(160))
+    key_lesson: Mapped[str] = mapped_column(Text, nullable=False)
+    action_point: Mapped[str | None] = mapped_column(Text)
+    is_private: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
 
 
 class Contribution(IdMixin, TimestampMixin, Base):
