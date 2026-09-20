@@ -1462,6 +1462,11 @@ const renderMessages = () => {
             message.body,
             `${labelize(message.channel)} for ${labelize(message.audience_type)}`,
             `${message.recipient_count || 0} recipients`,
+            Object.entries(message.delivery_counts || {}).length
+              ? Object.entries(message.delivery_counts || {})
+                  .map(([deliveryStatus, count]) => `${count} ${labelize(deliveryStatus)}`)
+                  .join(", ")
+              : null,
             message.sent_at ? `Sent ${formatDateTime(message.sent_at)}` : null,
             message.scheduled_at ? `Scheduled ${formatDateTime(message.scheduled_at)}` : null,
           ]
@@ -3077,12 +3082,19 @@ const updateMessageSubmitLabel = () => {
     return;
   }
 
+  button.disabled = false;
   if (status === "draft") {
     button.textContent = "Save draft";
   } else if (status === "scheduled") {
     button.textContent = "Save scheduled message";
+  } else if (channel === "sms" && !state.smsProvider?.ready) {
+    button.textContent = "SMS not configured";
+    button.disabled = true;
   } else if (channel === "sms") {
-    button.textContent = state.smsProvider?.external_sending ? "Send SMS" : "Simulate SMS";
+    button.textContent =
+      state.smsProvider?.external_sending && state.smsProvider?.ready
+        ? "Send SMS"
+        : "Simulate SMS";
   } else {
     button.textContent = "Send message";
   }
@@ -3123,7 +3135,7 @@ const submitMessageForm = async (form) => {
     setBusy(true);
     setStatus(
       isImmediateSms
-        ? state.smsProvider?.external_sending
+        ? state.smsProvider?.external_sending && state.smsProvider?.ready
           ? "Submitting SMS to provider"
           : "Running SMS simulation"
         : "Saving message",
@@ -3136,7 +3148,7 @@ const submitMessageForm = async (form) => {
     await loadSection("messages");
     setStatus(
       isImmediateSms
-        ? state.smsProvider?.external_sending
+        ? state.smsProvider?.external_sending && state.smsProvider?.ready
           ? "SMS submitted to provider"
           : "SMS recorded in simulation mode"
         : "Message saved",
