@@ -188,3 +188,53 @@ def test_recipient_view_backfills_existing_message_without_delivery_rows() -> No
 
     assert recipients.status_code == 200
     assert recipients.json()["recipients"]
+
+def test_sms_provider_status_and_delivery_callback() -> None:
+    client = build_client()
+    headers = auth_headers(client, "Pastor / Leader")
+
+    provider = client.get("/api/v1/messages/sms/provider", headers=headers)
+    assert provider.status_code == 200
+    assert provider.json()["provider"] == "africas_talking"
+    assert provider.json()["mode"] == "simulate"
+    assert provider.json()["external_sending"] is False
+
+    response = client.post(
+        "/api/v1/messages/",
+        json={
+            "channel": "sms",
+            "subject": "Delivery test",
+            "body": "Vinyrd delivery test.",
+            "audience_type": "all_members",
+            "status": "send_now",
+        },
+        headers=headers,
+    )
+    assert response.status_code == 201
+
+    message_id = response.json()["id"]
+    recipients = client.get(
+        f"/api/v1/messages/{message_id}/recipients",
+        headers=headers,
+    ).json()["recipients"]
+    assert recipients[0]["delivery_status"] == "queued"
+    provider_reference = recipients[0]["provider_reference"]
+    assert provider_reference
+
+    callback = client.post(
+        "/api/v1/messages/sms/delivery-report",
+        data={
+            "id": provider_reference,
+            "status": "Success",
+            "phoneNumber": recipients[0]["phone"],
+        },
+    )
+    assert callback.status_code == 200
+    assert callback.json()["delivery_status"] == "delivered"
+
+    refreshed = client.get(
+        f"/api/v1/messages/{message_id}/recipients",
+        headers=headers,
+    ).json()["recipients"]
+    assert refreshed[0]["delivery_status"] == "delivered"
+
