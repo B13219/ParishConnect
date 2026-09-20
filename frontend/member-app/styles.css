@@ -1747,3 +1747,103 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     height: auto;
   }
 }
+
+
+/* Member logo rendering correction */
+.landing-nav-brand {
+  min-height: 54px;
+}
+
+.landing-nav-brand .landing-nav-crest {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: block;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.landing-nav-brand span {
+  display: grid;
+  gap: 3px;
+}
+
+.landing-nav-brand strong {
+  color: #17351f;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  line-height: 1;
+}
+
+.landing-nav-brand small {
+  color: #8a7137;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.landing-logo-stage {
+  width: min(360px, 88%);
+  display: grid;
+  place-items: center;
+  padding: 20px 22px;
+  border: 1px solid rgba(197,163,91,.28);
+  border-radius: 26px;
+  background: rgba(255,254,250,.88);
+  box-shadow: 0 24px 60px rgba(42,49,36,.12);
+  backdrop-filter: blur(12px);
+}
+
+.landing-hero-full-logo {
+  width: min(310px, 100%);
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.login-logo-panel {
+  display: inline-grid;
+  place-items: center;
+  padding: 12px 14px;
+  border: 1px solid rgba(224,194,119,.34);
+  border-radius: 18px;
+  background: rgba(255,254,250,.94);
+  box-shadow: 0 18px 40px rgba(0,0,0,.16);
+}
+
+.login-back-brand .login-master-logo {
+  width: 168px;
+  height: auto;
+  filter: none;
+}
+
+@media (max-width: 620px) {
+  .landing-nav-brand .landing-nav-crest {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+
+  .landing-nav-brand strong {
+    font-size: 16px;
+  }
+
+  .landing-nav-brand small {
+    display: block;
+    font-size: 6px;
+  }
+
+  .landing-logo-stage {
+    width: min(280px, 92%);
+    padding: 16px 18px;
+    border-radius: 22px;
+  }
+
+  .landing-hero-full-logo {
+    width: min(240px, 100%);
+  }
+}
