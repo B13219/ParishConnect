@@ -2463,7 +2463,7 @@ textarea:focus {
   width: 230px;
   height: 230px;
   opacity: .08;
-  background: url("./assets/vinyrd-crest.webp") center/contain no-repeat;
+  background: url("./assets/vinyrd-crest-v2.webp") center/contain no-repeat;
   pointer-events: none;
 }
 
