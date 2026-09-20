@@ -93,15 +93,14 @@ def readiness_issues(config: Mapping[str, Any]) -> list[DeploymentIssue]:
             )
         )
 
-    if environment == "production":
-        if not public_base_url.startswith("https://"):
-            issues.append(
-                DeploymentIssue(
-                    code="public-base-url-not-https",
-                    severity="high",
-                    message="Production PARISHCONNECT_PUBLIC_BASE_URL must use HTTPS.",
-                )
+    if environment == "production" and not public_base_url.startswith("https://"):
+        issues.append(
+            DeploymentIssue(
+                code="public-base-url-not-https",
+                severity="high",
+                message="Production PARISHCONNECT_PUBLIC_BASE_URL must use HTTPS.",
             )
+        )
 
     for field in SECRET_FIELDS:
         secret = _value(config, field)
