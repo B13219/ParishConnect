@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0F3D2E">
+  <title>Sign in - Vinyrd</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-brand">
+      <div class="login-logo"><span></span>VINYRD</div>
+      <h1>Welcome back</h1>
+      <p>Sign in with the member account linked to your church profile.</p>
+    </section>
+
+    <form class="login-card" id="memberLoginForm">
+      <label>
+        Email
+        <input type="email" name="email" autocomplete="email" required placeholder="you@example.com">
+      </label>
+      <label>
+        Password
+        <input type="password" name="password" autocomplete="current-password" required placeholder="Your password">
+      </label>
+      <p class="login-error" id="loginError" role="alert"></p>
+      <button class="login-button" type="submit" id="loginButton">Sign in</button>
+    </form>
+
+    <p class="login-footnote">Vinyrd member access - Secure church profile</p>
+  </main>
+  <script src="./client.js"></script>
+  <script src="./login.js"></script>
+</body>
+</html>

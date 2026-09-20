@@ -2,7 +2,7 @@ from sqlalchemy import select
 
 from app.core.security import password_hash
 from app.db.session import SessionLocal
-from app.models import Branch, Role, User, UserRole
+from app.models import Branch, Member, Role, User, UserRole
 
 DEMO_PASSWORD = "parishconnect"
 DEMO_ROLES = {
@@ -14,37 +14,20 @@ DEMO_ROLES = {
     "Member": "Member portal access",
 }
 DEMO_USERS = [
-    {
-        "name": "Amina Joseph",
-        "email": "admin@graceparish.test",
-        "phone": "+255 700 111 222",
-        "role": "Administrator",
-    },
-    {
-        "name": "Pastor Daniel Mushi",
-        "email": "pastor@graceparish.test",
-        "phone": "+255 700 333 444",
-        "role": "Pastor / Leader",
-    },
-    {
-        "name": "Grace Treasurer",
-        "email": "accountant@graceparish.test",
-        "phone": "+255 700 444 555",
-        "role": "Accountant",
-    },
-    {
-        "name": "Rehema Front Desk",
-        "email": "reception@graceparish.test",
-        "phone": "+255 700 555 666",
-        "role": "Receptionist",
-    },
-    {
-        "name": "Jonas Usher",
-        "email": "usher@graceparish.test",
-        "phone": "+255 700 777 888",
-        "role": "Usher",
-    },
+    {"name": "Amina Joseph", "email": "admin@graceparish.test", "phone": "+255 700 111 222", "role": "Administrator"},
+    {"name": "Pastor Daniel Mushi", "email": "pastor@graceparish.test", "phone": "+255 700 333 444", "role": "Pastor / Leader"},
+    {"name": "Grace Treasurer", "email": "accountant@graceparish.test", "phone": "+255 700 444 555", "role": "Accountant"},
+    {"name": "Rehema Front Desk", "email": "reception@graceparish.test", "phone": "+255 700 555 666", "role": "Receptionist"},
+    {"name": "Jonas Usher", "email": "usher@graceparish.test", "phone": "+255 700 777 888", "role": "Usher"},
 ]
+
+
+def ensure_role_link(db, user: User, role: Role) -> bool:
+    link = db.get(UserRole, {"user_id": user.id, "role_id": role.id})
+    if link is not None:
+        return False
+    db.add(UserRole(user_id=user.id, role_id=role.id))
+    return True
 
 
 def seed_auth_demo() -> dict[str, int]:
@@ -57,6 +40,7 @@ def seed_auth_demo() -> dict[str, int]:
         users_created = 0
         links_created = 0
         roles: dict[str, Role] = {}
+
         for name, description in DEMO_ROLES.items():
             role = db.scalar(select(Role).where(Role.name == name))
             if role is None:
@@ -80,10 +64,34 @@ def seed_auth_demo() -> dict[str, int]:
                 db.add(user)
                 db.flush()
                 users_created += 1
-            role = roles[item["role"]]
-            link = db.get(UserRole, {"user_id": user.id, "role_id": role.id})
-            if link is None:
-                db.add(UserRole(user_id=user.id, role_id=role.id))
+            if ensure_role_link(db, user, roles[item["role"]]):
+                links_created += 1
+
+        member = db.scalar(
+            select(Member)
+            .where(Member.membership_status == "active")
+            .order_by(Member.created_at.asc())
+        )
+        if member is not None:
+            member_email = (member.email or "member@graceparish.test").lower()
+            member_user = db.scalar(select(User).where(User.email == member_email))
+            if member_user is None:
+                member_user = User(
+                    branch_id=member.branch_id,
+                    member_id=member.id,
+                    name=f"{member.first_name} {member.last_name}",
+                    email=member_email,
+                    phone=member.phone,
+                    password_hash=password_hash(DEMO_PASSWORD),
+                    status="active",
+                )
+                db.add(member_user)
+                db.flush()
+                users_created += 1
+            elif member_user.member_id is None:
+                member_user.member_id = member.id
+
+            if ensure_role_link(db, member_user, roles["Member"]):
                 links_created += 1
 
         db.commit()

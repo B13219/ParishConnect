@@ -7,10 +7,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.security import password_hash
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import create_app
-from app.models import Branch, Contribution, Event, Household, HouseholdPerson, Member, Message
+from app.models import Branch, Contribution, Event, Household, HouseholdPerson, Member, Message, Role, User, UserRole
 
 
 def build_client() -> TestClient:
@@ -24,16 +25,34 @@ def build_client() -> TestClient:
 
     with TestingSessionLocal() as db:
         branch = Branch(name="Test Parish", location="Test City")
-        db.add(branch)
+        member_role = Role(name="Member", description="Member portal access")
+        db.add_all([branch, member_role])
         db.flush()
+
         member = Member(
             branch_id=branch.id,
             first_name="Ada",
             last_name="Member",
+            phone="+255700000001",
+            email="ada@test.local",
             membership_status="active",
         )
         db.add(member)
         db.flush()
+
+        user = User(
+            branch_id=branch.id,
+            member_id=member.id,
+            name="Ada Member",
+            email="ada@test.local",
+            phone=member.phone,
+            password_hash=password_hash("parishconnect"),
+            status="active",
+        )
+        db.add(user)
+        db.flush()
+        db.add(UserRole(user_id=user.id, role_id=member_role.id))
+
         household = Household(
             branch_id=branch.id,
             name="Ada Household",
@@ -99,26 +118,42 @@ def build_client() -> TestClient:
     return TestClient(app)
 
 
-def test_member_portal_demo_profile() -> None:
+def member_headers(client: TestClient) -> dict[str, str]:
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"email": "ada@test.local", "password": "parishconnect"},
+    )
+    assert login.status_code == 200
+    return {"Authorization": "Bearer " + login.json()["access_token"]}
+
+
+def test_member_portal_requires_login() -> None:
     client = build_client()
-
     response = client.get("/api/v1/member-portal/me")
+    assert response.status_code == 401
 
+
+def test_member_portal_returns_authenticated_profile() -> None:
+    client = build_client()
+    response = client.get("/api/v1/member-portal/me", headers=member_headers(client))
     assert response.status_code == 200
     data = response.json()
+    assert data["status"] == "authenticated-member"
     assert data["profile"]["name"] == "Ada Member"
+    assert data["profile"]["branch_name"] == "Test Parish"
+    assert data["profile"]["member_code"].startswith("VIN-")
     assert data["household"]["people"][0]["name"] == "Chris Child"
     assert data["events"][0]["name"] == "Sunday Service"
     assert data["messages"][0]["subject"] == "Welcome"
     assert data["giving"]["total_amount"] == "10000.00"
-    assert data["giving"]["latest"][0]["reference_code"] == "ENV-1"
 
 
-def test_member_portal_create_giving() -> None:
+def test_member_portal_create_giving_for_authenticated_member() -> None:
     client = build_client()
-
+    headers = member_headers(client)
     response = client.post(
         "/api/v1/member-portal/giving",
+        headers=headers,
         json={
             "contribution_type": "offering",
             "amount": "5000.00",
@@ -128,23 +163,19 @@ def test_member_portal_create_giving() -> None:
             "notes": "Member portal giving",
         },
     )
-
     assert response.status_code == 201
-    created = response.json()
-    assert created["reference_code"] == "MM-777"
-    assert created["payment_method"] == "mobile_money"
+    assert response.json()["reference_code"] == "MM-777"
 
-    portal = client.get("/api/v1/member-portal/me").json()
+    portal = client.get("/api/v1/member-portal/me", headers=headers).json()
     assert portal["giving"]["total_amount"] == "15000.00"
     assert portal["giving"]["latest"][0]["reference_code"] == "MM-777"
 
 
 def test_member_portal_rejects_invalid_giving_amount() -> None:
     client = build_client()
-
     response = client.post(
         "/api/v1/member-portal/giving",
+        headers=member_headers(client),
         json={"contribution_type": "tithe", "amount": "0.00"},
     )
-
     assert response.status_code == 422

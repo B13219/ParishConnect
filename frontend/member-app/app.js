@@ -1,1 +1,88 @@
-const API_BASE=window.VINYRD_API_BASE||((location.hostname==="127.0.0.1"||location.hostname==="localhost")?"http://127.0.0.1:8003/api/v1":"/api/v1");const qs=s=>document.querySelector(s);let toastTimer;const showToast=m=>{const t=qs("#statusToast");t.textContent=m;t.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),2200)};const firstName=p=>(p?.first_name||p?.name||"Member").trim().split(/\s+/)[0];const greetingForHour=h=>h<12?"Good morning":h<18?"Good afternoon":"Good evening";const formatEventWhen=v=>v?new Intl.DateTimeFormat(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"}).format(new Date(v)):"Date to be confirmed";const nextEvent=(events=[])=>{if(!events.length)return null;const now=Date.now();return events.find(e=>new Date(e.starts_at).getTime()>=now)||events[0]};const renderEvent=e=>{if(!e){qs("#eventTitle").textContent="No upcoming events";qs("#eventWhen").textContent="Check back soon";qs("#eventLocation").textContent="Vinyrd";qs("#eventDay").textContent="--";qs("#eventMonth").textContent="---";return}const d=e.starts_at?new Date(e.starts_at):null;qs("#eventTitle").textContent=e.name||"Church Event";qs("#eventWhen").textContent=formatEventWhen(e.starts_at);qs("#eventLocation").textContent=e.location||"Location to be confirmed";qs("#eventDay").textContent=d?String(d.getDate()).padStart(2,"0"):"--";qs("#eventMonth").textContent=d?d.toLocaleString(undefined,{month:"short"}).toUpperCase():"---"};const loadHome=async()=>{const i=qs("#connectionDot");try{const r=await fetch(`${API_BASE}/member-portal/me`);if(!r.ok)throw new Error(`Member portal returned ${r.status}`);const d=await r.json();qs("#memberGreeting").textContent=`${greetingForHour(new Date().getHours())}, ${firstName(d.profile)}`;renderEvent(nextEvent(d.events));i.classList.add("ok");i.setAttribute("aria-label","Member data loaded")}catch(e){console.error(e);qs("#memberGreeting").textContent=`${greetingForHour(new Date().getHours())}, Member`;renderEvent(null);i.classList.add("error");i.setAttribute("aria-label","Member data unavailable");showToast("Could not reach the member API. The home design is still available.")}};document.querySelectorAll("[data-route]").forEach(c=>c.addEventListener("click",e=>{e.preventDefault();const r=c.dataset.route;if(r==="home")return;showToast(`${r[0].toUpperCase()+r.slice(1)} screen is next in the Vinyrd build.`)}));loadHome();
+if (VinyrdClient.requireSession()) {
+  const qs = (selector) => document.querySelector(selector);
+  let toastTimer;
+
+  const showToast = (message) => {
+    const toast = qs("#statusToast");
+    toast.textContent = message;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+  };
+
+  const firstName = (profile) =>
+    (profile && (profile.first_name || profile.name) || "Member").trim().split(/\s+/)[0];
+
+  const greetingForHour = (hour) => {
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
+  const formatEventWhen = (value) => {
+    if (!value) return "Date to be confirmed";
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(value));
+  };
+
+  const nextEvent = (events) => {
+    events = events || [];
+    if (!events.length) return null;
+    const now = Date.now();
+    return events.find((event) => new Date(event.starts_at).getTime() >= now) || events[0];
+  };
+
+  const renderEvent = (event) => {
+    if (!event) {
+      qs("#eventTitle").textContent = "No upcoming events";
+      qs("#eventWhen").textContent = "Check back soon";
+      qs("#eventLocation").textContent = "Vinyrd";
+      qs("#eventDay").textContent = "--";
+      qs("#eventMonth").textContent = "---";
+      return;
+    }
+    const date = event.starts_at ? new Date(event.starts_at) : null;
+    qs("#eventTitle").textContent = event.name || "Church Event";
+    qs("#eventWhen").textContent = formatEventWhen(event.starts_at);
+    qs("#eventLocation").textContent = event.location || "Location to be confirmed";
+    qs("#eventDay").textContent = date ? String(date.getDate()).padStart(2, "0") : "--";
+    qs("#eventMonth").textContent = date ? date.toLocaleString(undefined, {month: "short"}).toUpperCase() : "---";
+  };
+
+  const loadHome = async () => {
+    const indicator = qs("#connectionDot");
+    try {
+      const data = await VinyrdClient.apiRequest("/member-portal/me");
+      qs("#memberGreeting").textContent =
+        greetingForHour(new Date().getHours()) + ", " + firstName(data.profile);
+      renderEvent(nextEvent(data.events));
+      indicator.classList.add("ok");
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        VinyrdClient.clearSession();
+        window.location.replace("./login.html");
+        return;
+      }
+      indicator.classList.add("error");
+      renderEvent(null);
+      showToast("Could not reach the member API.");
+    }
+  };
+
+  document.querySelectorAll("[data-route]").forEach((control) => {
+    control.addEventListener("click", (event) => {
+      const route = control.dataset.route;
+      if (route === "profile") return;
+      event.preventDefault();
+      showToast(route.charAt(0).toUpperCase() + route.slice(1) + " is the next Vinyrd screen.");
+    });
+  });
+
+  loadHome();
+}

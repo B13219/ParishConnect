@@ -5,9 +5,10 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.security import current_user
 from app.db.base import utc_now
 from app.db.session import get_db
-from app.models import Contribution, Event, Household, HouseholdPerson, Member, Message
+from app.models import Branch, Contribution, Event, Household, HouseholdPerson, Member, Message, User
 
 router = APIRouter()
 
@@ -21,29 +22,46 @@ class MemberGivingCreate(BaseModel):
     notes: str | None = None
 
 
-def get_demo_member(db: Session) -> Member:
-    member = db.scalar(
-        select(Member)
-        .where(Member.membership_status == "active")
-        .order_by(Member.created_at.asc())
-    )
-    if member is None:
+def get_current_member(
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> Member:
+    if user.member_id is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No active member profile is available for the demo portal.",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account is not linked to a member profile.",
+        )
+
+    member = db.get(Member, user.member_id)
+    if member is None or member.membership_status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Member profile is unavailable.",
+        )
+
+    if user.branch_id is not None and user.branch_id != member.branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Member profile belongs to a different branch.",
         )
     return member
 
 
-def serialize_member_profile(member: Member) -> dict[str, object]:
+def serialize_member_profile(member: Member, branch: Branch | None) -> dict[str, object]:
     return {
         "id": str(member.id),
+        "member_code": f"VIN-{str(member.id).replace('-', '')[:8].upper()}",
         "first_name": member.first_name,
         "last_name": member.last_name,
         "name": f"{member.first_name} {member.last_name}",
         "phone": member.phone,
         "email": member.email,
         "status": member.membership_status,
+        "branch_id": str(member.branch_id),
+        "branch_name": branch.name if branch else "Church branch",
+        "address": member.address,
+        "area": member.area,
+        "preferred_language": member.preferred_language,
     }
 
 
@@ -93,11 +111,24 @@ def household_people(
 
 
 @router.get("/me")
-def member_home(db: Session = Depends(get_db)) -> dict[str, object]:
-    member = get_demo_member(db)
+def member_home(
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    branch = db.get(Branch, member.branch_id)
     household = household_for_member(member, db)
-    events = db.scalars(select(Event).order_by(Event.starts_at.asc()).limit(6)).all()
-    messages = db.scalars(select(Message).order_by(Message.created_at.desc()).limit(5)).all()
+    events = db.scalars(
+        select(Event)
+        .where(Event.branch_id == member.branch_id)
+        .order_by(Event.starts_at.asc())
+        .limit(6)
+    ).all()
+    messages = db.scalars(
+        select(Message)
+        .where(Message.branch_id == member.branch_id, Message.status == "sent")
+        .order_by(Message.created_at.desc())
+        .limit(5)
+    ).all()
     contributions = db.scalars(
         select(Contribution)
         .where(Contribution.member_id == member.id)
@@ -112,8 +143,8 @@ def member_home(db: Session = Depends(get_db)) -> dict[str, object]:
 
     return {
         "module": "member_portal",
-        "status": "demo-member",
-        "profile": serialize_member_profile(member),
+        "status": "authenticated-member",
+        "profile": serialize_member_profile(member, branch),
         "household": {
             "id": str(household.id),
             "name": household.name,
@@ -155,9 +186,9 @@ def member_home(db: Session = Depends(get_db)) -> dict[str, object]:
 @router.post("/giving", status_code=status.HTTP_201_CREATED)
 def create_member_giving(
     payload: MemberGivingCreate,
+    member: Member = Depends(get_current_member),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    member = get_demo_member(db)
     if payload.amount <= 0:
         raise HTTPException(status_code=422, detail="Giving amount must be greater than zero.")
 

@@ -44,6 +44,10 @@ class User(IdMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
     branch_id: Mapped[UUID | None] = mapped_column(ForeignKey("branches.id"))
+    member_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("members.id"),
+        unique=True,
+    )
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     phone: Mapped[str | None] = mapped_column(String(40))
