@@ -80,7 +80,10 @@ def sms_provider_status() -> dict[str, object]:
     elif mode == "simulate":
         summary = "Simulation mode: messages are recorded but no carrier SMS is sent."
     elif ready:
-        summary = f"Africa's Talking {mode} is configured for outbound SMS."
+        summary = (
+            f"Africa's Talking {mode} credentials are present. "
+            "Send a sandbox test to verify authentication."
+        )
     else:
         summary = f"Africa's Talking {mode} needs a username and API key."
 
@@ -194,6 +197,13 @@ def send_sms(body: str, phones: list[str | None]) -> list[SmsRecipientResult]:
             raw = response.read().decode("utf-8")
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
+        if exc.code == 401 and mode == "sandbox":
+            raise SmsProviderError(
+                "Africa's Talking sandbox authentication was rejected. "
+                "Confirm the username is sandbox and replace PARISHCONNECT_SMS_API_KEY "
+                "with an API key generated from the orange Sandbox dashboard, then wait "
+                "a few minutes before testing again."
+            ) from exc
         raise SmsProviderError(
             f"Africa's Talking rejected the SMS request ({exc.code}): {detail[:240]}"
         ) from exc
