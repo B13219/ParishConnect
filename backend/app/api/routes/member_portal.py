@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -24,6 +25,7 @@ from app.models import (
     MessageRecipient,
     Ministry,
     MinistryMembership,
+    PrayerRequest,
     User,
 )
 from app.services.geofence import is_inside_geofence
@@ -38,6 +40,22 @@ class MemberGivingCreate(BaseModel):
     payment_method: str = "mobile_money"
     reference_code: str | None = None
     notes: str | None = None
+
+
+class MemberPrayerRequestCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    category: Literal[
+        "general",
+        "family",
+        "health",
+        "work",
+        "guidance",
+        "thanksgiving",
+    ] = "general"
+    body: str = Field(max_length=2000)
+    visibility: Literal["pastoral_team", "shareable"] = "pastoral_team"
+    allow_contact: bool = True
 
 
 class MemberLocationCheckInCreate(BaseModel):
@@ -198,6 +216,20 @@ def serialize_member_message(message: Message) -> dict[str, object]:
     }
 
 
+
+def serialize_prayer_request(prayer: PrayerRequest) -> dict[str, object]:
+    return {
+        "id": str(prayer.id),
+        "category": prayer.category,
+        "body": prayer.body,
+        "visibility": prayer.visibility,
+        "allow_contact": prayer.allow_contact,
+        "status": prayer.status,
+        "created_at": prayer.created_at.isoformat(),
+        "updated_at": prayer.updated_at.isoformat(),
+    }
+
+
 def household_for_member(member: Member, db: Session) -> Household | None:
     household_person = db.scalar(
         select(HouseholdPerson).where(HouseholdPerson.member_id == member.id).limit(1)
@@ -289,6 +321,51 @@ def member_home(
         },
     }
 
+
+
+@router.get("/prayers")
+def member_prayers(
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+) -> list[dict[str, object]]:
+    prayers = db.scalars(
+        select(PrayerRequest)
+        .where(
+            PrayerRequest.member_id == member.id,
+            PrayerRequest.branch_id == member.branch_id,
+        )
+        .order_by(PrayerRequest.created_at.desc())
+        .limit(50)
+    ).all()
+    return [serialize_prayer_request(prayer) for prayer in prayers]
+
+
+@router.post("/prayers", status_code=status.HTTP_201_CREATED)
+def create_member_prayer(
+    payload: MemberPrayerRequestCreate,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    prayer_body = payload.body.strip()
+    if len(prayer_body) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Prayer request must contain at least 3 non-whitespace characters.",
+        )
+
+    prayer = PrayerRequest(
+        branch_id=member.branch_id,
+        member_id=member.id,
+        category=payload.category,
+        body=prayer_body,
+        visibility=payload.visibility,
+        allow_contact=payload.allow_contact,
+        status="submitted",
+    )
+    db.add(prayer)
+    db.commit()
+    db.refresh(prayer)
+    return serialize_prayer_request(prayer)
 
 
 @router.get("/messages")

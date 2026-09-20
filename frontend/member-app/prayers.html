@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0F3D2E">
+  <title>Prayers - Vinyrd</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="vinyrd-app prayers-app" aria-label="Vinyrd prayer requests">
+    <header class="section-header">
+      <div class="section-brand">VINYRD</div>
+      <h1>Prayers</h1>
+    </header>
+
+    <section class="prayers-content">
+      <article class="prayer-hero-card">
+        <div class="prayer-hero-icon">
+          <img src="./assets/icon-prayers.svg" alt="">
+        </div>
+        <div>
+          <span>Prayer support</span>
+          <strong>You don't carry it alone.</strong>
+          <p>Share a request with your church's pastoral team.</p>
+        </div>
+      </article>
+
+      <article class="prayer-form-card">
+        <div class="prayer-heading">
+          <div>
+            <h2>New Prayer Request</h2>
+            <p>Choose how your request may be handled.</p>
+          </div>
+        </div>
+
+        <form id="prayerForm" class="prayer-form">
+          <label>
+            Category
+            <select name="category" required>
+              <option value="general">General</option>
+              <option value="family">Family</option>
+              <option value="health">Health</option>
+              <option value="work">Work</option>
+              <option value="guidance">Guidance</option>
+              <option value="thanksgiving">Thanksgiving</option>
+            </select>
+          </label>
+
+          <label>
+            Prayer request
+            <textarea name="body" maxlength="2000" required placeholder="Share what you would like prayer for..."></textarea>
+          </label>
+
+          <label>
+            Privacy
+            <select name="visibility" required>
+              <option value="pastoral_team">Pastoral team only</option>
+              <option value="shareable">May be shared anonymously</option>
+            </select>
+          </label>
+
+          <label class="prayer-contact-option">
+            <input name="allow_contact" type="checkbox" checked>
+            <span>I'm okay with a church leader contacting me about this request.</span>
+          </label>
+
+          <button class="primary-prayer-button" id="submitPrayer" type="submit">Submit prayer request</button>
+        </form>
+      </article>
+
+      <article class="prayer-history-card">
+        <div class="prayer-heading">
+          <div>
+            <h2>My Requests</h2>
+            <p>Only prayer requests from your member account appear here.</p>
+          </div>
+          <span id="prayerCount">0</span>
+        </div>
+        <div class="prayer-list" id="prayerList" aria-live="polite">
+          <div class="prayer-empty">Loading prayer requests...</div>
+        </div>
+      </article>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Primary member navigation">
+      <a class="nav-item" href="./index.html"><img src="./assets/nav-home.svg" alt=""><span>Home</span></a>
+      <a class="nav-item" href="./groups.html"><img src="./assets/nav-groups.svg" alt=""><span>Groups</span></a>
+      <a class="nav-item" href="./giving.html"><img src="./assets/nav-giving.svg" alt=""><span>Giving</span></a>
+      <a class="nav-item" href="./events.html"><img src="./assets/nav-events.svg" alt=""><span>Events</span></a>
+      <a class="nav-item" href="./profile.html"><img src="./assets/nav-profile.svg" alt=""><span>Profile</span></a>
+    </nav>
+
+    <div class="status-toast" id="statusToast" role="status" aria-live="polite"></div>
+  </main>
+  <script src="./client.js"></script>
+  <script src="./prayers.js"></script>
+</body>
+</html>

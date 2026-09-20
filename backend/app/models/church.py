@@ -434,6 +434,40 @@ class MessageRecipient(IdMixin, TimestampMixin, Base):
     provider_reference: Mapped[str | None] = mapped_column(String(120))
 
 
+class PrayerRequest(IdMixin, TimestampMixin, Base):
+    __tablename__ = "prayer_requests"
+
+    branch_id: Mapped[UUID] = mapped_column(
+        ForeignKey("branches.id"),
+        nullable=False,
+    )
+    member_id: Mapped[UUID] = mapped_column(
+        ForeignKey("members.id"),
+        nullable=False,
+    )
+    category: Mapped[str] = mapped_column(
+        String(60),
+        default="general",
+        nullable=False,
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    visibility: Mapped[str] = mapped_column(
+        String(40),
+        default="pastoral_team",
+        nullable=False,
+    )
+    allow_contact: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        String(40),
+        default="submitted",
+        nullable=False,
+    )
+
+
 class Contribution(IdMixin, TimestampMixin, Base):
     __tablename__ = "contributions"
 
