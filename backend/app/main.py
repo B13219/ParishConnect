@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.health import router as health_router
@@ -55,8 +55,8 @@ def create_app() -> FastAPI:
         return RedirectResponse(url="/staff/", status_code=307)
 
     @app.get("/favicon.ico", include_in_schema=False)
-    def favicon() -> Response:
-        return Response(status_code=204)
+    def favicon() -> RedirectResponse:
+        return RedirectResponse(url="/staff/assets/vinyrd-mark.svg", status_code=307)
 
     return app
 

@@ -29,6 +29,12 @@ def test_same_origin_frontends_are_served() -> None:
     staff = client.get("/staff/")
     assert staff.status_code == 200
     assert "Vinyrd Staff Console" in staff.text
+    assert 'rel="icon"' in staff.text
+    assert "vinyrd-mark.svg" in staff.text
+
+    favicon = client.get("/favicon.ico", follow_redirects=False)
+    assert favicon.status_code == 307
+    assert favicon.headers["location"] == "/staff/assets/vinyrd-mark.svg"
 
     landing = client.get("/member/")
     assert landing.status_code == 200
