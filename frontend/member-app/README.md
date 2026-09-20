@@ -21,4 +21,4 @@ Local run:
 
 The demo auth seeder links the first active member to a Member-role account. If that member has no email, it uses member@graceparish.test. The demo password remains parishconnect.
 
-My Giving, Events and My Groups are now implemented. My Groups shows only the authenticated member's active community-group and ministry memberships. Next: Messages.
+My Giving, Events, My Groups and Messages are now implemented. Messages only exposes all-member announcements or messages explicitly addressed to the authenticated member.

@@ -21,6 +21,7 @@ from app.models import (
     HouseholdPerson,
     Member,
     Message,
+    MessageRecipient,
     Ministry,
     MinistryMembership,
     User,
@@ -143,6 +144,60 @@ def serialize_member_event(
     }
 
 
+
+def member_visible_messages(
+    member: Member,
+    db: Session,
+    *,
+    limit: int = 50,
+) -> list[Message]:
+    sent_messages = db.scalars(
+        select(Message)
+        .where(
+            Message.branch_id == member.branch_id,
+            Message.status == "sent",
+        )
+        .order_by(Message.sent_at.desc(), Message.created_at.desc())
+        .limit(limit)
+    ).all()
+
+    visible: list[Message] = []
+    for message in sent_messages:
+        if message.audience_type == "visitors":
+            continue
+        if message.audience_type == "all_members":
+            visible.append(message)
+            continue
+
+        recipient = db.scalar(
+            select(MessageRecipient.id)
+            .where(
+                MessageRecipient.message_id == message.id,
+                MessageRecipient.member_id == member.id,
+            )
+            .limit(1)
+        )
+        if recipient is not None:
+            visible.append(message)
+
+    return visible
+
+
+def serialize_member_message(message: Message) -> dict[str, object]:
+    return {
+        "id": str(message.id),
+        "channel": message.channel,
+        "subject": message.subject,
+        "body": message.body,
+        "audience_type": message.audience_type,
+        "sent_at": (
+            message.sent_at.isoformat()
+            if message.sent_at
+            else message.created_at.isoformat()
+        ),
+    }
+
+
 def household_for_member(member: Member, db: Session) -> Household | None:
     household_person = db.scalar(
         select(HouseholdPerson).where(HouseholdPerson.member_id == member.id).limit(1)
@@ -189,12 +244,7 @@ def member_home(
         .order_by(Event.starts_at.asc())
         .limit(6)
     ).all()
-    messages = db.scalars(
-        select(Message)
-        .where(Message.branch_id == member.branch_id, Message.status == "sent")
-        .order_by(Message.created_at.desc())
-        .limit(5)
-    ).all()
+    messages = member_visible_messages(member, db, limit=5)
     contributions = db.scalars(
         select(Contribution)
         .where(Contribution.member_id == member.id)
@@ -228,16 +278,7 @@ def member_home(
             }
             for event in events
         ],
-        "messages": [
-            {
-                "id": str(message.id),
-                "channel": message.channel,
-                "subject": message.subject,
-                "body": message.body,
-                "status": message.status,
-            }
-            for message in messages
-        ],
+        "messages": [serialize_member_message(message) for message in messages],
         "giving": {
             "total_amount": str(contribution_total or Decimal("0.00")),
             "currency": contributions[0].currency if contributions else "TZS",
@@ -248,6 +289,17 @@ def member_home(
         },
     }
 
+
+
+@router.get("/messages")
+def member_messages(
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+) -> list[dict[str, object]]:
+    return [
+        serialize_member_message(message)
+        for message in member_visible_messages(member, db)
+    ]
 
 
 @router.get("/groups")
