@@ -1,64 +1,99 @@
-# Deployment Readiness
+# Vinyrd Pilot Deployment Readiness
 
-This checklist separates the current demo setup from a safe client pilot or production launch.
+## Production architecture
 
-## Environment
+Vinyrd Pilot v1.0 is deployed as one web service plus PostgreSQL:
 
-Copy `backend/.env.example` to `backend/.env` and replace every demo value before deploying:
+```text
+HTTPS domain
+   |
+   +-- /staff/    Vinyrd staff console
+   +-- /member/   Vinyrd member webapp
+   +-- /api/v1    FastAPI
+   +-- /health
+          |
+          +-- PostgreSQL
+```
 
-- `PARISHCONNECT_ENVIRONMENT=production`
-- `PARISHCONNECT_DATABASE_URL` pointing to a managed or protected PostgreSQL database
-- `PARISHCONNECT_CORS_ORIGINS` containing only the deployed frontend domain names
-- `PARISHCONNECT_AUTH_TOKEN_SECRET`, `PARISHCONNECT_QR_TOKEN_SECRET`, and `PARISHCONNECT_PASSWORD_SALT` set to long unique secrets
-- `PARISHCONNECT_DEMO_PASSWORD` replaced or removed after real administrator accounts are created
-- `PARISHCONNECT_ACCESS_TOKEN_MINUTES` set to a reasonable session lifetime
+Using one origin removes production CORS dependency between the web interfaces and API.
 
-Run the readiness check:
+## Required environment
 
-```powershell
-cd backend
-python -m app.scripts.check_deployment_readiness
+The legacy `PARISHCONNECT_` variable prefix is retained for compatibility.
+
+```text
+PARISHCONNECT_ENVIRONMENT=production
+PARISHCONNECT_PUBLIC_BASE_URL=https://<your-domain>
+PARISHCONNECT_CORS_ORIGINS=
+PARISHCONNECT_DATABASE_URL=<managed PostgreSQL connection>
+PARISHCONNECT_AUTH_TOKEN_SECRET=<32+ random characters>
+PARISHCONNECT_QR_TOKEN_SECRET=<32+ random characters>
+PARISHCONNECT_PASSWORD_SALT=<32+ random characters>
+PARISHCONNECT_ACCESS_TOKEN_MINUTES=120
+PARISHCONNECT_DEMO_PASSWORD=disabled
+```
+
+For the first launch only:
+
+```text
+PARISHCONNECT_BOOTSTRAP_ADMIN_NAME=<named administrator>
+PARISHCONNECT_BOOTSTRAP_ADMIN_EMAIL=<administrator login>
+PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD=<strong temporary password>
+PARISHCONNECT_BOOTSTRAP_BRANCH_NAME=<church name>
+PARISHCONNECT_BOOTSTRAP_BRANCH_LOCATION=<location>
+```
+
+After the first administrator has logged in and changed credentials, remove the
+bootstrap password from the hosting environment.
+
+## Release commands
+
+The production container runs:
+
+```text
+alembic upgrade head
+python -m app.scripts.bootstrap_admin
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+Run the strict gate:
+
+```text
 python -m app.scripts.check_deployment_readiness --strict
 ```
 
-## Database
+## Pilot journey
 
-PostgreSQL is the target database for development and production. SQLite is only for local presentation fallback.
+Before importing real church records, verify:
 
-```powershell
-cd backend
-docker compose up -d postgres
-alembic upgrade head
-python -m app.scripts.seed_demo
+```text
+Admin login
+→ member registration
+→ member account activation
+→ member login
+→ attendance
+→ giving
+→ prayer request
+→ pastor follow-up
+→ sermon publish
+→ member sermon visibility
 ```
 
-For production, run migrations against the production `PARISHCONNECT_DATABASE_URL` and do not run demo seed scripts.
+The automated version lives in `app.scripts.pilot_smoke`.
 
-## Security Gates
+## Backup and recovery
 
-- Create named administrator accounts instead of shared demo credentials.
-- Confirm accountant users can view stewardship and reports, but cannot manage unrelated admin settings.
-- Confirm ushers only see overview and attendance workflows.
-- Confirm audit logs are created for user, branch setting, import, message dispatch, and stewardship actions.
-- Keep backup/export access administrator-only until a formal data policy is agreed.
+The Admin backup manifest verifies application export scope, but production recovery
+must also validate the database itself.
 
-## External Services
+Run:
 
-These are intentionally not live yet and should be integrated behind provider-specific configuration later:
+```text
+python -m app.scripts.verify_backup_restore
+```
 
-- SMS and USSD provider credentials
-- Push notification provider credentials
-- Payment gateway credentials such as Selcom
-- Email provider credentials for password reset delivery
+The command creates a real PostgreSQL dump, restores it to a temporary database,
+compares every application table row count, and deletes the temporary database.
 
-Until those are configured, the app should use demo delivery states and manual payment/reference capture.
-
-## Pre-Demo Check
-
-1. Start the API on `http://127.0.0.1:8003`.
-2. Start the admin console on `http://127.0.0.1:5173`.
-3. Confirm login, role-specific navigation, people flow, attendance, stewardship, communications, reports, imports, branch settings, and backup manifest export.
-4. Run backend tests and frontend syntax checks.
-5. Use only fake sample data unless the church has approved import, privacy, and backup procedures.
-6. Review `docs/client-demo-runbook.md` and rehearse the demo story once end to end.
-7. Run `powershell -ExecutionPolicy Bypass -File .\scripts\pre-demo-check.ps1` from the project root before the meeting.
+Do not import real church data until this restore test passes on the intended hosting
+database.

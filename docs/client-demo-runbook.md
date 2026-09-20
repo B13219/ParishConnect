@@ -1,10 +1,10 @@
 # Client Demo Runbook
 
-Use this runbook before showing ParishConnect to a church client or stakeholder group.
+Use this runbook before showing Vinyrd to a church client or stakeholder group.
 
 ## Demo Objective
 
-Show that ParishConnect can replace paper registers and scattered spreadsheets with one practical workflow for people, attendance, communication, stewardship, reporting, and administration.
+Show that Vinyrd can replace paper registers and scattered spreadsheets with one practical workflow for people, attendance, communication, stewardship, reporting, and administration.
 
 ## Demo Story
 
@@ -26,7 +26,7 @@ Show that ParishConnect can replace paper registers and scattered spreadsheets w
 - Financial data is separated by role; accountants can focus on stewardship and reports without becoming full administrators.
 - Demo data is fake. Real church data should only be imported after permissions, backups, and data handling are approved.
 - Payment providers such as Selcom are planned after the core stewardship flow is stable.
-- A member app/webapp is a planned later phase after SMS/USSD, giving smartphone users a banking-app style self-service experience.
+- The member webapp is live in the pilot build with profile, giving, events, groups, messages, prayers, Bible content, and sermon lessons.
 - The long-term member app can become a verified church network for national church news, followed-church feeds, YouTube/Zoom service attendance, road seminars, and event discovery.
 
 ## Pre-Demo Checklist
@@ -49,7 +49,7 @@ Be clear that these items are planned but not yet production-live:
 - Email delivery for password reset.
 - Production hosting, HTTPS, and domain configuration.
 - Real data migration from a church's existing spreadsheets.
-- Member self-service app/webapp beyond the current lightweight member portal.
+- Native mobile packaging remains future work; the responsive member webapp is the current pilot client.
 - National church news feeds, YouTube/Zoom attendance streams, road seminar pages, and cross-church network features.
 
 ## Follow-Up Questions For Client

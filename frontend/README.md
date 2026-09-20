@@ -1,32 +1,12 @@
-# ParishConnect Admin Console
+# Vinyrd Frontends
 
-Static admin dashboard for the first presentation-ready phase.
+The staff console and member webapp are static frontends served by the Vinyrd FastAPI
+service in production.
 
-## Run
+- `frontend/index.html` → `/staff/`
+- `frontend/member-app/` → `/member/`
 
-Start the backend against PostgreSQL:
+For local development, the clients use `http://127.0.0.1:8003/api/v1`. On a hosted
+domain they automatically use same-origin `/api/v1`.
 
-```powershell
-cd C:\Users\bekas\Documents\Codex\2026-07-10\let\work\parishconnect\backend
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8003
-```
-
-Start the admin console:
-
-```powershell
-cd C:\Users\bekas\Documents\Codex\2026-07-10\let\work\parishconnect\frontend
-python -m http.server 5173
-```
-
-Open:
-
-```text
-http://127.0.0.1:5173/
-```
-
-## Notes
-
-- `index.html` is the administrator console.
-- `member.html` is the lower-permission member portal.
-- The API base URL is configured in `app.js` for the local backend at `http://127.0.0.1:8003/api/v1`.
-- For deployment, serve these files behind HTTPS and align backend `PARISHCONNECT_CORS_ORIGINS` with the deployed frontend domain.
+An explicit `window.VINYRD_API_BASE` value can override the API location when needed.

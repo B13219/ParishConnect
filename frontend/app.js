@@ -1,7 +1,21 @@
-const API_BASE = "http://127.0.0.1:8004/api/v1";
+const API_BASE =
+  window.VINYRD_API_BASE ||
+  (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost"
+    ? "http://127.0.0.1:8003/api/v1"
+    : "/api/v1");
+
+const STAFF_AUTH_KEY = "vinyrd_staff_auth";
+const LEGACY_AUTH_KEY = "parishconnect_auth";
+const storedStaffAuth =
+  localStorage.getItem(STAFF_AUTH_KEY) || localStorage.getItem(LEGACY_AUTH_KEY);
+
+if (!localStorage.getItem(STAFF_AUTH_KEY) && storedStaffAuth) {
+  localStorage.setItem(STAFF_AUTH_KEY, storedStaffAuth);
+  localStorage.removeItem(LEGACY_AUTH_KEY);
+}
 
 const state = {
-  auth: JSON.parse(localStorage.getItem("parishconnect_auth") || "null"),
+  auth: JSON.parse(storedStaffAuth || "null"),
   people: null,
   communities: null,
   ministries: null,
@@ -2311,7 +2325,8 @@ const loadDashboard = async () => {
     console.error(error);
     if (String(error.message || "").includes("401")) {
       state.auth = null;
-      localStorage.removeItem("parishconnect_auth");
+      localStorage.removeItem(STAFF_AUTH_KEY);
+  localStorage.removeItem(LEGACY_AUTH_KEY);
       applyRoleAccess();
       setStatus("Login required", "error");
       return;
@@ -2327,14 +2342,15 @@ const login = async (form) => {
     setBusy(true);
     setStatus("Logging in");
     state.auth = await sendJson("/auth/login", "POST", formPayload(form));
-    localStorage.setItem("parishconnect_auth", JSON.stringify(state.auth));
+    localStorage.setItem(STAFF_AUTH_KEY, JSON.stringify(state.auth));
     applyRoleAccess();
     await loadDashboard();
     setStatus("Logged in", "ok");
   } catch (error) {
     console.error(error);
     state.auth = null;
-    localStorage.removeItem("parishconnect_auth");
+    localStorage.removeItem(STAFF_AUTH_KEY);
+  localStorage.removeItem(LEGACY_AUTH_KEY);
     applyRoleAccess();
     setStatus(error.message || "Login failed", "error");
   } finally {
@@ -2354,7 +2370,8 @@ const clearSession = () => {
   state.admin = null;
   state.backupManifest = null;
   state.importPreview = null;
-  localStorage.removeItem("parishconnect_auth");
+  localStorage.removeItem(STAFF_AUTH_KEY);
+  localStorage.removeItem(LEGACY_AUTH_KEY);
   applyRoleAccess();
   setStatus("Logged out");
 };

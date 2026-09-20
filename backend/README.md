@@ -1,93 +1,50 @@
-# ParishConnect API
+# Vinyrd API
 
-## Local Setup
+## Local setup
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
+docker compose up -d postgres
+alembic upgrade head
+python -m app.scripts.seed_demo
 uvicorn app.main:app --reload --port 8003
 ```
 
-## Local PostgreSQL
+Open:
 
-Start a local demo database with Docker:
+- Staff console: `http://127.0.0.1:8003/staff/`
+- Member app: `http://127.0.0.1:8003/member/`
+- API docs: `http://127.0.0.1:8003/docs`
 
-```powershell
-docker compose up -d postgres
-```
+The older separate static server on port 5173 remains usable for local frontend work,
+but production serves both interfaces from FastAPI on the same origin.
 
-Apply the database schema:
+## Production bootstrap
 
-```powershell
-alembic upgrade head
-```
-
-Load safe sample data:
+Set the one-time bootstrap variables, run migrations, then:
 
 ```powershell
-python -m app.scripts.seed_demo
+python -m app.scripts.bootstrap_admin
 ```
 
-Run the deployment readiness check:
+The bootstrap script creates the first branch, standard roles, and administrator when
+needed. It never resets an existing administrator's password on restart.
+
+## Readiness
 
 ```powershell
-python -m app.scripts.check_deployment_readiness
+python -m app.scripts.check_deployment_readiness --strict
 ```
 
-## Immediate Demo Database Fallback
+## Backup + restore verification
 
-If Docker Desktop or PostgreSQL is not available, create a local SQLite demo database with the same SQLAlchemy models:
+PostgreSQL client tools are required:
 
 ```powershell
-python -m app.scripts.init_demo_sqlite
-.\run-demo.ps1
+python -m app.scripts.verify_backup_restore
 ```
 
-This is for local presentation only. PostgreSQL remains the intended development and production database.
-
-Health check:
-
-```text
-GET /health
-```
-
-Product overview:
-
-```text
-GET /api/v1/
-```
-
-Expected response:
-
-```json
-{
-  "status": "ok",
-  "service": "ParishConnect API",
-  "version": "0.1.0"
-}
-```
-
-## Next Backend Steps
-
-1. Replace demo secrets in `.env` before handling real records.
-2. Point `PARISHCONNECT_DATABASE_URL` at the intended PostgreSQL database.
-3. Run migrations with `alembic upgrade head`.
-4. Create named administrator and staff accounts.
-5. Run `python -m app.scripts.check_deployment_readiness --strict` before client pilot deployment.
-
-## Database
-
-The initial schema is captured in:
-
-```text
-alembic/versions/20260710_0001_initial_schema.py
-```
-
-It creates the first 11 tables for branches, users, roles, members, visitors, ministries, events, attendance, messages, and contributions.
-
-## Demo Data Safety
-
-The seed script uses fake names, fake `.test` emails, and fake phone numbers. Do not import real church records until authentication, role permissions, backups, and import validation are in place.
-
-For deployment details, see `../docs/deployment-readiness.md`.
+This creates a real custom-format `pg_dump`, restores it into a temporary database,
+compares table row counts, and removes the temporary restore database.
