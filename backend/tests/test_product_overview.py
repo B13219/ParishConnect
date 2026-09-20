@@ -31,7 +31,6 @@ def test_same_origin_frontends_are_served() -> None:
     assert "Vinyrd Staff Console" in staff.text
     assert 'rel="icon"' in staff.text
     assert "vinyrd-logo.png" in staff.text
-    assert "vinyrd-logo.png" in staff.text
 
     favicon = client.get("/favicon.ico", follow_redirects=False)
     assert favicon.status_code == 307
@@ -48,7 +47,6 @@ def test_same_origin_frontends_are_served() -> None:
     assert member.status_code == 200
     assert "Member Sign In - Vinyrd" in member.text
     assert "vinyrd-logo.png" in member.text
-    assert "vinyrd-logo.png" in member.text
 
     home = client.get("/member/home.html")
     assert home.status_code == 200
@@ -61,8 +59,6 @@ def test_master_brand_assets_are_served() -> None:
 
     for path in (
         "/staff/assets/vinyrd-logo.png",
-        "/staff/assets/vinyrd-logo.png",
-        "/member/assets/vinyrd-logo.png",
         "/member/assets/vinyrd-logo.png",
     ):
         response = client.get(path)
