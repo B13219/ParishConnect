@@ -1170,6 +1170,15 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
             </div>
             <button class="icon-button" title="Refresh messages" data-refresh="messages">Refresh</button>
           </div>
+          <div class="sms-provider-card" id="smsProviderStatus" aria-live="polite">
+            <div class="sms-provider-icon">SMS</div>
+            <div>
+              <span class="eyebrow">SMS Gateway</span>
+              <strong>Checking provider configuration…</strong>
+              <p>VINYRD will keep real carrier sending off until the gateway is configured.</p>
+            </div>
+            <span class="tag amber" id="smsProviderMode">Checking</span>
+          </div>
           <form class="person-form message-form" id="messageForm">
             <h3>Compose Message</h3>
             <label>
@@ -1207,14 +1216,20 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
               </label>
               <label>
                 Audience
-                <select name="audience_type">
+                <select name="audience_type" id="messageAudienceType">
                   <option value="all_members">All members</option>
                   <option value="visitors">Visitors</option>
                   <option value="ministry">Ministry</option>
-                  <option value="households">Households</option>
+                  <option value="households" disabled>Households — coming soon</option>
                 </select>
               </label>
             </div>
+            <label id="messageAudienceTargetField" hidden>
+              Ministry
+              <select name="audience_id" id="messageAudienceTarget">
+                <option value="">Select ministry</option>
+              </select>
+            </label>
             <div class="field-row">
               <label>
                 Status
@@ -1229,7 +1244,7 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
                 <input name="scheduled_at" type="datetime-local">
               </label>
             </div>
-            <button class="primary-button" type="submit">Save message</button>
+            <button class="primary-button" id="messageSubmitButton" type="submit">Save message</button>
           </form>
           <div id="messageList" class="list" aria-live="polite"></div>
           <h3 class="section-subhead">Delivery Tracking</h3>
