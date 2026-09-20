@@ -7,7 +7,7 @@
   <title>Vinyrd Staff Console</title>
   <link rel="icon" href="./assets/vinyrd-logo.png?v=20260920-master" type="image/png">
   <link rel="shortcut icon" href="./assets/vinyrd-logo.png?v=20260920-master" type="image/png">
-  <link rel="stylesheet" href="./styles.css?v=20260920-sms1">
+  <link rel="stylesheet" href="./styles.css?v=20260920-sms2">
   <link
   rel="stylesheet"
   href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -1179,6 +1179,19 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
             </div>
             <span class="tag amber" id="smsProviderMode">Checking</span>
           </div>
+          <form class="sms-sandbox-test" id="smsSandboxTestForm" hidden>
+            <div>
+              <span class="eyebrow">Sandbox connection test</span>
+              <strong>Send one SMS to an Africa's Talking simulator number</strong>
+              <p>This does not use the member audience list.</p>
+            </div>
+            <div class="sms-sandbox-fields">
+              <input name="phone" id="smsSandboxPhone" type="tel" placeholder="+255 7xx xxx xxx" required>
+              <input name="body" id="smsSandboxBody" maxlength="160" value="VINYRD SMS sandbox connection test." required>
+              <button class="mini-button" id="smsSandboxTestButton" type="submit">Send test SMS</button>
+            </div>
+            <div class="sms-test-result" id="smsSandboxTestResult" aria-live="polite"></div>
+          </form>
           <form class="person-form message-form" id="messageForm">
             <h3>Compose Message</h3>
             <label>
@@ -1882,6 +1895,6 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
   crossorigin=""
 ></script>
 
-<script src="./app.js?v=20260920-sms1"></script>
+<script src="./app.js?v=20260920-sms2"></script>
 </body>
 </html>
