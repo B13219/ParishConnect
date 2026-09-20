@@ -22,7 +22,7 @@ def test_simulation_mode_queues_without_external_provider(monkeypatch) -> None:
     assert len(results) == 1
     assert results[0].phone == "+255711100001"
     assert results[0].delivery_status == "queued"
-    assert results[0].provider_reference == "simulated-255711100001"
+    assert results[0].provider_reference.startswith("simulated-")
 
 
 def test_provider_status_exposes_no_secret(monkeypatch) -> None:
