@@ -21,4 +21,4 @@ Local run:
 
 The demo auth seeder links the first active member to a Member-role account. If that member has no email, it uses member@graceparish.test. The demo password remains parishconnect.
 
-My Giving, Events, My Groups, Messages and Prayers are now implemented. Prayer requests are member-scoped, support pastoral-only or anonymously-shareable visibility, and include an optional contact preference.
+My Giving, Events, My Groups, Messages, Prayers and Bible & Sermon Lessons are now implemented. Sermon lessons are private to the authenticated member and can optionally link to a church service or event.

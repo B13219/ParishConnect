@@ -468,6 +468,35 @@ class PrayerRequest(IdMixin, TimestampMixin, Base):
     )
 
 
+class SermonLesson(IdMixin, TimestampMixin, Base):
+    __tablename__ = "sermon_lessons"
+
+    branch_id: Mapped[UUID] = mapped_column(
+        ForeignKey("branches.id"),
+        nullable=False,
+    )
+    member_id: Mapped[UUID] = mapped_column(
+        ForeignKey("members.id"),
+        nullable=False,
+    )
+    event_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("events.id"),
+    )
+    sermon_title: Mapped[str] = mapped_column(
+        String(160),
+        nullable=False,
+    )
+    speaker_name: Mapped[str | None] = mapped_column(String(160))
+    scripture_reference: Mapped[str | None] = mapped_column(String(160))
+    key_lesson: Mapped[str] = mapped_column(Text, nullable=False)
+    action_point: Mapped[str | None] = mapped_column(Text)
+    is_private: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+
+
 class Contribution(IdMixin, TimestampMixin, Base):
     __tablename__ = "contributions"
 

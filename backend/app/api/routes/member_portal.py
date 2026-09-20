@@ -26,6 +26,7 @@ from app.models import (
     Ministry,
     MinistryMembership,
     PrayerRequest,
+    SermonLesson,
     User,
 )
 from app.services.geofence import is_inside_geofence
@@ -56,6 +57,17 @@ class MemberPrayerRequestCreate(BaseModel):
     body: str = Field(max_length=2000)
     visibility: Literal["pastoral_team", "shareable"] = "pastoral_team"
     allow_contact: bool = True
+
+
+class MemberSermonLessonCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    event_id: UUID | None = None
+    sermon_title: str = Field(min_length=2, max_length=160)
+    speaker_name: str | None = Field(default=None, max_length=160)
+    scripture_reference: str | None = Field(default=None, max_length=160)
+    key_lesson: str = Field(max_length=3000)
+    action_point: str | None = Field(default=None, max_length=1000)
 
 
 class MemberLocationCheckInCreate(BaseModel):
@@ -230,6 +242,28 @@ def serialize_prayer_request(prayer: PrayerRequest) -> dict[str, object]:
     }
 
 
+
+def serialize_sermon_lesson(
+    lesson: SermonLesson,
+    db: Session,
+) -> dict[str, object]:
+    event = db.get(Event, lesson.event_id) if lesson.event_id else None
+    return {
+        "id": str(lesson.id),
+        "event_id": str(lesson.event_id) if lesson.event_id else None,
+        "event_name": event.name if event else None,
+        "event_starts_at": event.starts_at.isoformat() if event else None,
+        "sermon_title": lesson.sermon_title,
+        "speaker_name": lesson.speaker_name,
+        "scripture_reference": lesson.scripture_reference,
+        "key_lesson": lesson.key_lesson,
+        "action_point": lesson.action_point,
+        "is_private": lesson.is_private,
+        "created_at": lesson.created_at.isoformat(),
+        "updated_at": lesson.updated_at.isoformat(),
+    }
+
+
 def household_for_member(member: Member, db: Session) -> Household | None:
     household_person = db.scalar(
         select(HouseholdPerson).where(HouseholdPerson.member_id == member.id).limit(1)
@@ -321,6 +355,76 @@ def member_home(
         },
     }
 
+
+
+@router.get("/sermon-lessons")
+def member_sermon_lessons(
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+) -> list[dict[str, object]]:
+    lessons = db.scalars(
+        select(SermonLesson)
+        .where(
+            SermonLesson.member_id == member.id,
+            SermonLesson.branch_id == member.branch_id,
+        )
+        .order_by(SermonLesson.created_at.desc())
+        .limit(100)
+    ).all()
+    return [serialize_sermon_lesson(lesson, db) for lesson in lessons]
+
+
+@router.post("/sermon-lessons", status_code=status.HTTP_201_CREATED)
+def create_member_sermon_lesson(
+    payload: MemberSermonLessonCreate,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    event = None
+    if payload.event_id is not None:
+        event = db.get(Event, payload.event_id)
+        if event is None or event.branch_id != member.branch_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Linked service or event was not found.",
+            )
+
+    title = payload.sermon_title.strip()
+    lesson_text = payload.key_lesson.strip()
+    speaker_name = payload.speaker_name.strip() if payload.speaker_name else None
+    scripture_reference = (
+        payload.scripture_reference.strip()
+        if payload.scripture_reference
+        else None
+    )
+    action_point = payload.action_point.strip() if payload.action_point else None
+
+    if len(title) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Sermon title must contain at least 2 non-whitespace characters.",
+        )
+    if len(lesson_text) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Lesson must contain at least 3 non-whitespace characters.",
+        )
+
+    lesson = SermonLesson(
+        branch_id=member.branch_id,
+        member_id=member.id,
+        event_id=event.id if event else None,
+        sermon_title=title,
+        speaker_name=speaker_name or None,
+        scripture_reference=scripture_reference or None,
+        key_lesson=lesson_text,
+        action_point=action_point or None,
+        is_private=True,
+    )
+    db.add(lesson)
+    db.commit()
+    db.refresh(lesson)
+    return serialize_sermon_lesson(lesson, db)
 
 
 @router.get("/prayers")

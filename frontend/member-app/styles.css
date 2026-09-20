@@ -1349,3 +1349,246 @@ button, input, a { font: inherit; }
   font-size: 11px;
   text-align: center;
 }
+
+
+/* Vinyrd Bible & Sermon Lessons */
+.bible-content {
+  display: grid;
+  gap: 14px;
+  padding: 12px 16px calc(116px + env(safe-area-inset-bottom));
+}
+
+.bible-verse-card,
+.sermon-form-card,
+.sermon-history-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 61, 46, 0.05);
+}
+
+.bible-verse-card {
+  padding: 18px;
+  background: linear-gradient(135deg, rgba(238,245,239,.96), rgba(255,255,255,.98));
+}
+
+.bible-verse-card > span {
+  color: var(--secondary);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+}
+
+.bible-verse-card p {
+  margin: 10px 0 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.bible-verse-card strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--gold);
+  font-size: 10px;
+}
+
+.sermon-form-card,
+.sermon-history-card {
+  padding: 16px;
+}
+
+.sermon-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sermon-heading h2 {
+  margin: 0;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sermon-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.sermon-heading > span {
+  min-width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--secondary);
+  background: var(--soft);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.sermon-form {
+  display: grid;
+  gap: 13px;
+}
+
+.sermon-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.sermon-form input,
+.sermon-form select,
+.sermon-form textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  outline: 0;
+  color: var(--text);
+  background: #fff;
+  font-size: 12px;
+}
+
+.sermon-form input,
+.sermon-form select {
+  height: 42px;
+  padding: 0 12px;
+}
+
+.sermon-form textarea {
+  min-height: 112px;
+  padding: 12px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.45;
+}
+
+.sermon-form .sermon-action-textarea {
+  min-height: 78px;
+}
+
+.sermon-form input:focus,
+.sermon-form select:focus,
+.sermon-form textarea:focus {
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 3px rgba(46, 125, 70, .08);
+}
+
+.primary-sermon-button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  background: var(--primary);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.primary-sermon-button:disabled {
+  opacity: .65;
+}
+
+.sermon-lessons-list {
+  display: grid;
+}
+
+.sermon-lesson-card {
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+
+.sermon-lesson-card:first-child {
+  border-top: 0;
+}
+
+.sermon-lesson-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sermon-lesson-topline > div {
+  min-width: 0;
+}
+
+.sermon-lesson-topline strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sermon-lesson-topline div > span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.sermon-private-badge {
+  height: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--secondary);
+  background: var(--soft);
+  font-size: 8px;
+  font-weight: 650;
+}
+
+.sermon-lesson-card > small {
+  display: block;
+  margin-top: 7px;
+  color: var(--gold);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.sermon-lesson-card > p {
+  margin: 9px 0 0;
+  color: var(--text);
+  font-size: 10px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.sermon-action-point {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--soft);
+}
+
+.sermon-action-point strong {
+  color: var(--secondary);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+.sermon-action-point span {
+  color: var(--text);
+  font-size: 9px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.sermon-empty {
+  padding: 24px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
