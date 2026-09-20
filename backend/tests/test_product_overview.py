@@ -30,6 +30,17 @@ def test_same_origin_frontends_are_served() -> None:
     assert staff.status_code == 200
     assert "Vinyrd Staff Console" in staff.text
 
+    landing = client.get("/member/")
+    assert landing.status_code == 200
+    assert "Belong deeper" in landing.text
+    assert "vinyrd-mark.svg" in landing.text
+
     member = client.get("/member/login.html")
     assert member.status_code == 200
-    assert "Vinyrd" in member.text
+    assert "Member Sign In - Vinyrd" in member.text
+    assert "vinyrd-mark.svg" in member.text
+
+    home = client.get("/member/home.html")
+    assert home.status_code == 200
+    assert "Member Space" in home.text
+    assert "vinyrd-mark.svg" in home.text
