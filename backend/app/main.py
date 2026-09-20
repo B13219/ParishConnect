@@ -56,7 +56,7 @@ def create_app() -> FastAPI:
 
     @app.get("/favicon.ico", include_in_schema=False)
     def favicon() -> RedirectResponse:
-        return RedirectResponse(url="/staff/assets/vinyrd-crest.svg?v=20260920-crestfix", status_code=307)
+        return RedirectResponse(url="/staff/assets/vinyrd-logo.png?v=20260920-master", status_code=307)
 
     return app
 
