@@ -1531,3 +1531,121 @@ select:focus {
     flex-direction: column;
   }
 }
+
+/* Vinyrd staff engagement */
+.care-list,
+.sermon-admin-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.care-card,
+.sermon-admin-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 16px;
+}
+
+.care-card {
+  display: grid;
+  gap: 12px;
+}
+
+.care-card-head,
+.sermon-admin-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.care-card-head p,
+.sermon-admin-card p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.care-prayer-text {
+  padding: 12px;
+  border-radius: 8px;
+  background: #f7f9fc;
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.care-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.care-meta span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #eef3fa;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.member-access-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.member-access-panel label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.member-access-panel input {
+  width: 100%;
+}
+
+.temporary-password {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid #b9d8c4;
+  border-radius: 8px;
+  background: #f0f8f2;
+}
+
+.temporary-password code {
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.temporary-password p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.danger-button {
+  border: 1px solid #c84444;
+  border-radius: 6px;
+  background: #fff;
+  color: #a22e2e;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .care-card-head,
+  .sermon-admin-card,
+  .temporary-password {
+    display: grid;
+  }
+}

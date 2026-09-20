@@ -55,3 +55,9 @@ jobs:
 
       - name: Run Ruff
         run: ruff check app tests
+
+      - name: Check admin JavaScript syntax
+        run: node --check ../frontend/app.js
+
+      - name: Check member JavaScript syntax
+        run: node --check ../frontend/member-app/bible.js

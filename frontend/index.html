@@ -64,6 +64,8 @@
         <a href="#attendance" data-section-link="attendance">Attendance</a>
         <a href="#households" data-section-link="households">Households</a>
         <a href="#messages" data-section-link="messages">Messages</a>
+        <a href="#pastoral" data-section-link="pastoral">Pastoral Care</a>
+        <a href="#sermons" data-section-link="sermons">Sermons</a>
         <a href="#stewardship" data-section-link="stewardship">Stewardship</a>
         <a href="#reports" data-section-link="reports">Reports</a>
         <a href="#settings" data-section-link="settings">Settings</a>
@@ -1132,6 +1134,74 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
           <div id="messageList" class="list" aria-live="polite"></div>
           <h3 class="section-subhead">Delivery Tracking</h3>
           <div id="messageRecipientList" class="list" aria-live="polite"></div>
+        </article>
+
+
+        <article class="panel" id="pastoral">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Pastoral Care</p>
+              <h2>Prayer Requests & Follow-up</h2>
+            </div>
+            <button class="icon-button" title="Refresh pastoral care" data-refresh="pastoral">Refresh</button>
+          </div>
+          <div class="assist-panel">
+            <strong>Private leadership workspace</strong>
+            <p>Review member prayer requests, assign follow-up, record pastoral notes, and track answered prayers.</p>
+          </div>
+          <div id="pastoralPrayerList" class="care-list" aria-live="polite"></div>
+        </article>
+
+        <article class="panel" id="sermons">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Teaching</p>
+              <h2>Sermon Management</h2>
+            </div>
+            <button class="icon-button" title="Refresh sermons" data-refresh="sermons">Refresh</button>
+          </div>
+          <div class="form-grid">
+            <form class="person-form" id="sermonForm">
+              <h3 id="sermonFormTitle">Publish Sermon</h3>
+              <label>
+                Service or event
+                <select name="event_id" id="sermonEventSelect" required>
+                  <option value="">Select a service or event</option>
+                </select>
+              </label>
+              <label>
+                Sermon title
+                <input name="title" maxlength="160" placeholder="e.g. Remain in the Vine">
+              </label>
+              <div class="field-row">
+                <label>
+                  Speaker
+                  <input name="speaker" maxlength="160" placeholder="Pastor / preacher">
+                </label>
+                <label>
+                  Scripture
+                  <input name="scripture_reference" maxlength="160" placeholder="John 15:1-8">
+                </label>
+              </div>
+              <label>
+                Sermon summary
+                <textarea name="summary" maxlength="6000" rows="5" placeholder="Key message members can revisit after the service."></textarea>
+              </label>
+              <label class="checkbox-label">
+                <input name="published" type="checkbox">
+                Publish this sermon to the member Bible area
+              </label>
+              <div class="dialog-actions">
+                <button class="icon-button" id="clearSermonForm" type="button">Clear</button>
+                <button class="primary-button" id="sermonSubmitButton" type="submit">Save sermon</button>
+              </div>
+            </form>
+            <div class="assist-panel">
+              <strong>Member experience</strong>
+              <p>Published sermons appear in Bible & Lessons. Personal sermon lessons remain private to each member.</p>
+            </div>
+          </div>
+          <div id="sermonEventList" class="sermon-admin-list" aria-live="polite"></div>
         </article>
 
         <article class="panel" id="stewardship">

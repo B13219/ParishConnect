@@ -1592,3 +1592,58 @@ button, input, a { font: inherit; }
   font-size: 11px;
   text-align: center;
 }
+
+
+/* Published church sermons */
+.published-sermons-card {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 61, 46, 0.05);
+}
+
+.published-sermons-list {
+  display: grid;
+}
+
+.published-sermon-card {
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+
+.published-sermon-card:first-child {
+  border-top: 0;
+}
+
+.published-sermon-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.published-sermon-topline strong {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.published-sermon-topline span,
+.published-sermon-card small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.published-sermon-card small {
+  display: block;
+  margin-top: 5px;
+  color: var(--gold);
+}
+
+.published-sermon-card p {
+  margin: 9px 0 0;
+  color: var(--text);
+  font-size: 10px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}

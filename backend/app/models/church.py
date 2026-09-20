@@ -391,7 +391,16 @@ class Event(IdMixin, TimestampMixin, Base):
     attendance_closed_at: Mapped[datetime | None] = mapped_column(
     DateTime(timezone=True),
     nullable=True,
-    ) 
+    )
+
+    sermon_title: Mapped[str | None] = mapped_column(String(160))
+    sermon_speaker: Mapped[str | None] = mapped_column(String(160))
+    sermon_scripture: Mapped[str | None] = mapped_column(String(160))
+    sermon_summary: Mapped[str | None] = mapped_column(Text)
+    sermon_published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
 
 class AttendanceRecord(IdMixin, TimestampMixin, Base):
@@ -465,6 +474,18 @@ class PrayerRequest(IdMixin, TimestampMixin, Base):
         String(40),
         default="submitted",
         nullable=False,
+    )
+    assigned_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id"),
+    )
+    pastoral_notes: Mapped[str | None] = mapped_column(Text)
+    contacted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    answered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
 
