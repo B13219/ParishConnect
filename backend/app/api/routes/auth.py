@@ -14,6 +14,7 @@ from app.core.security import (
     user_profile,
     verify_password,
 )
+from app.core.settings import settings
 from app.db.session import get_db
 from app.models import User
 from app.services.audit import write_audit_log
@@ -78,7 +79,8 @@ def request_password_reset(
         metadata={"email": user.email},
     )
     db.commit()
-    response["demo_reset_token"] = token
+    if settings.environment != "production":
+        response["demo_reset_token"] = token
     return response
 
 
