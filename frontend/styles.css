@@ -1702,7 +1702,7 @@ body.vinyrd-console {
   margin-bottom: 28px;
 }
 
-.vinyrd-brand .vinyrd-mark {
+.vinyrd-brand .vinyrd-crest {
   width: 48px;
   height: 48px;
   flex: 0 0 auto;
@@ -2463,7 +2463,7 @@ textarea:focus {
   width: 230px;
   height: 230px;
   opacity: .08;
-  background: url("./assets/vinyrd-mark.svg") center/contain no-repeat;
+  background: url("./assets/vinyrd-crest.webp") center/contain no-repeat;
   pointer-events: none;
 }
 
@@ -2614,4 +2614,49 @@ textarea:focus {
 
 .snapshot-item button.mini-status:hover {
   filter: brightness(.96);
+}
+
+
+/* Master Vinyrd logo system */
+.master-login-brand {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+}
+
+.master-login-brand .vinyrd-full-logo {
+  width: 158px;
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.master-login-brand .brand-context {
+  margin: 0 0 0 5px;
+  color: #66705b;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+}
+
+.vinyrd-brand .vinyrd-crest {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.sidebar-footer .vinyrd-crest {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+@media (max-width: 720px) {
+  .master-login-brand .vinyrd-full-logo {
+    width: 142px;
+  }
 }
