@@ -29,18 +29,12 @@
       </div>
       <form class="login-form login-card-form" id="loginForm">
         <label>
-          Profile
-          <select name="email" id="loginEmail" aria-label="Demo user">
-            <option value="admin@graceparish.test">Administrator</option>
-            <option value="pastor@graceparish.test">Pastor / Leader</option>
-            <option value="accountant@graceparish.test">Accountant</option>
-            <option value="reception@graceparish.test">Receptionist</option>
-            <option value="usher@graceparish.test">Usher</option>
-          </select>
+          Email
+          <input name="email" id="loginEmail" type="email" autocomplete="username" placeholder="name@church.org" required>
         </label>
         <label>
           Password
-          <input name="password" id="loginPassword" type="password" value="parishconnect" aria-label="Password">
+          <input name="password" id="loginPassword" type="password" autocomplete="current-password" placeholder="Your password" required>
         </label>
         <button class="primary-button" type="submit">Enter Vinyrd</button>
       </form>
