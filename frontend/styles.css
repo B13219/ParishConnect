@@ -1,15 +1,20 @@
 :root {
-  --ink: #152033;
-  --muted: #65738a;
-  --line: #d9e1ee;
-  --surface: #ffffff;
-  --page: #f5f7fb;
-  --nav: #0b1f55;
-  --blue: #0f5bb5;
-  --green: #2f7d4f;
-  --amber: #b86112;
-  --violet: #513c9a;
-  --shadow: 0 16px 44px rgba(21, 32, 51, 0.08);
+  --ink: #171915;
+  --muted: #6F716A;
+  --line: #E2DED3;
+  --surface: #FFFEFA;
+  --page: #F3F0E8;
+  --nav: #151A15;
+  --blue: #4E603C;
+  --green: #4E6A3D;
+  --amber: #B58A2D;
+  --violet: #68734C;
+  --gold: #C5A35B;
+  --olive: #68734C;
+  --olive-deep: #3F5233;
+  --ash: #2B2D29;
+  --cream: #F7F3E9;
+  --shadow: 0 18px 48px rgba(34, 36, 30, 0.08);
 }
 
 * {
@@ -1647,5 +1652,955 @@ select:focus {
   .sermon-admin-card,
   .temporary-password {
     display: grid;
+  }
+}
+
+
+/* =========================================================
+   VINYRD STAFF CONSOLE — APPROVED 2026 REDESIGN
+   Palette: black/ash, off-white, gold, olive green
+   ========================================================= */
+
+body.vinyrd-console {
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 84% 0%, rgba(197,163,91,.08), transparent 28%),
+    var(--page);
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.vinyrd-console h1,
+.vinyrd-console h2,
+.vinyrd-console .snapshot-card h2,
+.vinyrd-console .dashboard-hero h1 {
+  letter-spacing: -.02em;
+}
+
+.vinyrd-shell {
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.vinyrd-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 26px 18px 20px;
+  background:
+    radial-gradient(circle at 35% 90%, rgba(104,115,76,.2), transparent 28%),
+    linear-gradient(180deg, #171D18 0%, #121713 100%);
+  border-right: 1px solid rgba(197,163,91,.18);
+  color: #F7F3E9;
+}
+
+.vinyrd-brand {
+  gap: 13px;
+  margin-bottom: 28px;
+}
+
+.vinyrd-brand .vinyrd-mark {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+}
+
+.vinyrd-brand strong {
+  color: #FFFDF8;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: .12em;
+}
+
+.vinyrd-brand span {
+  margin-top: 4px;
+  color: #BFC1B7;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.vinyrd-nav {
+  gap: 4px;
+}
+
+.vinyrd-nav a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: #DADDD3;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+.vinyrd-nav a:hover {
+  background: rgba(255,255,255,.055);
+  color: #fff;
+}
+
+.vinyrd-nav a.active {
+  position: relative;
+  background: linear-gradient(90deg, rgba(104,115,76,.58), rgba(104,115,76,.28));
+  border-color: rgba(197,163,91,.13);
+  color: #fff;
+}
+
+.vinyrd-nav a.active::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  width: 3px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--gold);
+}
+
+.nav-icon {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.nav-icon svg,
+.topbar-icon-button svg,
+.console-search svg,
+.metric-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 8px 4px;
+  border-top: 1px solid rgba(255,255,255,.1);
+  color: #D4D5CC;
+}
+
+.sidebar-footer img {
+  width: 34px;
+  height: 34px;
+}
+
+.sidebar-footer strong,
+.sidebar-footer span {
+  display: block;
+}
+
+.sidebar-footer strong {
+  color: #F7F3E9;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.sidebar-footer span {
+  margin-top: 3px;
+  font-size: 10px;
+  letter-spacing: .06em;
+}
+
+.vinyrd-main {
+  min-width: 0;
+  padding: 18px 22px 34px;
+}
+
+.vinyrd-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 14;
+  min-height: 64px;
+  margin: -18px -22px 18px;
+  padding: 12px 22px;
+  border-bottom: 1px solid rgba(226,222,211,.86);
+  background: rgba(247,243,233,.9);
+  backdrop-filter: blur(16px);
+}
+
+.console-search {
+  width: min(620px, 58%);
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 14px;
+  border: 1px solid #E0DDD4;
+  border-radius: 12px;
+  background: rgba(255,255,255,.82);
+  box-shadow: 0 4px 18px rgba(34,36,30,.035);
+}
+
+.console-search svg {
+  width: 18px;
+  height: 18px;
+  color: #7D8177;
+}
+
+.console-search input {
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.console-search input::placeholder {
+  color: #999B94;
+}
+
+.topbar-actions {
+  gap: 9px;
+}
+
+.topbar-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 10px;
+}
+
+.profile-avatar {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(197,163,91,.55);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #59684A, #2F3B2C);
+  color: #fff;
+  font-family: Georgia, serif;
+  font-size: 15px;
+}
+
+.topbar-profile strong,
+.topbar-profile span {
+  display: block;
+}
+
+.topbar-profile strong {
+  font-size: 12px;
+}
+
+.topbar-profile span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.topbar-icon-button {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #FFF;
+  color: var(--ash);
+  cursor: pointer;
+}
+
+.topbar-icon-button:hover {
+  color: var(--olive-deep);
+  border-color: #C9CEBE;
+  background: #FAFBF7;
+}
+
+.compact-status {
+  min-width: auto;
+  padding: 7px 9px;
+  font-size: 10px;
+}
+
+.sr-auth-chip {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.dashboard-hero {
+  position: relative;
+  min-height: 206px;
+  display: flex;
+  justify-content: space-between;
+  gap: 28px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  padding: 32px 34px;
+  border: 1px solid rgba(197,163,91,.22);
+  border-radius: 18px;
+  background:
+    linear-gradient(90deg, rgba(248,243,233,.97) 0%, rgba(248,243,233,.85) 45%, rgba(248,243,233,.18) 100%),
+    url("./assets/vinyrd-hero.svg") center/cover no-repeat;
+  box-shadow: 0 16px 38px rgba(45,50,38,.07);
+}
+
+.dashboard-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 64px;
+  background: linear-gradient(0deg, rgba(22,28,22,.12), transparent);
+  pointer-events: none;
+}
+
+.hero-copy,
+.hero-quote {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-copy {
+  max-width: 650px;
+}
+
+.hero-copy .eyebrow {
+  color: #88713C;
+  letter-spacing: .32em;
+  font-size: 9px;
+}
+
+.dashboard-hero h1 {
+  margin: 8px 0 4px;
+  color: #161914;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(34px, 4vw, 54px);
+  font-weight: 500;
+  line-height: .98;
+}
+
+.dashboard-hero h1 span {
+  color: #243020;
+}
+
+.hero-copy > p:not(.eyebrow) {
+  margin: 12px 0 0;
+  color: #45493F;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 17px;
+}
+
+.hero-gold-line {
+  width: 46px;
+  height: 2px;
+  margin-top: 18px;
+  background: var(--gold);
+}
+
+.hero-quote {
+  width: min(340px, 33%);
+  align-self: flex-start;
+  margin-top: 8px;
+  text-align: right;
+  color: #30342D;
+}
+
+.hero-quote time {
+  display: block;
+  color: #73776D;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.hero-quote blockquote {
+  margin: 22px 0 8px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.hero-quote span {
+  color: #777A71;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.vinyrd-metrics {
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.vinyrd-metrics .metric {
+  min-height: 92px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 16px;
+  border-color: #E4E0D7;
+  border-radius: 14px;
+  background: rgba(255,255,255,.88);
+  box-shadow: 0 8px 22px rgba(45,50,38,.045);
+}
+
+.vinyrd-metrics .metric > div:last-child {
+  min-width: 0;
+}
+
+.vinyrd-metrics .metric span {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.vinyrd-metrics .metric strong {
+  margin-top: 3px;
+  color: #171A15;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 29px;
+  font-weight: 500;
+}
+
+.metric-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  padding: 11px;
+  border-radius: 50%;
+}
+
+.metric-icon.olive {
+  background: #EBF0E6;
+  color: #48603C;
+}
+
+.metric-icon.gold {
+  background: #F5ECD8;
+  color: #9A7428;
+}
+
+.dashboard-snapshot {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(250px, .88fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.snapshot-card {
+  min-width: 0;
+  overflow: hidden;
+  padding: 15px;
+  border: 1px solid #E4E0D7;
+  border-radius: 14px;
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 8px 22px rgba(45,50,38,.045);
+}
+
+.snapshot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.snapshot-kicker {
+  display: block;
+  color: #8A8D84;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.snapshot-card h2 {
+  margin-top: 3px;
+  color: #23261F;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.text-link {
+  border: 0;
+  background: transparent;
+  color: #6C7068;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.text-link:hover {
+  color: var(--olive-deep);
+}
+
+.snapshot-list,
+.service-preview-list {
+  display: grid;
+}
+
+.snapshot-item,
+.service-preview-item {
+  display: grid;
+  gap: 3px;
+  padding: 9px 0;
+  border-top: 1px solid #EEEAE1;
+}
+
+.snapshot-item:first-child,
+.service-preview-item:first-child {
+  border-top: 0;
+}
+
+.snapshot-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+}
+
+.snapshot-item strong,
+.service-preview-item strong {
+  overflow: hidden;
+  color: #262922;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snapshot-item span,
+.snapshot-item small,
+.service-preview-item span,
+.service-preview-item small {
+  color: #80837A;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.snapshot-item .mini-status {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #EEF2E9;
+  color: #566846;
+  font-size: 8px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.snapshot-item .mini-status.gold {
+  background: #F6EEDA;
+  color: #967126;
+}
+
+.service-preview-item {
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 9px;
+  align-items: center;
+}
+
+.service-date {
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  border-radius: 9px;
+  background: #F5F1E7;
+  color: #4D5940;
+  text-align: center;
+}
+
+.service-date b {
+  font-family: Georgia, serif;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.service-date small {
+  color: #9B7B36;
+  font-size: 7px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.content-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.panel {
+  padding: 18px;
+  border-color: #E4E0D7;
+  border-radius: 14px;
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 10px 28px rgba(45,50,38,.045);
+}
+
+#people,
+#attendance,
+#pastoral,
+#sermons,
+#reports,
+#admin,
+#imports,
+#settings {
+  grid-column: 1 / -1;
+}
+
+.panel-header {
+  padding-bottom: 13px;
+  border-bottom: 1px solid #EEEAE1;
+}
+
+.panel-header .eyebrow {
+  color: #8C7B51;
+  font-size: 9px;
+  letter-spacing: .12em;
+}
+
+.panel-header h2 {
+  color: #23261F;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.primary-button {
+  min-height: 38px;
+  height: auto;
+  border-color: #415634;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #4F653F, #3D5232);
+  box-shadow: 0 5px 12px rgba(63,82,51,.15);
+}
+
+.primary-button:hover {
+  background: linear-gradient(180deg, #5A704A, #415735);
+}
+
+.icon-button,
+.mini-button {
+  border-color: #DDD9CF;
+  border-radius: 8px;
+  background: #FFF;
+  color: #4D5E40;
+}
+
+.icon-button:hover,
+.mini-button:hover {
+  background: #F6F7F2;
+}
+
+.person-form,
+.row,
+.empty-state,
+.assist-panel,
+.subpanel,
+.qr-panel {
+  border-color: #E5E1D7;
+  border-radius: 10px;
+  background: #FBFAF6;
+}
+
+.row {
+  transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+
+.row:hover {
+  transform: translateY(-1px);
+  border-color: #D0D4C6;
+  box-shadow: 0 7px 18px rgba(45,50,38,.04);
+}
+
+.tag {
+  color: #586747;
+  background: #ECF1E8;
+}
+
+.tag.amber {
+  color: #8C6923;
+  background: #F6EDD7;
+}
+
+.tag.green {
+  color: #40613A;
+  background: #E8F2E6;
+}
+
+.status-pill.ok {
+  color: #46623D;
+  border-color: #C9D8C2;
+  background: #F0F6ED;
+}
+
+.status-pill.error {
+  color: #9D463D;
+  border-color: #E5C7C0;
+  background: #FBF1EF;
+}
+
+input,
+select,
+textarea {
+  border-color: #DCD8CE;
+  border-radius: 8px;
+  background: #FFF;
+  color: #242720;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #80906B;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(104,115,76,.09);
+}
+
+.dialog {
+  border-radius: 16px;
+  box-shadow: 0 28px 90px rgba(20,25,19,.3);
+}
+
+.dialog::backdrop {
+  background: rgba(18,23,19,.62);
+  backdrop-filter: blur(2px);
+}
+
+.dialog-card {
+  background: #FFFDF8;
+}
+
+.care-card,
+.sermon-admin-card {
+  border-color: #E3DFD5;
+  border-radius: 12px;
+  background: #FCFBF7;
+}
+
+.care-prayer-text {
+  background: #F4F2EA;
+}
+
+.care-meta span {
+  background: #EEF0E7;
+  color: #606753;
+}
+
+.temporary-password {
+  border-color: #C7D3BE;
+  background: #F0F5EC;
+}
+
+.finance-chip,
+.finance-summary {
+  border-color: #E3DFD5;
+  background: #FCFBF7;
+}
+
+.vinyrd-login {
+  position: relative;
+  background:
+    linear-gradient(110deg, rgba(20,27,21,.96), rgba(20,27,21,.83)),
+    url("./assets/vinyrd-hero.svg") center/cover no-repeat;
+}
+
+.vinyrd-login-card {
+  position: relative;
+  overflow: hidden;
+  width: min(540px, 100%);
+  padding: 30px;
+  border: 1px solid rgba(197,163,91,.28);
+  border-radius: 20px;
+  background: rgba(255,254,250,.96);
+  box-shadow: 0 28px 90px rgba(0,0,0,.24);
+}
+
+.vinyrd-login-card .vinyrd-brand strong {
+  color: #263121;
+}
+
+.vinyrd-login-card .vinyrd-brand span {
+  color: #7C806F;
+}
+
+.login-copy h1 {
+  margin: 6px 0 10px;
+  color: #1D231B;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1.05;
+}
+
+.login-copy > p:last-child {
+  max-width: 420px;
+  margin: 0;
+  color: #6E7269;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.login-botanical {
+  position: absolute;
+  right: -64px;
+  bottom: -88px;
+  width: 230px;
+  height: 230px;
+  opacity: .08;
+  background: url("./assets/vinyrd-mark.svg") center/contain no-repeat;
+  pointer-events: none;
+}
+
+@media (max-width: 1240px) {
+  .dashboard-snapshot {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-services {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 980px) {
+  .vinyrd-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .vinyrd-sidebar {
+    position: sticky;
+    height: auto;
+    min-height: auto;
+    padding: 11px 14px;
+  }
+
+  .vinyrd-sidebar .vinyrd-brand,
+  .sidebar-footer {
+    display: none;
+  }
+
+  .vinyrd-nav {
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .vinyrd-nav a {
+    flex: 0 0 auto;
+    min-height: 38px;
+  }
+
+  .nav-icon {
+    width: 17px;
+    height: 17px;
+  }
+
+  .vinyrd-topbar {
+    top: 60px;
+  }
+
+  .dashboard-hero {
+    min-height: 188px;
+  }
+
+  .dashboard-snapshot,
+  .content-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #people,
+  #attendance,
+  #pastoral,
+  #sermons,
+  #reports,
+  #admin,
+  #imports,
+  #settings {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .vinyrd-main {
+    padding: 12px;
+  }
+
+  .vinyrd-topbar {
+    margin: -12px -12px 12px;
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .console-search {
+    width: 100%;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .topbar-profile {
+    margin-right: auto;
+  }
+
+  .compact-status {
+    display: none;
+  }
+
+  .dashboard-hero {
+    min-height: 240px;
+    display: block;
+    padding: 26px 22px;
+  }
+
+  .dashboard-hero h1 {
+    font-size: 38px;
+  }
+
+  .hero-quote {
+    width: 100%;
+    margin-top: 26px;
+    text-align: left;
+  }
+
+  .hero-quote blockquote {
+    margin: 8px 0 5px;
+    font-size: 13px;
+  }
+
+  .vinyrd-metrics,
+  .dashboard-snapshot,
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vinyrd-metrics .metric {
+    min-height: 80px;
+  }
+
+  .snapshot-card,
+  .dashboard-services {
+    grid-column: auto;
+  }
+
+  .panel {
+    padding: 14px;
   }
 }

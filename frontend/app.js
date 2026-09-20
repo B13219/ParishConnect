@@ -439,6 +439,144 @@ const row = ({ title, subtitle, tag, tone = "", action = "" }) => `
 
 
 
+
+const dashboardNavigate = (sectionId) => {
+  if (sectionId !== "overview" && !canUseSection(sectionId)) {
+    setStatus("No access", "error");
+    return;
+  }
+
+  const section = document.getElementById(sectionId);
+  if (!section) {
+    return;
+  }
+
+  window.location.hash = sectionId;
+  setActiveNav(sectionId);
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
+const renderDashboardOverview = () => {
+  const accessCard = document.querySelector("#dashboardAccessCard");
+  const pastoralCard = document.querySelector("#dashboardPastoralCard");
+  const sermonCard = document.querySelector("#dashboardSermonCard");
+  const servicesCard = document.querySelector("#dashboardServicesCard");
+
+  if (!accessCard) {
+    return;
+  }
+
+  accessCard.hidden = !canUseSection("people");
+  pastoralCard.hidden = !canUseSection("pastoral");
+  sermonCard.hidden = !canUseSection("sermons");
+  servicesCard.hidden = !canUseSection("attendance");
+
+  const accessList = document.querySelector("#dashboardMemberAccessList");
+  if (accessList && canUseSection("people")) {
+    const members = (state.people?.members || [])
+      .filter((member) => member.status === "active")
+      .slice(0, 4);
+
+    accessList.innerHTML = members.length
+      ? members
+          .map(
+            (member) => `
+              <div class="snapshot-item">
+                <div>
+                  <strong>${escapeHtml(member.name)}</strong>
+                  <small>${escapeHtml(member.email || member.phone || "No contact details")}</small>
+                </div>
+                <button class="mini-status" data-dashboard-member="${member.id}" type="button">Manage</button>
+              </div>
+            `,
+          )
+          .join("")
+      : emptyState("No active members loaded.");
+
+    document.querySelectorAll("[data-dashboard-member]").forEach((button) => {
+      button.addEventListener("click", () => openMemberProfile(button.dataset.dashboardMember));
+    });
+  }
+
+  const prayerList = document.querySelector("#dashboardPrayerList");
+  if (prayerList && canUseSection("pastoral")) {
+    const prayers = (state.pastoral?.prayers || []).slice(0, 4);
+    prayerList.innerHTML = prayers.length
+      ? prayers
+          .map(
+            (prayer) => `
+              <div class="snapshot-item">
+                <div>
+                  <strong>${escapeHtml(prayer.member_name)}</strong>
+                  <small>${escapeHtml(prayer.body)}</small>
+                </div>
+                <span class="mini-status ${prayer.status === "answered" ? "" : "gold"}">${escapeHtml(labelize(prayer.status))}</span>
+              </div>
+            `,
+          )
+          .join("")
+      : emptyState("No prayer requests.");
+  }
+
+  const sermonList = document.querySelector("#dashboardSermonList");
+  if (sermonList && canUseSection("sermons")) {
+    const sermons = (state.sermons?.events || [])
+      .filter((event) => event.title || event.summary || event.published)
+      .slice(0, 4);
+
+    sermonList.innerHTML = sermons.length
+      ? sermons
+          .map(
+            (sermon) => `
+              <div class="snapshot-item">
+                <div>
+                  <strong>${escapeHtml(sermon.title || sermon.event_name)}</strong>
+                  <small>${escapeHtml(sermon.scripture_reference || sermon.event_name)}</small>
+                </div>
+                <span class="mini-status ${sermon.published ? "" : "gold"}">${sermon.published ? "Published" : "Draft"}</span>
+              </div>
+            `,
+          )
+          .join("")
+      : emptyState("No sermon records yet.");
+  }
+
+  const serviceList = document.querySelector("#dashboardServiceList");
+  if (serviceList && canUseSection("attendance")) {
+    const now = Date.now();
+    const allEvents = [...(state.attendance?.events || [])];
+    const upcoming = allEvents
+      .filter((event) => new Date(event.starts_at).getTime() >= now - 6 * 60 * 60 * 1000)
+      .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at))
+      .slice(0, 4);
+    const fallback = allEvents
+      .sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at))
+      .slice(0, 4);
+    const services = upcoming.length ? upcoming : fallback;
+
+    serviceList.innerHTML = services.length
+      ? services
+          .map((event) => {
+            const date = new Date(event.starts_at);
+            return `
+              <div class="service-preview-item">
+                <div class="service-date">
+                  <small>${date.toLocaleDateString(undefined, { month: "short" })}</small>
+                  <b>${date.getDate()}</b>
+                </div>
+                <div>
+                  <strong>${escapeHtml(event.name)}</strong>
+                  <span>${escapeHtml(date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</span>
+                  <small>${escapeHtml(event.location || "Location not set")}</small>
+                </div>
+              </div>
+            `;
+          })
+          .join("")
+      : emptyState("No services scheduled.");
+  }
+};
+
 const applyRoleAccess = () => {
   const hasLogin = Boolean(state.auth?.access_token);
   const roles = currentRoles();
@@ -447,6 +585,28 @@ const applyRoleAccess = () => {
   document.querySelector("#authSummary").textContent = hasLogin
     ? `${state.auth.user.name} - ${roles.map(labelize).join(", ")}`
     : "Guest mode";
+
+  const userName = state.auth?.user?.name || "Vinyrd Staff";
+  const firstName = userName.split(" ")[0] || "Friend";
+  const primaryRole = roles[0] ? labelize(roles[0]) : "Staff Console";
+  const welcomeName = document.querySelector("#welcomeUserName");
+  const topbarName = document.querySelector("#topbarUserName");
+  const topbarRole = document.querySelector("#topbarUserRole");
+  const avatar = document.querySelector("#topbarAvatar");
+  const currentDate = document.querySelector("#currentDate");
+
+  if (welcomeName) welcomeName.textContent = firstName;
+  if (topbarName) topbarName.textContent = userName;
+  if (topbarRole) topbarRole.textContent = primaryRole;
+  if (avatar) avatar.textContent = userName.slice(0, 1).toUpperCase();
+  if (currentDate) {
+    currentDate.textContent = new Intl.DateTimeFormat(undefined, {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(new Date());
+  }
   document.querySelector("#logoutButton").hidden = !hasLogin;
   const permissionNote = document.querySelector("#permissionNote");
   if (permissionNote) {
@@ -469,6 +629,10 @@ const applyRoleAccess = () => {
       panel.hidden = hasLogin && !canUseSection(section);
     }
   });
+
+  if (hasLogin) {
+    renderDashboardOverview();
+  }
 
   const currentHash = window.location.hash.replace("#", "");
   if (currentHash && currentHash !== "overview" && hasLogin && !canUseSection(currentHash)) {
@@ -2131,6 +2295,8 @@ renderMinistries();
     };
     renderAdmin();
   }
+
+  renderDashboardOverview();
 };
 
 const loadDashboard = async () => {
@@ -2139,6 +2305,7 @@ const loadDashboard = async () => {
     setStatus("Connecting");
     setSkeletons();
     await Promise.all(permittedSections().map(loadSection));
+    renderDashboardOverview();
     setStatus("API Connected", "ok");
   } catch (error) {
     console.error(error);
@@ -5042,6 +5209,40 @@ document
   .querySelector("#cancelEventEdit")
   ?.addEventListener("click", clearEventForm);
 document.querySelector("#refreshAll").addEventListener("click", loadDashboard);
+
+document.querySelector("#globalSearchForm")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const query = document.querySelector("#globalSearch")?.value?.trim();
+  if (!query) {
+    return;
+  }
+
+  if (!canUseSection("people")) {
+    setStatus("Your role does not have access to People search", "error");
+    return;
+  }
+
+  try {
+    setBusy(true);
+    if (!state.people) {
+      await loadSection("people");
+    }
+    state.peopleFilters.query = query;
+    document.querySelector("#peopleSearch").value = query;
+    renderPeople();
+    dashboardNavigate("people");
+    setStatus("People search ready", "ok");
+  } catch (error) {
+    console.error(error);
+    setStatus(error.message || "Search failed", "error");
+  } finally {
+    setBusy(false);
+  }
+});
+
+document.querySelectorAll("[data-dashboard-target]").forEach((button) => {
+  button.addEventListener("click", () => dashboardNavigate(button.dataset.dashboardTarget));
+});
 document.querySelector("#loginForm").addEventListener("submit", (event) => {
   event.preventDefault();
   login(event.currentTarget);
