@@ -9,8 +9,8 @@ from app.api.routes.members import router as members_router
 from app.api.routes.messages import router as messages_router
 from app.api.routes.reports import router as reports_router
 from app.api.routes.root import router as root_router
-from app.api.routes.stewardship import router as stewardship_router
 from app.api.routes.staff_engagement import router as staff_engagement_router
+from app.api.routes.stewardship import router as stewardship_router
 
 router = APIRouter()
 router.include_router(root_router, tags=["product"])
