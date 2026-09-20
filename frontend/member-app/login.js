@@ -10,7 +10,7 @@ const validateExistingSession = async () => {
   if (!VinyrdClient.token()) return;
   try {
     await VinyrdClient.apiRequest("/member-portal/me");
-    window.location.replace("./index.html");
+    window.location.replace("./home.html");
   } catch {
     VinyrdClient.clearSession();
   }
@@ -44,7 +44,7 @@ form.addEventListener("submit", async (event) => {
       throw error;
     }
 
-    window.location.replace("./index.html");
+    window.location.replace("./home.html");
   } catch (error) {
     showError(error.message || "Sign in failed.");
     button.disabled = false;
@@ -53,3 +53,14 @@ form.addEventListener("submit", async (event) => {
 });
 
 validateExistingSession();
+
+
+const passwordInput = document.querySelector("#memberPassword");
+const togglePassword = document.querySelector("#togglePassword");
+
+togglePassword?.addEventListener("click", () => {
+  const show = passwordInput.type === "password";
+  passwordInput.type = show ? "text" : "password";
+  togglePassword.textContent = show ? "Hide" : "Show";
+  togglePassword.setAttribute("aria-label", show ? "Hide password" : "Show password");
+});

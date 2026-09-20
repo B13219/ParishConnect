@@ -1,1 +1,1 @@
-{"name":"Vinyrd Member","short_name":"Vinyrd","start_url":"./index.html","scope":"./","display":"standalone","background_color":"#F6F8F5","theme_color":"#0F3D2E","description":"Vinyrd church member webapp"}
+{"name":"Vinyrd Member","short_name":"Vinyrd","start_url":"./index.html","scope":"./","display":"standalone","background_color":"#F3F0E8","theme_color":"#171D18","description":"Vinyrd church member experience","icons":[{"src":"./assets/vinyrd-mark.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}

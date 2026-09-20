@@ -75,7 +75,11 @@ jobs:
         run: node --check ../frontend/app.js
 
       - name: Check member JavaScript syntax
-        run: node --check ../frontend/member-app/bible.js
+        run: |
+          node --check ../frontend/member-app/bible.js
+          node --check ../frontend/member-app/app.js
+          node --check ../frontend/member-app/login.js
+          node --check ../frontend/member-app/landing.js
 
       - name: Build production Docker image
         run: docker build -f ../Dockerfile -t vinyrd-pilot ..

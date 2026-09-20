@@ -3,65 +3,77 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0F3D2E">
-  <meta name="description" content="Vinyrd member webapp">
-  <title>Vinyrd Member</title>
+  <meta name="theme-color" content="#171D18">
+  <meta name="description" content="Vinyrd member experience — giving, events, messages, prayer, groups and sermons in one place.">
+  <title>Vinyrd — Your church, throughout the week</title>
+  <link rel="icon" href="./assets/vinyrd-mark.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="./styles.css">
 </head>
-<body>
-  <main class="vinyrd-app" aria-label="Vinyrd member home">
-    <header class="app-header">
-      <div class="brand-row">
-        <div class="brand-lockup"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">VINYRD</span></div>
-        <span class="connection-dot" id="connectionDot" aria-label="Loading member data"></span>
-      </div>
-      <div class="welcome-copy">
-        <h1 id="memberGreeting">Good morning, Member</h1>
-        <p>Let's grow God's kingdom together.</p>
-        <span class="gold-accent" aria-hidden="true"></span>
-      </div>
+<body class="member-landing-page">
+  <div class="member-landing-shell">
+    <header class="landing-nav">
+      <a class="landing-brand" href="./index.html" aria-label="Vinyrd member home">
+        <img src="./assets/vinyrd-mark.svg" alt="">
+        <span><strong>VINYRD</strong><small>Cultivate a brighter tomorrow</small></span>
+      </a>
+      <a class="landing-signin" id="landingSignin" href="./login.html">Member sign in</a>
     </header>
-
-    <section class="app-content">
-      <section class="shortcut-card" aria-label="Member shortcuts">
-        <a class="shortcut" href="./profile.html" data-route="profile"><span class="shortcut-icon"><img src="./assets/icon-profile.svg" alt=""></span><span>My Profile</span></a>
-        <a class="shortcut" href="./giving.html"><span class="shortcut-icon"><img src="./assets/icon-giving.svg" alt=""></span><span>My Giving</span></a>
-        <a class="shortcut" href="./events.html"><span class="shortcut-icon"><img src="./assets/icon-events.svg" alt=""></span><span>Events</span></a>
-        <a class="shortcut" href="./messages.html"><span class="shortcut-icon"><img src="./assets/icon-messages.svg" alt=""></span><span>Messages</span></a>
-        <a class="shortcut" href="./groups.html"><span class="shortcut-icon"><img src="./assets/icon-groups.svg" alt=""></span><span>My Groups</span></a>
-        <a class="shortcut" href="./prayers.html"><span class="shortcut-icon"><img src="./assets/icon-prayers.svg" alt=""></span><span>Prayers</span></a>
-        <a class="shortcut" href="./bible.html"><span class="shortcut-icon"><img src="./assets/icon-bible.svg" alt=""></span><span>Bible</span></a>
-        <a class="shortcut" href="#" data-route="more"><span class="shortcut-icon"><img src="./assets/icon-more.svg" alt=""></span><span>More</span></a>
+    <main>
+      <section class="landing-hero">
+        <div class="landing-hero-copy">
+          <p class="landing-eyebrow">YOUR CHURCH · THROUGHOUT THE WEEK</p>
+          <h1>Belong deeper.<br><em>Grow together.</em></h1>
+          <p class="landing-lead">Vinyrd keeps your church life close — events, giving, groups, prayer, messages and sermons, all connected to your member profile.</p>
+          <div class="landing-actions">
+            <a class="landing-primary" id="memberPrimaryCta" href="./login.html">Enter member space</a>
+            <a class="landing-secondary" href="#memberFeatures">Explore Vinyrd</a>
+          </div>
+          <div class="landing-trust-row">
+            <span>Private member profile</span><span>Secure church access</span><span>One connected space</span>
+          </div>
+        </div>
+        <div class="landing-hero-art" aria-hidden="true">
+          <div class="landing-mark-orbit"><img src="./assets/vinyrd-mark.svg" alt=""></div>
+          <div class="landing-hero-card">
+            <span>ROOTED IN PEOPLE</span>
+            <strong>Your faith community, made easier to stay close to.</strong>
+            <small>Giving · Events · Prayer · Sermons · Groups</small>
+          </div>
+        </div>
       </section>
 
-      <article class="event-card">
-        <div class="card-heading"><h2>Upcoming Event</h2><a class="link-button" href="./events.html">View all</a></div>
-        <div class="divider"></div>
-        <div class="event-details">
-          <div class="date-badge" aria-hidden="true"><strong id="eventDay">--</strong><span id="eventMonth">---</span></div>
-          <div class="event-copy"><strong id="eventTitle">Loading events...</strong><span id="eventWhen">Please wait</span><span id="eventLocation">Vinyrd</span></div>
+      <section class="landing-features" id="memberFeatures">
+        <div class="landing-section-heading">
+          <p>EVERYDAY CONNECTION</p>
+          <h2>Everything that matters, in one calm place.</h2>
+          <span>Vinyrd gives members a simple, private way to stay engaged beyond Sunday.</span>
         </div>
-      </article>
+        <div class="landing-feature-grid">
+          <article><img src="./assets/icon-events.svg" alt=""><h3>Events & attendance</h3><p>See upcoming services and events, with member check-in when your church enables it.</p></article>
+          <article><img src="./assets/icon-giving.svg" alt=""><h3>Giving history</h3><p>Keep your contribution records together and review your personal giving history.</p></article>
+          <article><img src="./assets/icon-prayers.svg" alt=""><h3>Prayer support</h3><p>Share requests privately with your pastoral team and follow their progress.</p></article>
+          <article><img src="./assets/icon-messages.svg" alt=""><h3>Church messages</h3><p>Receive announcements and communication linked directly to your member account.</p></article>
+          <article><img src="./assets/icon-groups.svg" alt=""><h3>Groups & ministries</h3><p>See the communities and ministries you belong to and stay connected to your people.</p></article>
+          <article><img src="./assets/icon-bible.svg" alt=""><h3>Sermons & lessons</h3><p>Read published sermons and keep private sermon notes and action points for yourself.</p></article>
+        </div>
+      </section>
 
-      <article class="verse-card">
-        <div class="card-heading"><h2>Daily Verse</h2><a class="link-button" href="./bible.html">View all</a></div>
-        <p>"I am the vine; you are the branches. If you remain in me and I in you, you will bear much fruit."</p>
-        <strong>John 15:5</strong>
-      </article>
-    </section>
-
-    <nav class="bottom-nav" aria-label="Primary member navigation">
-      <a class="nav-item active" href="./index.html" aria-current="page"><img src="./assets/nav-home.svg" alt=""><span>Home</span></a>
-      <a class="nav-item" href="./groups.html"><img src="./assets/nav-groups.svg" alt=""><span>Groups</span></a>
-      <a class="nav-item" href="./giving.html"><img src="./assets/nav-giving.svg" alt=""><span>Giving</span></a>
-      <a class="nav-item" href="./events.html"><img src="./assets/nav-events.svg" alt=""><span>Events</span></a>
-      <a class="nav-item" href="./profile.html"><img src="./assets/nav-profile.svg" alt=""><span>Profile</span></a>
-    </nav>
-
-    <div class="status-toast" id="statusToast" role="status" aria-live="polite"></div>
-  </main>
+      <section class="landing-access">
+        <div>
+          <p class="landing-eyebrow">MEMBER ACCESS</p>
+          <h2>Your church activates your Vinyrd account.</h2>
+          <p>Once your church team links access to your member profile, sign in with the email they activated for you. Your church data stays connected to your own profile.</p>
+        </div>
+        <a class="landing-primary" href="./login.html">Sign in to Vinyrd</a>
+      </section>
+    </main>
+    <footer class="landing-footer">
+      <a class="landing-brand compact" href="./index.html"><img src="./assets/vinyrd-mark.svg" alt=""><span><strong>VINYRD</strong><small>People · Purpose · Community</small></span></a>
+      <p>Rooted in people. Growing in purpose.</p>
+    </footer>
+  </div>
   <script src="./client.js"></script>
-  <script src="./app.js"></script>
+  <script src="./landing.js"></script>
 </body>
 </html>
