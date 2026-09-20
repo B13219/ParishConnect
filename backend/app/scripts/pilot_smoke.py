@@ -9,14 +9,10 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
-
 BASE_URL = os.environ.get("VINYRD_PILOT_BASE_URL", "http://127.0.0.1:8003").rstrip("/")
 ADMIN_EMAIL = os.environ["PARISHCONNECT_BOOTSTRAP_ADMIN_EMAIL"]
 ADMIN_PASSWORD = os.environ["PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD"]
-PASTOR_PASSWORD = os.environ.get(
-    "VINYRD_PILOT_PASTOR_PASSWORD",
-    "Vinyrd-Pilot-Pastor-Change-2026!",
-)
+PASTOR_PASSWORD = os.environ["VINYRD_PILOT_PASTOR_PASSWORD"]
 
 
 def request(
