@@ -2713,3 +2713,74 @@ textarea:focus {
   }
 }
 
+/* Messaging / SMS gateway */
+.sms-provider-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin: 14px 0 12px;
+  padding: 14px 16px;
+  border: 1px solid #E2D8BF;
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(248,243,233,.96), rgba(255,255,255,.94));
+  box-shadow: 0 8px 22px rgba(45,50,38,.04);
+}
+
+.sms-provider-card.external-sms-ready {
+  border-color: #C7D6C0;
+  background:
+    linear-gradient(135deg, rgba(240,246,237,.96), rgba(255,255,255,.95));
+}
+
+.sms-provider-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(197,163,91,.42);
+  border-radius: 50%;
+  background: #1B241C;
+  color: #E5C66F;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.sms-provider-card .eyebrow,
+.sms-provider-card strong,
+.sms-provider-card p {
+  display: block;
+  margin: 0;
+}
+
+.sms-provider-card strong {
+  margin-top: 3px;
+  color: #252A22;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.sms-provider-card p {
+  margin-top: 4px;
+  color: #74786E;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+#messageAudienceTargetField[hidden] {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .sms-provider-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .sms-provider-card > .tag {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
