@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.base import Base
-from app.models import *  # noqa: F403
+from app.models import *
 from app.scripts import seed_demo
 
 DEMO_DATABASE_PATH = Path("parishconnect_demo.db")
