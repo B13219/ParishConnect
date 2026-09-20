@@ -10,7 +10,6 @@ from app.db.session import get_db
 from app.main import create_app
 from app.models import Branch
 from tests.auth_helpers import add_test_user, auth_headers
-from datetime import date
 
 def build_client() -> tuple[TestClient, sessionmaker[Session]]:
     engine = create_engine(
