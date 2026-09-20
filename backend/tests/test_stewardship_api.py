@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import create_app
-from app.models import Branch, Household, Member
+from app.models import Branch, Member
 from tests.auth_helpers import add_test_user, auth_headers
 
 
