@@ -26,6 +26,41 @@ if (VinyrdClient.requireSession()) {
       year: "numeric",
     }).format(new Date(value));
 
+
+  const publishedSermonCard = (sermon) => {
+    const meta = [
+      sermon.speaker ? "Speaker: " + sermon.speaker : null,
+      sermon.scripture_reference,
+      sermon.event_name,
+    ].filter(Boolean).join(" • ");
+
+    return '<article class="published-sermon-card">' +
+      '<div class="published-sermon-topline"><strong>' +
+        escapeHtml(sermon.title || "Sermon") +
+        '</strong><span>' + escapeHtml(formatDate(sermon.starts_at)) + '</span></div>' +
+      (meta ? '<small>' + escapeHtml(meta) + '</small>' : '') +
+      '<p>' + escapeHtml(sermon.summary || "") + '</p>' +
+    '</article>';
+  };
+
+  const loadPublishedSermons = async () => {
+    try {
+      const sermons = await VinyrdClient.apiRequest("/member-portal/sermons");
+      qs("#publishedSermonCount").textContent = String(sermons.length);
+      qs("#publishedSermonsList").innerHTML = sermons.length
+        ? sermons.map(publishedSermonCard).join("")
+        : '<div class="sermon-empty">No church sermons have been published yet.</div>';
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        VinyrdClient.clearSession();
+        window.location.replace("./login.html");
+        return;
+      }
+      qs("#publishedSermonsList").innerHTML =
+        '<div class="sermon-empty">Published sermons could not be loaded.</div>';
+    }
+  };
+
   const lessonCard = (lesson) => {
     const context = [
       lesson.event_name,
@@ -121,5 +156,6 @@ if (VinyrdClient.requireSession()) {
   });
 
   loadEvents();
+  loadPublishedSermons();
   loadLessons();
 }

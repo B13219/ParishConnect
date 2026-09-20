@@ -11,6 +11,8 @@ const state = {
   households: null,
   messages: null,
   messageRecipients: null,
+  pastoral: null,
+  sermons: null,
   stewardship: null,
   reports: null,
   admin: null,
@@ -33,6 +35,8 @@ const sections = [
   "settings",
   "households",
   "messages",
+  "pastoral",
+  "sermons",
   "stewardship",
   "reports",
   "admin",
@@ -45,6 +49,8 @@ const navSections = [
   "settings",
   "households",
   "messages",
+  "pastoral",
+  "sermons",
   "stewardship",
   "reports",
   "admin",
@@ -56,6 +62,15 @@ const labelize = (value) =>
   String(value || "")
     .replaceAll("_", " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const escapeHtml = (value) =>
+  String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character]);
 
 const formatCurrency = (amount, currency = "TZS") =>
   `${Number(amount || 0).toLocaleString()} ${currency}`;
@@ -171,7 +186,16 @@ const rolePermissions = {
     "settings",
     "admin",
   ],
-  pastor_leader: ["people", "attendance", "messages", "stewardship", "reports","settings"],
+  pastor_leader: [
+    "people",
+    "attendance",
+    "messages",
+    "pastoral",
+    "sermons",
+    "stewardship",
+    "reports",
+    "settings",
+  ],
   accountant: ["stewardship", "reports"],
   receptionist: ["people", "imports", "attendance", "households"],
   usher: ["attendance"],
@@ -381,6 +405,8 @@ const setSkeletons = () => {
     "#contributionBreakdown",
     "#messageList",
     "#messageRecipientList",
+    "#pastoralPrayerList",
+    "#sermonEventList",
     "#contributionList",
     "#reportMetrics",
     "#reportAttendance",
@@ -1309,6 +1335,231 @@ const renderMessages = () => {
   applyRoleAccess();
 };
 
+
+
+const renderPastoral = () => {
+  const prayers = state.pastoral?.prayers || [];
+  const list = document.querySelector("#pastoralPrayerList");
+  if (!list) {
+    return;
+  }
+
+  list.innerHTML =
+    prayers
+      .map((prayer) => {
+        const contact = prayer.allow_contact
+          ? [prayer.member_phone, prayer.member_email].filter(Boolean).join(" · ") ||
+            "Contact allowed"
+          : "Member requested no contact";
+        const assignment = prayer.assigned_to
+          ? `Assigned to ${escapeHtml(prayer.assigned_to)}`
+          : "Unassigned";
+
+        return `
+          <article class="care-card">
+            <div class="care-card-head">
+              <div>
+                <span class="eyebrow">${escapeHtml(labelize(prayer.category))}</span>
+                <h3>${escapeHtml(prayer.member_name)}</h3>
+                <p>${escapeHtml(contact)}</p>
+              </div>
+              <span class="tag ${prayer.status === "answered" ? "green" : "amber"}">
+                ${escapeHtml(labelize(prayer.status))}
+              </span>
+            </div>
+            <div class="care-prayer-text">${escapeHtml(prayer.body)}</div>
+            <div class="care-meta">
+              <span>${escapeHtml(labelize(prayer.visibility))}</span>
+              <span>${assignment}</span>
+              <span>Submitted ${escapeHtml(formatDateTime(prayer.created_at))}</span>
+            </div>
+            <div class="field-row">
+              <label>
+                Status
+                <select data-prayer-status="${prayer.id}">
+                  ${["submitted", "in_prayer", "contacted", "answered", "closed"]
+                    .map(
+                      (value) =>
+                        `<option value="${value}" ${prayer.status === value ? "selected" : ""}>${labelize(value)}</option>`,
+                    )
+                    .join("")}
+                </select>
+              </label>
+              <label>
+                Assignment
+                <select data-prayer-assignment="${prayer.id}">
+                  <option value="keep">Keep current assignment</option>
+                  <option value="me">Assign to me</option>
+                  <option value="unassign">Unassign</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              Pastoral notes
+              <textarea data-prayer-notes="${prayer.id}" rows="3" placeholder="Private pastoral follow-up notes">${escapeHtml(prayer.pastoral_notes || "")}</textarea>
+            </label>
+            <div class="dialog-actions">
+              <button class="primary-button" data-save-prayer="${prayer.id}" type="button">
+                Save prayer follow-up
+              </button>
+            </div>
+          </article>
+        `;
+      })
+      .join("") || emptyState("No prayer requests have been submitted yet.");
+
+  document.querySelectorAll("[data-save-prayer]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const prayerId = button.dataset.savePrayer;
+      const assignment = document.querySelector(
+        `[data-prayer-assignment="${prayerId}"]`,
+      )?.value;
+      const payload = {
+        status: document.querySelector(
+          `[data-prayer-status="${prayerId}"]`,
+        )?.value,
+        pastoral_notes: document.querySelector(
+          `[data-prayer-notes="${prayerId}"]`,
+        )?.value || null,
+      };
+
+      if (assignment === "me") {
+        payload.assign_to_me = true;
+      } else if (assignment === "unassign") {
+        payload.assign_to_me = false;
+      }
+
+      try {
+        setBusy(true);
+        setStatus("Saving pastoral follow-up");
+        await sendJson(`/staff/prayers/${prayerId}`, "PATCH", payload);
+        await loadSection("pastoral");
+        setStatus("Prayer follow-up saved", "ok");
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || "Prayer follow-up could not be saved", "error");
+      } finally {
+        setBusy(false);
+      }
+    });
+  });
+
+  applyRoleAccess();
+};
+
+const clearSermonForm = () => {
+  const form = document.querySelector("#sermonForm");
+  if (!form) {
+    return;
+  }
+  form.reset();
+  document.querySelector("#sermonFormTitle").textContent = "Publish Sermon";
+  document.querySelector("#sermonSubmitButton").textContent = "Save sermon";
+};
+
+const openSermonEditor = (eventId) => {
+  const sermon = state.sermons?.events?.find((item) => item.event_id === eventId);
+  const form = document.querySelector("#sermonForm");
+  if (!sermon || !form) {
+    return;
+  }
+
+  form.elements.event_id.value = sermon.event_id;
+  form.elements.title.value = sermon.title || "";
+  form.elements.speaker.value = sermon.speaker || "";
+  form.elements.scripture_reference.value = sermon.scripture_reference || "";
+  form.elements.summary.value = sermon.summary || "";
+  form.elements.published.checked = Boolean(sermon.published);
+  document.querySelector("#sermonFormTitle").textContent =
+    `Edit sermon · ${sermon.event_name}`;
+  document.querySelector("#sermonSubmitButton").textContent = "Update sermon";
+  form.scrollIntoView({ behavior: "smooth", block: "center" });
+};
+
+const renderSermons = () => {
+  const events = state.sermons?.events || [];
+  const select = document.querySelector("#sermonEventSelect");
+  const list = document.querySelector("#sermonEventList");
+  if (!select || !list) {
+    return;
+  }
+
+  const currentValue = select.value;
+  select.innerHTML =
+    '<option value="">Select a service or event</option>' +
+    events
+      .map(
+        (event) =>
+          `<option value="${event.event_id}">${escapeHtml(event.event_name)} · ${escapeHtml(
+            formatDateTime(event.starts_at),
+          )}</option>`,
+      )
+      .join("");
+  if (events.some((event) => event.event_id === currentValue)) {
+    select.value = currentValue;
+  }
+
+  list.innerHTML =
+    events
+      .filter((event) => event.title || event.summary || event.published)
+      .map(
+        (event) => `
+          <article class="sermon-admin-card">
+            <div>
+              <span class="eyebrow">${escapeHtml(event.event_name)}</span>
+              <h3>${escapeHtml(event.title || "Draft sermon")}</h3>
+              <p>${escapeHtml(
+                [event.speaker, event.scripture_reference].filter(Boolean).join(" · ") ||
+                  "Speaker/scripture not set",
+              )}</p>
+            </div>
+            <div class="row-actions">
+              <span class="tag ${event.published ? "green" : "muted"}">
+                ${event.published ? "Published" : "Draft"}
+              </span>
+              <button class="mini-button" data-edit-sermon="${event.event_id}" type="button">
+                Edit
+              </button>
+            </div>
+          </article>
+        `,
+      )
+      .join("") || emptyState("No sermon records yet. Select a service above to add one.");
+
+  document.querySelectorAll("[data-edit-sermon]").forEach((button) => {
+    button.addEventListener("click", () => openSermonEditor(button.dataset.editSermon));
+  });
+
+  applyRoleAccess();
+};
+
+const submitSermonForm = async (form) => {
+  const payload = formPayload(form);
+  const eventId = payload.event_id;
+  if (!eventId) {
+    setStatus("Select a service or event first", "error");
+    return;
+  }
+
+  payload.published = form.elements.published.checked;
+  delete payload.event_id;
+
+  try {
+    setBusy(true);
+    setStatus(payload.published ? "Publishing sermon" : "Saving sermon draft");
+    await sendJson(`/staff/sermons/${eventId}`, "PUT", payload);
+    await loadSection("sermons");
+    clearSermonForm();
+    setStatus(payload.published ? "Sermon published" : "Sermon draft saved", "ok");
+  } catch (error) {
+    console.error(error);
+    setStatus(error.message || "Sermon could not be saved", "error");
+  } finally {
+    setBusy(false);
+  }
+};
+
+
 const renderStewardship = () => {
   const finance = state.stewardship || {};
   const latest = finance.latest || [];
@@ -1834,6 +2085,14 @@ renderMinistries();
   if (section === "messages") {
     state.messages = await fetchJson("/messages/");
     renderMessages();
+  }
+  if (section === "pastoral") {
+    state.pastoral = await fetchJson("/staff/prayers");
+    renderPastoral();
+  }
+  if (section === "sermons") {
+    state.sermons = await fetchJson("/staff/sermons");
+    renderSermons();
   }
   if (section === "stewardship") {
   state.stewardship = await fetchJson("/stewardship/");
@@ -3010,6 +3269,136 @@ const openPersonDialog = (type, personId) => {
   dialog.showModal();
 };
 
+
+
+const canManageMemberAccess = () => {
+  const roles = currentRoles();
+  return roles.includes("administrator") || roles.includes("receptionist");
+};
+
+const renderMemberAccessPanel = (member, access, temporaryPassword = null) => {
+  const panel = document.querySelector("#memberAccessPanel");
+  if (!panel) {
+    return;
+  }
+
+  const manage = canManageMemberAccess();
+  if (!access.exists) {
+    panel.innerHTML = `
+      <p class="muted">This member has not been activated for the Vinyrd member app.</p>
+      <label>
+        Login email
+        <input id="memberAccessEmail" type="email" value="${escapeHtml(access.email || member.email || "")}" placeholder="member@example.com">
+      </label>
+      ${manage ? '<button class="primary-button" id="provisionMemberAccess" type="button">Create Vinyrd access</button>' : ""}
+    `;
+
+    document.querySelector("#provisionMemberAccess")?.addEventListener("click", async () => {
+      const email = document.querySelector("#memberAccessEmail")?.value?.trim() || null;
+      try {
+        setBusy(true);
+        setStatus("Creating Vinyrd member access");
+        const result = await sendJson(
+          `/staff/member-access/${member.id}`,
+          "POST",
+          { email },
+        );
+        renderMemberAccessPanel(member, result, result.temporary_password);
+        setStatus("Vinyrd member access created", "ok");
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || "Member access could not be created", "error");
+      } finally {
+        setBusy(false);
+      }
+    });
+    return;
+  }
+
+  panel.innerHTML = `
+    <div class="profile-grid">
+      <div><span>Login email</span><strong>${escapeHtml(access.email)}</strong></div>
+      <div><span>Access</span><strong>${access.status === "active" ? "Active" : "Disabled"}</strong></div>
+      <div><span>Activated</span><strong>${escapeHtml(formatDateTime(access.created_at))}</strong></div>
+      <div><span>Last account update</span><strong>${escapeHtml(formatDateTime(access.updated_at))}</strong></div>
+    </div>
+    ${temporaryPassword ? `
+      <div class="temporary-password">
+        <strong>Temporary password</strong>
+        <code id="temporaryMemberPassword">${escapeHtml(temporaryPassword)}</code>
+        <button class="mini-button" id="copyTemporaryMemberPassword" type="button">Copy</button>
+        <p>Share this password privately with the member. It is only shown in this response.</p>
+      </div>
+    ` : ""}
+    ${manage ? `
+      <div class="dialog-actions">
+        <button class="icon-button" id="resetMemberPassword" type="button">Reset password</button>
+        <button class="${access.status === "active" ? "danger-button" : "primary-button"}" id="toggleMemberAccess" type="button">
+          ${access.status === "active" ? "Disable access" : "Enable access"}
+        </button>
+      </div>
+    ` : ""}
+  `;
+
+  document.querySelector("#copyTemporaryMemberPassword")?.addEventListener("click", async () => {
+    const value = document.querySelector("#temporaryMemberPassword")?.textContent || "";
+    await navigator.clipboard?.writeText(value);
+    setStatus("Temporary password copied", "ok");
+  });
+
+  document.querySelector("#resetMemberPassword")?.addEventListener("click", async () => {
+    try {
+      setBusy(true);
+      const result = await sendJson(
+        `/staff/member-access/${member.id}/reset-password`,
+        "POST",
+      );
+      renderMemberAccessPanel(member, result, result.temporary_password);
+      setStatus("Temporary password reset", "ok");
+    } catch (error) {
+      console.error(error);
+      setStatus(error.message || "Password reset failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  document.querySelector("#toggleMemberAccess")?.addEventListener("click", async () => {
+    const nextStatus = access.status === "active" ? "inactive" : "active";
+    try {
+      setBusy(true);
+      const result = await sendJson(
+        `/staff/member-access/${member.id}`,
+        "PATCH",
+        { status: nextStatus },
+      );
+      renderMemberAccessPanel(member, result);
+      setStatus(nextStatus === "active" ? "Member access enabled" : "Member access disabled", "ok");
+    } catch (error) {
+      console.error(error);
+      setStatus(error.message || "Member access could not be updated", "error");
+    } finally {
+      setBusy(false);
+    }
+  });
+};
+
+const loadMemberAccess = async (member) => {
+  const panel = document.querySelector("#memberAccessPanel");
+  if (!panel) {
+    return;
+  }
+
+  try {
+    const access = await fetchJson(`/staff/member-access/${member.id}`);
+    renderMemberAccessPanel(member, access);
+  } catch (error) {
+    console.error(error);
+    panel.innerHTML = '<p class="muted">Member access information is unavailable for this account.</p>';
+  }
+};
+
+
 const openMemberProfile = (memberId) => {
   const member = state.people?.members?.find(
     (item) => item.id === memberId,
@@ -3042,6 +3431,13 @@ const openMemberProfile = (memberId) => {
           <span>Email</span>
           <strong>${member.email || "Not provided"}</strong>
         </div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <h3>Vinyrd Access</h3>
+      <div id="memberAccessPanel" class="member-access-panel">
+        <p class="muted">Loading member access...</p>
       </div>
     </div>
 
@@ -3334,6 +3730,7 @@ document
   });
 
   dialog.showModal();
+  loadMemberAccess(member);
 };
 
 const openVisitorProfile = (visitorId) => {
@@ -4679,6 +5076,11 @@ document.querySelector("#messageForm").addEventListener("submit", (event) => {
   event.preventDefault();
   submitMessageForm(event.currentTarget);
 });
+document.querySelector("#sermonForm")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitSermonForm(event.currentTarget);
+});
+document.querySelector("#clearSermonForm")?.addEventListener("click", clearSermonForm);
 document.querySelector("#messageTemplate").addEventListener("change", applyMessageTemplate);
 document.querySelector("#messageBody").addEventListener("input", updateMessageAssist);
 document.querySelector("#messageChannel").addEventListener("change", updateMessageAssist);
