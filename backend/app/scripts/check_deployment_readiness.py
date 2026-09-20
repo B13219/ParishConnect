@@ -37,7 +37,11 @@ def settings_snapshot() -> dict[str, Any]:
     }
 
 
-def readiness_issues(config: Mapping[str, Any]) -> list[DeploymentIssue]:
+def readiness_issues(
+    config: Mapping[str, Any],
+    *,
+    allow_local_database: bool = False,
+) -> list[DeploymentIssue]:
     issues: list[DeploymentIssue] = []
     environment = _value(config, "environment").lower()
     database_url = _value(config, "database_url").lower()
@@ -64,7 +68,13 @@ def readiness_issues(config: Mapping[str, Any]) -> list[DeploymentIssue]:
                 message="SQLite is for presentation demos only; production should use PostgreSQL.",
             )
         )
-    if "parishconnect:parishconnect@" in database_url or "@localhost" in database_url:
+    if (
+        not allow_local_database
+        and (
+            "parishconnect:parishconnect@" in database_url
+            or "@localhost" in database_url
+        )
+    ):
         issues.append(
             DeploymentIssue(
                 code="database-demo-connection",
@@ -142,9 +152,17 @@ def main() -> int:
         action="store_true",
         help="Exit with status 1 when any readiness issue is found.",
     )
+    parser.add_argument(
+        "--allow-local-database",
+        action="store_true",
+        help="Allow a localhost/demo PostgreSQL URL for CI validation only.",
+    )
     args = parser.parse_args()
 
-    issues = readiness_issues(settings_snapshot())
+    issues = readiness_issues(
+        settings_snapshot(),
+        allow_local_database=args.allow_local_database,
+    )
     if not issues:
         print("Vinyrd deployment readiness: no issues found.")
         return 0
