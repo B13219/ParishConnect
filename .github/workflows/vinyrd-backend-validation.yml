@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - ci/vinyrd-validation-base
+      - main
   workflow_dispatch:
 
 permissions:
@@ -12,11 +13,25 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: parishconnect
+          POSTGRES_PASSWORD: parishconnect
+          POSTGRES_DB: parishconnect
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U parishconnect -d parishconnect"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
     env:
-      PARISHCONNECT_DATABASE_URL: sqlite:///./vinyrd-ci.db
+      PARISHCONNECT_DATABASE_URL: postgresql+psycopg://parishconnect:parishconnect@localhost:5432/parishconnect
 
     steps:
       - name: Checkout
