@@ -13,12 +13,16 @@ from app.db.session import get_db
 from app.models import (
     AttendanceRecord,
     Branch,
+    CommunityGroup,
+    CommunityGroupMembership,
     Contribution,
     Event,
     Household,
     HouseholdPerson,
     Member,
     Message,
+    Ministry,
+    MinistryMembership,
     User,
 )
 from app.services.geofence import is_inside_geofence
@@ -242,6 +246,113 @@ def member_home(
                 for contribution in contributions
             ],
         },
+    }
+
+
+
+@router.get("/groups")
+def member_groups(
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    branch = db.get(Branch, member.branch_id)
+
+    community_memberships = db.scalars(
+        select(CommunityGroupMembership)
+        .where(
+            CommunityGroupMembership.member_id == member.id,
+            CommunityGroupMembership.status == "active",
+        )
+        .order_by(CommunityGroupMembership.created_at.asc())
+    ).all()
+
+    communities: list[dict[str, object]] = []
+    for membership in community_memberships:
+        group = db.get(CommunityGroup, membership.community_group_id)
+        if group is None or group.branch_id != member.branch_id or group.status != "active":
+            continue
+
+        leader = db.get(Member, group.leader_member_id) if group.leader_member_id else None
+        member_count = db.scalar(
+            select(func.count())
+            .select_from(CommunityGroupMembership)
+            .where(
+                CommunityGroupMembership.community_group_id == group.id,
+                CommunityGroupMembership.status == "active",
+            )
+        ) or 0
+
+        communities.append(
+            {
+                "id": str(group.id),
+                "name": group.name,
+                "group_type": group.group_type,
+                "role": membership.role,
+                "area": group.area,
+                "meeting_day": group.meeting_day,
+                "leader_name": (
+                    f"{leader.first_name} {leader.last_name}"
+                    if leader
+                    else None
+                ),
+                "member_count": member_count,
+                "is_leader": group.leader_member_id == member.id,
+            }
+        )
+
+    ministry_memberships = db.scalars(
+        select(MinistryMembership)
+        .where(
+            MinistryMembership.member_id == member.id,
+            MinistryMembership.status == "active",
+        )
+        .order_by(MinistryMembership.created_at.asc())
+    ).all()
+
+    ministries: list[dict[str, object]] = []
+    for membership in ministry_memberships:
+        ministry = db.get(Ministry, membership.ministry_id)
+        if ministry is None or ministry.branch_id != member.branch_id:
+            continue
+
+        leader = (
+            db.get(Member, ministry.leader_member_id)
+            if ministry.leader_member_id
+            else None
+        )
+        member_count = db.scalar(
+            select(func.count())
+            .select_from(MinistryMembership)
+            .where(
+                MinistryMembership.ministry_id == ministry.id,
+                MinistryMembership.status == "active",
+            )
+        ) or 0
+
+        ministries.append(
+            {
+                "id": str(ministry.id),
+                "name": ministry.name,
+                "role": membership.role,
+                "leader_name": (
+                    f"{leader.first_name} {leader.last_name}"
+                    if leader
+                    else None
+                ),
+                "member_count": member_count,
+                "is_leader": ministry.leader_member_id == member.id,
+            }
+        )
+
+    return {
+        "community_label": (
+            branch.community_label
+            if branch and branch.community_label
+            else "Community Group"
+        ),
+        "communities": communities,
+        "ministries": ministries,
+        "total_memberships": len(communities) + len(ministries),
     }
 
 

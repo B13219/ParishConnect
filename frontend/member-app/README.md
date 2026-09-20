@@ -21,4 +21,4 @@ Local run:
 
 The demo auth seeder links the first active member to a Member-role account. If that member has no email, it uses member@graceparish.test. The demo password remains parishconnect.
 
-My Giving and Events are now implemented. Events use authenticated branch data and a member-only geofence check-in endpoint that always derives the person from the logged-in account. Next: Groups and Messages.
+My Giving, Events and My Groups are now implemented. My Groups shows only the authenticated member's active community-group and ministry memberships. Next: Messages.
