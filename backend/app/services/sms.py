@@ -6,6 +6,7 @@ import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+from uuid import uuid4
 
 from app.core.settings import settings
 
@@ -153,7 +154,7 @@ def send_sms(body: str, phones: list[str | None]) -> list[SmsRecipientResult]:
             SmsRecipientResult(
                 phone=phone,
                 delivery_status="queued",
-                provider_reference=f"simulated-{phone.lstrip('+')}",
+                provider_reference=f"simulated-{uuid4().hex}",
                 status_code=102,
             )
             for phone in normalized_numbers
