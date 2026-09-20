@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feature/vinyrd-member-webapp
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
