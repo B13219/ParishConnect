@@ -23,6 +23,15 @@ class Settings(BaseSettings):
     bootstrap_branch_name: str = "Vinyrd Pilot Church"
     bootstrap_branch_location: str = ""
 
+    sms_provider: str = "africas_talking"
+    sms_mode: str = "simulate"
+    sms_username: str = ""
+    sms_api_key: str = ""
+    sms_sender_id: str = "VINYRD"
+    sms_default_country_code: str = "255"
+    sms_callback_token: str = ""
+    sms_request_timeout_seconds: int = 15
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_prefix="PARISHCONNECT_",
