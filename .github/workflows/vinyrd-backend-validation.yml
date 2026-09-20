@@ -1,12 +1,9 @@
 name: Vinyrd Backend Validation
 
 on:
-  push:
-    branches:
-      - feature/vinyrd-member-webapp
   pull_request:
     branches:
-      - main
+      - ci/vinyrd-validation-base
   workflow_dispatch:
 
 jobs:
