@@ -1,14 +1,27 @@
 from decimal import Decimal
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api.routes.attendance import CheckInCreate, create_attendance_record, qr_window
 from app.core.security import current_user
 from app.db.base import utc_now
 from app.db.session import get_db
-from app.models import Branch, Contribution, Event, Household, HouseholdPerson, Member, Message, User
+from app.models import (
+    AttendanceRecord,
+    Branch,
+    Contribution,
+    Event,
+    Household,
+    HouseholdPerson,
+    Member,
+    Message,
+    User,
+)
+from app.services.geofence import is_inside_geofence
 
 router = APIRouter()
 
@@ -20,6 +33,14 @@ class MemberGivingCreate(BaseModel):
     payment_method: str = "mobile_money"
     reference_code: str | None = None
     notes: str | None = None
+
+
+class MemberLocationCheckInCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_meters: float | None = Field(default=None, gt=0)
 
 
 def get_current_member(
@@ -74,6 +95,47 @@ def serialize_member_contribution(contribution: Contribution) -> dict[str, objec
         "received_at": contribution.received_at.isoformat(),
         "payment_method": contribution.payment_method,
         "reference_code": contribution.reference_code,
+    }
+
+
+
+def serialize_member_event(
+    event: Event,
+    member: Member,
+    branch: Branch | None,
+    db: Session,
+) -> dict[str, object]:
+    checked_in = db.scalar(
+        select(AttendanceRecord.id).where(
+            AttendanceRecord.event_id == event.id,
+            AttendanceRecord.person_type == "member",
+            AttendanceRecord.member_id == member.id,
+        )
+    )
+    opens_at, closes_at = qr_window(event)
+    now = utc_now()
+    attendance_window_open = (
+        event.attendance_status == "open"
+        and opens_at <= now <= closes_at
+    )
+    geofence_available = bool(
+        branch
+        and branch.geofence_enabled
+        and branch.latitude is not None
+        and branch.longitude is not None
+    )
+
+    return {
+        "id": str(event.id),
+        "name": event.name,
+        "type": event.event_type,
+        "starts_at": event.starts_at.isoformat(),
+        "ends_at": event.ends_at.isoformat() if event.ends_at else None,
+        "location": event.location,
+        "attendance_status": event.attendance_status,
+        "attendance_window_open": attendance_window_open,
+        "geofence_available": geofence_available,
+        "checked_in": checked_in is not None,
     }
 
 
@@ -181,6 +243,109 @@ def member_home(
             ],
         },
     }
+
+
+@router.get("/events")
+def member_events(
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+) -> list[dict[str, object]]:
+    branch = db.get(Branch, member.branch_id)
+    events = db.scalars(
+        select(Event)
+        .where(Event.branch_id == member.branch_id)
+        .order_by(Event.starts_at.asc())
+        .limit(50)
+    ).all()
+    return [serialize_member_event(event, member, branch, db) for event in events]
+
+
+@router.post("/events/{event_id}/check-in/location", status_code=status.HTTP_201_CREATED)
+def member_location_check_in(
+    event_id: UUID,
+    payload: MemberLocationCheckInCreate,
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    event = db.get(Event, event_id)
+    if event is None or event.branch_id != member.branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found.",
+        )
+
+    if event.attendance_status != "open":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Attendance is not open for this event.",
+        )
+
+    branch = db.get(Branch, member.branch_id)
+    if branch is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Member branch not found.",
+        )
+
+    if not branch.geofence_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Location attendance is disabled for this branch.",
+        )
+
+    if branch.latitude is None or branch.longitude is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The branch location has not been configured.",
+        )
+
+    opens_at, closes_at = qr_window(event)
+    now = utc_now()
+    if now < opens_at or now > closes_at:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Location check-in is outside the attendance window.",
+        )
+
+    if (
+        payload.accuracy_meters is not None
+        and payload.accuracy_meters > branch.attendance_radius_meters
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Location accuracy is too low to confirm attendance.",
+        )
+
+    inside, distance_meters = is_inside_geofence(
+        church_latitude=branch.latitude,
+        church_longitude=branch.longitude,
+        device_latitude=payload.latitude,
+        device_longitude=payload.longitude,
+        radius_meters=branch.attendance_radius_meters,
+    )
+    if not inside:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "reason": "outside_geofence",
+                "distance_meters": round(distance_meters, 1),
+                "allowed_radius_meters": branch.attendance_radius_meters,
+            },
+        )
+
+    attendance = create_attendance_record(
+        CheckInCreate(
+            event_id=event.id,
+            person_type="member",
+            person_id=member.id,
+            check_in_method="geofence",
+        ),
+        db,
+    )
+    attendance["distance_meters"] = round(distance_meters, 1)
+    attendance["allowed_radius_meters"] = branch.attendance_radius_meters
+    attendance["inside_geofence"] = True
+    return attendance
 
 
 @router.post("/giving", status_code=status.HTTP_201_CREATED)

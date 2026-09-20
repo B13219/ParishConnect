@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0F3D2E">
+  <title>Events - Vinyrd</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="vinyrd-app events-app" aria-label="Vinyrd member events">
+    <header class="section-header">
+      <div class="section-brand">VINYRD</div>
+      <h1>Events</h1>
+    </header>
+
+    <section class="events-content">
+      <article class="next-event-card" id="nextEventCard">
+        <div class="next-event-label">Next event</div>
+        <div class="next-event-main">
+          <div class="next-event-date">
+            <strong id="nextEventDay">--</strong>
+            <span id="nextEventMonth">---</span>
+          </div>
+          <div class="next-event-copy">
+            <h2 id="nextEventName">Loading events...</h2>
+            <p id="nextEventWhen">Please wait</p>
+            <span id="nextEventLocation">Vinyrd</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="events-list-card">
+        <div class="events-heading">
+          <div>
+            <h2>Upcoming</h2>
+            <p>Services and events from your church branch</p>
+          </div>
+          <span id="eventCount">0</span>
+        </div>
+        <div class="events-list" id="eventsList" aria-live="polite">
+          <div class="events-empty">Loading events...</div>
+        </div>
+      </article>
+
+      <div class="event-checkin-status" id="eventCheckinStatus" role="status" aria-live="polite"></div>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Primary member navigation">
+      <a class="nav-item" href="./index.html"><img src="./assets/nav-home.svg" alt=""><span>Home</span></a>
+      <a class="nav-item" href="#" data-route="groups"><img src="./assets/nav-groups.svg" alt=""><span>Groups</span></a>
+      <a class="nav-item" href="./giving.html"><img src="./assets/nav-giving.svg" alt=""><span>Giving</span></a>
+      <a class="nav-item active" href="./events.html" aria-current="page"><img src="./assets/nav-events.svg" alt=""><span>Events</span></a>
+      <a class="nav-item" href="./profile.html"><img src="./assets/nav-profile.svg" alt=""><span>Profile</span></a>
+    </nav>
+
+    <div class="status-toast" id="statusToast" role="status" aria-live="polite"></div>
+  </main>
+  <script src="./client.js"></script>
+  <script src="./events.js"></script>
+</body>
+</html>

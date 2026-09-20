@@ -11,7 +11,18 @@ from app.core.security import password_hash
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import create_app
-from app.models import Branch, Contribution, Event, Household, HouseholdPerson, Member, Message, Role, User, UserRole
+from app.models import (
+    Branch,
+    Contribution,
+    Event,
+    Household,
+    HouseholdPerson,
+    Member,
+    Message,
+    Role,
+    User,
+    UserRole,
+)
 
 
 def build_client() -> TestClient:
@@ -24,7 +35,14 @@ def build_client() -> TestClient:
     Base.metadata.create_all(engine)
 
     with TestingSessionLocal() as db:
-        branch = Branch(name="Test Parish", location="Test City")
+        branch = Branch(
+            name="Test Parish",
+            location="Test City",
+            latitude=-6.7924,
+            longitude=39.2083,
+            attendance_radius_meters=150,
+            geofence_enabled=True,
+        )
         member_role = Role(name="Member", description="Member portal access")
         db.add_all([branch, member_role])
         db.flush()
@@ -82,6 +100,7 @@ def build_client() -> TestClient:
                     event_type="service",
                     starts_at=datetime.now(UTC),
                     location="Main Hall",
+                    attendance_status="open",
                 ),
                 Message(
                     branch_id=branch.id,
@@ -178,4 +197,73 @@ def test_member_portal_rejects_invalid_giving_amount() -> None:
         headers=member_headers(client),
         json={"contribution_type": "tithe", "amount": "0.00"},
     )
+    assert response.status_code == 422
+
+
+def test_member_events_require_login() -> None:
+    client = build_client()
+    response = client.get("/api/v1/member-portal/events")
+    assert response.status_code == 401
+
+
+def test_member_events_return_member_attendance_state() -> None:
+    client = build_client()
+    headers = member_headers(client)
+    response = client.get("/api/v1/member-portal/events", headers=headers)
+
+    assert response.status_code == 200
+    event = response.json()[0]
+    assert event["name"] == "Sunday Service"
+    assert event["attendance_status"] == "open"
+    assert event["geofence_available"] is True
+    assert event["checked_in"] is False
+
+
+def test_member_location_check_in_uses_authenticated_member() -> None:
+    client = build_client()
+    headers = member_headers(client)
+    events = client.get("/api/v1/member-portal/events", headers=headers).json()
+    event_id = events[0]["id"]
+
+    response = client.post(
+        f"/api/v1/member-portal/events/{event_id}/check-in/location",
+        headers=headers,
+        json={
+            "latitude": -6.7924,
+            "longitude": 39.2083,
+            "accuracy_meters": 5,
+        },
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["person_type"] == "member"
+    assert data["person_name"] == "Ada Member"
+    assert data["check_in_method"] == "geofence"
+    assert data["inside_geofence"] is True
+
+    events_after = client.get(
+        "/api/v1/member-portal/events",
+        headers=headers,
+    ).json()
+    assert events_after[0]["checked_in"] is True
+
+
+def test_member_location_check_in_rejects_client_person_id() -> None:
+    client = build_client()
+    headers = member_headers(client)
+    events = client.get("/api/v1/member-portal/events", headers=headers).json()
+    event_id = events[0]["id"]
+
+    response = client.post(
+        f"/api/v1/member-portal/events/{event_id}/check-in/location",
+        headers=headers,
+        json={
+            "latitude": -6.7924,
+            "longitude": 39.2083,
+            "accuracy_meters": 5,
+            "person_id": "00000000-0000-0000-0000-000000000001",
+        },
+    )
+
     assert response.status_code == 422
