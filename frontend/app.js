@@ -2276,6 +2276,7 @@ renderMinistries();
     state.smsProvider = smsProvider;
     state.ministries = ministries;
     renderSmsProviderStatus();
+    updateSmsSandboxTestVisibility();
     renderMessageAudienceOptions();
     updateMessageAudienceTarget();
     updateMessageAssist();
@@ -3034,6 +3035,45 @@ const renderSmsProviderStatus = () => {
     <span class="tag ${liveTone}">${escapeHtml(mode)}</span>
   `;
   panel.classList.toggle("external-sms-ready", Boolean(provider.external_sending && provider.ready));
+};
+
+const updateSmsSandboxTestVisibility = () => {
+  const form = document.querySelector("#smsSandboxTestForm");
+  if (!form) {
+    return;
+  }
+  const mode = state.smsProvider?.mode;
+  form.hidden = !["simulate", "sandbox"].includes(mode);
+};
+
+const submitSmsSandboxTest = async (form) => {
+  const result = document.querySelector("#smsSandboxTestResult");
+  const button = document.querySelector("#smsSandboxTestButton");
+  const payload = formPayload(form);
+  try {
+    button.disabled = true;
+    result.textContent = "Sending sandbox test…";
+    const response = await sendJson("/messages/sms/test", "POST", payload);
+    result.innerHTML = `
+      <strong>${escapeHtml(labelize(response.delivery_status || "unknown"))}</strong>
+      <span>${escapeHtml(response.phone || "")}</span>
+      ${response.provider_reference ? `<span>Ref: ${escapeHtml(response.provider_reference)}</span>` : ""}
+      ${response.cost ? `<span>Cost: ${escapeHtml(response.cost)}</span>` : ""}
+      ${response.error ? `<span class="warning">${escapeHtml(response.error)}</span>` : ""}
+    `;
+    setStatus(
+      response.delivery_status === "queued"
+        ? "Sandbox SMS accepted by provider"
+        : `Sandbox SMS: ${labelize(response.delivery_status)}`,
+      response.delivery_status === "queued" ? "ok" : "",
+    );
+  } catch (error) {
+    console.error(error);
+    result.textContent = error.message || "Sandbox SMS test failed.";
+    setStatus(error.message || "Sandbox SMS test failed", "error");
+  } finally {
+    button.disabled = false;
+  }
 };
 
 const renderMessageAudienceOptions = () => {
@@ -5451,6 +5491,10 @@ document.querySelector("#checkInForm").addEventListener("submit", (event) => {
 document.querySelector("#messageForm").addEventListener("submit", (event) => {
   event.preventDefault();
   submitMessageForm(event.currentTarget);
+});
+document.querySelector("#smsSandboxTestForm")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitSmsSandboxTest(event.currentTarget);
 });
 document.querySelector("#sermonForm")?.addEventListener("submit", (event) => {
   event.preventDefault();
