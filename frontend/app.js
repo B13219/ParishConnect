@@ -25,6 +25,7 @@ const state = {
   households: null,
   messages: null,
   messageRecipients: null,
+  smsProvider: null,
   pastoral: null,
   sermons: null,
   stewardship: null,
@@ -2261,7 +2262,18 @@ renderMinistries();
     renderHouseholds();
   }
   if (section === "messages") {
-    state.messages = await fetchJson("/messages/");
+    const [messages, smsProvider, ministries] = await Promise.all([
+      fetchJson("/messages/"),
+      fetchJson("/messages/sms/provider"),
+      state.ministries ? Promise.resolve(state.ministries) : fetchJson("/members/ministries"),
+    ]);
+    state.messages = messages;
+    state.smsProvider = smsProvider;
+    state.ministries = ministries;
+    renderSmsProviderStatus();
+    renderMessageAudienceOptions();
+    updateMessageAudienceTarget();
+    updateMessageAssist();
     renderMessages();
   }
   if (section === "pastoral") {
@@ -2365,6 +2377,7 @@ const clearSession = () => {
   state.households = null;
   state.messages = null;
   state.messageRecipients = null;
+  state.smsProvider = null;
   state.stewardship = null;
   state.reports = null;
   state.admin = null;
@@ -2963,17 +2976,132 @@ const messagePayload = (form) => {
   return payload;
 };
 
+const smsSegmentInfo = (body) => {
+  const text = String(body || "");
+  const unicode = [...text].some((character) => character.charCodeAt(0) > 127);
+  const singleLimit = unicode ? 70 : 160;
+  const multipartLimit = unicode ? 67 : 153;
+  const segments =
+    text.length <= singleLimit ? 1 : Math.max(1, Math.ceil(text.length / multipartLimit));
+  return {
+    characters: text.length,
+    unicode,
+    segments,
+    singleLimit,
+    multipartLimit,
+  };
+};
+
+const renderSmsProviderStatus = () => {
+  const panel = document.querySelector("#smsProviderStatus");
+  if (!panel) {
+    return;
+  }
+
+  const provider = state.smsProvider;
+  if (!provider) {
+    panel.innerHTML = `
+      <div class="sms-provider-icon">SMS</div>
+      <div>
+        <span class="eyebrow">SMS Gateway</span>
+        <strong>Checking provider configuration…</strong>
+        <p>VINYRD will keep real carrier sending off until the gateway is configured.</p>
+      </div>
+      <span class="tag amber">Checking</span>
+    `;
+    return;
+  }
+
+  const mode = labelize(provider.mode);
+  const sender = provider.sender_id ? `Sender ID: ${provider.sender_id}` : "Sender ID not set";
+  const callback = provider.delivery_report_configured
+    ? "Delivery reports ready"
+    : "Delivery reports not configured";
+  const liveTone = provider.external_sending && provider.ready ? "green" : "amber";
+
+  panel.innerHTML = `
+    <div class="sms-provider-icon">SMS</div>
+    <div>
+      <span class="eyebrow">SMS Gateway · ${escapeHtml(provider.provider || "Provider")}</span>
+      <strong>${escapeHtml(provider.summary || "SMS provider status unavailable.")}</strong>
+      <p>${escapeHtml(sender)} · ${escapeHtml(callback)}</p>
+    </div>
+    <span class="tag ${liveTone}">${escapeHtml(mode)}</span>
+  `;
+  panel.classList.toggle("external-sms-ready", Boolean(provider.external_sending && provider.ready));
+};
+
+const renderMessageAudienceOptions = () => {
+  const select = document.querySelector("#messageAudienceTarget");
+  if (!select) {
+    return;
+  }
+
+  const current = select.value;
+  const ministries = state.ministries?.ministries || [];
+  select.innerHTML =
+    '<option value="">Select ministry</option>' +
+    ministries
+      .map(
+        (ministry) =>
+          `<option value="${ministry.id}">${escapeHtml(ministry.name)}</option>`,
+      )
+      .join("");
+
+  if (ministries.some((ministry) => ministry.id === current)) {
+    select.value = current;
+  }
+};
+
+const updateMessageAudienceTarget = () => {
+  const type = document.querySelector("#messageAudienceType")?.value;
+  const field = document.querySelector("#messageAudienceTargetField");
+  const select = document.querySelector("#messageAudienceTarget");
+  if (!field || !select) {
+    return;
+  }
+
+  const needsMinistry = type === "ministry";
+  field.hidden = !needsMinistry;
+  select.required = needsMinistry;
+  if (!needsMinistry) {
+    select.value = "";
+  }
+};
+
+const updateMessageSubmitLabel = () => {
+  const button = document.querySelector("#messageSubmitButton");
+  const channel = document.querySelector("#messageChannel")?.value;
+  const status = document.querySelector("#messageStatus")?.value;
+  if (!button) {
+    return;
+  }
+
+  if (status === "draft") {
+    button.textContent = "Save draft";
+  } else if (status === "scheduled") {
+    button.textContent = "Save scheduled message";
+  } else if (channel === "sms") {
+    button.textContent = state.smsProvider?.external_sending ? "Send SMS" : "Simulate SMS";
+  } else {
+    button.textContent = "Send message";
+  }
+};
+
 const updateMessageAssist = () => {
   const body = document.querySelector("#messageBody").value || "";
   const channel = document.querySelector("#messageChannel").value;
   const counter = document.querySelector("#smsCounter");
   const preview = document.querySelector("#messagePreview");
+  const segment = smsSegmentInfo(body);
+
   counter.textContent =
     channel === "sms"
-      ? `${body.length} / 160 SMS characters`
+      ? `${segment.characters} chars · ${segment.segments} SMS segment${segment.segments === 1 ? "" : "s"} · ${segment.unicode ? "Unicode" : "GSM-style"}`
       : `${body.length} characters`;
-  counter.classList.toggle("warning", channel === "sms" && body.length > 160);
+  counter.classList.toggle("warning", channel === "sms" && segment.segments > 1);
   preview.textContent = body || "Your message preview will appear here.";
+  updateMessageSubmitLabel();
 };
 
 const applyMessageTemplate = () => {
@@ -2988,14 +3116,32 @@ const applyMessageTemplate = () => {
 };
 
 const submitMessageForm = async (form) => {
+  const payload = messagePayload(form);
+  const isImmediateSms = payload.channel === "sms" && payload.status === "send_now";
+
   try {
     setBusy(true);
-    setStatus("Saving message");
-    await sendJson("/messages/", "POST", messagePayload(form));
+    setStatus(
+      isImmediateSms
+        ? state.smsProvider?.external_sending
+          ? "Submitting SMS to provider"
+          : "Running SMS simulation"
+        : "Saving message",
+    );
+    await sendJson("/messages/", "POST", payload);
     form.reset();
+    renderMessageAudienceOptions();
+    updateMessageAudienceTarget();
     updateMessageAssist();
     await loadSection("messages");
-    setStatus("Message saved", "ok");
+    setStatus(
+      isImmediateSms
+        ? state.smsProvider?.external_sending
+          ? "SMS submitted to provider"
+          : "SMS recorded in simulation mode"
+        : "Message saved",
+      "ok",
+    );
   } catch (error) {
     console.error(error);
     setStatus(error.message || "Message failed", "error");
@@ -5302,6 +5448,8 @@ document.querySelector("#clearSermonForm")?.addEventListener("click", clearSermo
 document.querySelector("#messageTemplate").addEventListener("change", applyMessageTemplate);
 document.querySelector("#messageBody").addEventListener("input", updateMessageAssist);
 document.querySelector("#messageChannel").addEventListener("change", updateMessageAssist);
+document.querySelector("#messageStatus").addEventListener("change", updateMessageAssist);
+document.querySelector("#messageAudienceType").addEventListener("change", updateMessageAudienceTarget);
 document.querySelector("#contributionForm").addEventListener("submit", (event) => {
   event.preventDefault();
   submitContributionForm(event.currentTarget);
