@@ -264,6 +264,25 @@ def serialize_sermon_lesson(
     }
 
 
+
+def serialize_published_sermon(event: Event) -> dict[str, object]:
+    return {
+        "id": str(event.id),
+        "event_name": event.name,
+        "starts_at": event.starts_at.isoformat(),
+        "location": event.location,
+        "title": event.sermon_title,
+        "speaker": event.sermon_speaker,
+        "scripture_reference": event.sermon_scripture,
+        "summary": event.sermon_summary,
+        "published_at": (
+            event.sermon_published_at.isoformat()
+            if event.sermon_published_at
+            else None
+        ),
+    }
+
+
 def household_for_member(member: Member, db: Session) -> Household | None:
     household_person = db.scalar(
         select(HouseholdPerson).where(HouseholdPerson.member_id == member.id).limit(1)
@@ -355,6 +374,23 @@ def member_home(
         },
     }
 
+
+
+@router.get("/sermons")
+def member_published_sermons(
+    member: Member = Depends(get_current_member),
+    db: Session = Depends(get_db),
+) -> list[dict[str, object]]:
+    sermons = db.scalars(
+        select(Event)
+        .where(
+            Event.branch_id == member.branch_id,
+            Event.sermon_published_at.is_not(None),
+        )
+        .order_by(Event.starts_at.desc())
+        .limit(50)
+    ).all()
+    return [serialize_published_sermon(event) for event in sermons]
 
 
 @router.get("/sermon-lessons")
