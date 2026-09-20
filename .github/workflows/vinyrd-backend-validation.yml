@@ -31,7 +31,22 @@ jobs:
       run:
         working-directory: backend
     env:
+      PARISHCONNECT_ENVIRONMENT: production
       PARISHCONNECT_DATABASE_URL: postgresql+psycopg://parishconnect:parishconnect@localhost:5432/parishconnect
+      PARISHCONNECT_CORS_ORIGINS: ""
+      PARISHCONNECT_PUBLIC_BASE_URL: https://pilot.vinyrd.example
+      PARISHCONNECT_AUTH_TOKEN_SECRET: ci-vinyrd-auth-secret-2026-long-value-00001
+      PARISHCONNECT_QR_TOKEN_SECRET: ci-vinyrd-qr-secret-2026-long-value-0000002
+      PARISHCONNECT_PASSWORD_SALT: ci-vinyrd-password-salt-2026-long-value-003
+      PARISHCONNECT_ACCESS_TOKEN_MINUTES: 120
+      PARISHCONNECT_DEMO_PASSWORD: disabled-in-production
+      PARISHCONNECT_BOOTSTRAP_ADMIN_NAME: Vinyrd Pilot Administrator
+      PARISHCONNECT_BOOTSTRAP_ADMIN_EMAIL: pilot-admin@vinyrd.test
+      PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD: Vinyrd-CI-Admin-2026-Strong-Password!
+      PARISHCONNECT_BOOTSTRAP_BRANCH_NAME: Vinyrd Pilot Church
+      PARISHCONNECT_BOOTSTRAP_BRANCH_LOCATION: Dar es Salaam
+      VINYRD_PILOT_BASE_URL: http://127.0.0.1:8003
+      VINYRD_PILOT_PASTOR_PASSWORD: Vinyrd-CI-Pastor-2026-Strong-Password!
 
     steps:
       - name: Checkout
@@ -61,3 +76,41 @@ jobs:
 
       - name: Check member JavaScript syntax
         run: node --check ../frontend/member-app/bible.js
+
+      - name: Build production Docker image
+        run: docker build -f ../Dockerfile -t vinyrd-pilot ..
+
+      - name: Check production readiness
+        run: python -m app.scripts.check_deployment_readiness --strict --allow-local-database
+
+      - name: Bootstrap pilot administrator
+        run: python -m app.scripts.bootstrap_admin
+
+      - name: Start production-like Vinyrd service
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8003 > /tmp/vinyrd-uvicorn.log 2>&1 &
+          echo $! > /tmp/vinyrd-uvicorn.pid
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8003/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/vinyrd-uvicorn.log
+          exit 1
+
+      - name: Run pilot end-to-end journey
+        run: python -m app.scripts.pilot_smoke
+
+      - name: Install PostgreSQL client tools
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Verify PostgreSQL backup and restore
+        run: python -m app.scripts.verify_backup_restore --backup-path /tmp/vinyrd-ci-backup.dump
+
+      - name: Stop production-like Vinyrd service
+        if: always()
+        run: |
+          if [ -f /tmp/vinyrd-uvicorn.pid ]; then
+            kill "$(cat /tmp/vinyrd-uvicorn.pid)" || true
+          fi

@@ -27,6 +27,7 @@ def settings_snapshot() -> dict[str, Any]:
     return {
         "environment": settings.environment,
         "cors_origins": settings.cors_origins,
+        "public_base_url": settings.public_base_url,
         "database_url": settings.database_url,
         "auth_token_secret": settings.auth_token_secret,
         "qr_token_secret": settings.qr_token_secret,
@@ -36,18 +37,26 @@ def settings_snapshot() -> dict[str, Any]:
     }
 
 
-def readiness_issues(config: Mapping[str, Any]) -> list[DeploymentIssue]:
+def readiness_issues(
+    config: Mapping[str, Any],
+    *,
+    allow_local_database: bool = False,
+) -> list[DeploymentIssue]:
     issues: list[DeploymentIssue] = []
     environment = _value(config, "environment").lower()
     database_url = _value(config, "database_url").lower()
     cors_origins = _value(config, "cors_origins").lower()
+    public_base_url = _value(config, "public_base_url").lower()
 
     if environment in {"local", "development", "dev", ""}:
         issues.append(
             DeploymentIssue(
                 code="environment-local",
                 severity="info",
-                message="Environment is local/demo; set PARISHCONNECT_ENVIRONMENT=production for a live deployment.",
+                message=(
+                    "Environment is local/demo; set PARISHCONNECT_ENVIRONMENT=production "
+                    "for a live deployment."
+                ),
             )
         )
 
@@ -59,7 +68,13 @@ def readiness_issues(config: Mapping[str, Any]) -> list[DeploymentIssue]:
                 message="SQLite is for presentation demos only; production should use PostgreSQL.",
             )
         )
-    if "parishconnect:parishconnect@" in database_url or "@localhost" in database_url:
+    if (
+        not allow_local_database
+        and (
+            "parishconnect:parishconnect@" in database_url
+            or "@localhost" in database_url
+        )
+    ):
         issues.append(
             DeploymentIssue(
                 code="database-demo-connection",
@@ -68,7 +83,8 @@ def readiness_issues(config: Mapping[str, Any]) -> list[DeploymentIssue]:
             )
         )
 
-    if "*" in [origin.strip() for origin in cors_origins.split(",")]:
+    configured_origins = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
+    if "*" in configured_origins:
         issues.append(
             DeploymentIssue(
                 code="cors-wildcard",
@@ -76,12 +92,23 @@ def readiness_issues(config: Mapping[str, Any]) -> list[DeploymentIssue]:
                 message="Wildcard CORS is not appropriate for production.",
             )
         )
-    if environment == "production" and ("localhost" in cors_origins or "127.0.0.1" in cors_origins):
+    if environment == "production" and (
+        "localhost" in cors_origins or "127.0.0.1" in cors_origins
+    ):
         issues.append(
             DeploymentIssue(
                 code="cors-localhost-production",
                 severity="high",
-                message="Production CORS origins should be the deployed frontend domains only.",
+                message="Production CORS origins must not contain localhost.",
+            )
+        )
+
+    if environment == "production" and not public_base_url.startswith("https://"):
+        issues.append(
+            DeploymentIssue(
+                code="public-base-url-not-https",
+                severity="high",
+                message="Production PARISHCONNECT_PUBLIC_BASE_URL must use HTTPS.",
             )
         )
 
@@ -101,17 +128,17 @@ def readiness_issues(config: Mapping[str, Any]) -> list[DeploymentIssue]:
             DeploymentIssue(
                 code="demo-password-default",
                 severity="warning",
-                message="Default demo password is still active; create real user passwords before launch.",
+                message="Default demo password is still active; disable it before launch.",
             )
         )
 
     access_token_minutes = int(config.get("access_token_minutes", 0) or 0)
-    if access_token_minutes > 720:
+    if access_token_minutes > 240:
         issues.append(
             DeploymentIssue(
                 code="access-token-long",
                 severity="warning",
-                message="Access token lifetime is long; use a shorter value for production sessions.",
+                message="Production access tokens should be 240 minutes or shorter.",
             )
         )
 
@@ -119,20 +146,28 @@ def readiness_issues(config: Mapping[str, Any]) -> list[DeploymentIssue]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check ParishConnect deployment readiness.")
+    parser = argparse.ArgumentParser(description="Check Vinyrd deployment readiness.")
     parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit with status 1 when any readiness issue is found.",
     )
+    parser.add_argument(
+        "--allow-local-database",
+        action="store_true",
+        help="Allow a localhost/demo PostgreSQL URL for CI validation only.",
+    )
     args = parser.parse_args()
 
-    issues = readiness_issues(settings_snapshot())
+    issues = readiness_issues(
+        settings_snapshot(),
+        allow_local_database=args.allow_local_database,
+    )
     if not issues:
-        print("ParishConnect deployment readiness: no issues found.")
+        print("Vinyrd deployment readiness: no issues found.")
         return 0
 
-    print("ParishConnect deployment readiness:")
+    print("Vinyrd deployment readiness:")
     for issue in issues:
         print(f"- [{issue.severity.upper()}] {issue.code}: {issue.message}")
 

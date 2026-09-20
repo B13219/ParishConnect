@@ -11,6 +11,7 @@ def test_readiness_flags_demo_defaults() -> None:
             "environment": "local",
             "cors_origins": "http://127.0.0.1:5173,http://localhost:5173",
             "database_url": "postgresql+psycopg://parishconnect:parishconnect@localhost:5432/parishconnect",
+            "public_base_url": "",
             "auth_token_secret": "local-demo-auth-secret-change-before-production",
             "qr_token_secret": "local-demo-qr-secret-change-before-production",
             "password_salt": "local-demo-password-salt-change-before-production",
@@ -31,8 +32,9 @@ def test_readiness_accepts_hardened_settings() -> None:
     codes = issue_codes(
         {
             "environment": "production",
-            "cors_origins": "https://admin.parishconnect.example",
-            "database_url": "postgresql+psycopg://pc_live:strong-password@db.internal:5432/parishconnect",
+            "cors_origins": "",
+            "public_base_url": "https://pilot.vinyrd.example",
+            "database_url": "postgresql+psycopg://vinyrd_live:strong-password@db.internal:5432/vinyrd",
             "auth_token_secret": "auth-secret-value-with-more-than-thirty-two-characters",
             "qr_token_secret": "qr-secret-value-with-more-than-thirty-two-characters",
             "password_salt": "password-salt-value-with-more-than-thirty-two-characters",

@@ -1,7 +1,7 @@
 [project]
-name = "parishconnect-api"
-version = "0.1.0"
-description = "Backend API for ParishConnect church management and engagement system."
+name = "vinyrd-api"
+version = "1.0.0"
+description = "Backend API for the Vinyrd church management and engagement platform."
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
