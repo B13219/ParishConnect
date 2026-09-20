@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#171D18">
+  <meta name="description" content="Vinyrd member webapp">
+  <title>Home - Vinyrd</title>
+    <link rel="icon" href="./assets/vinyrd-mark.svg" type="image/svg+xml">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="member-app-page member-home-page">
+  <main class="vinyrd-app" aria-label="Vinyrd member home">
+    <header class="app-header">
+      <div class="brand-row">
+        <a class="member-brand member-brand-light" href="./home.html" aria-label="Vinyrd landing page">
+          <img src="./assets/vinyrd-mark.svg" alt="">
+          <span><strong>VINYRD</strong><small>Member Space</small></span>
+        </a>
+        <div class="home-header-actions">
+          <a class="home-profile-link" href="./profile.html">My profile</a>
+          <span class="connection-dot" id="connectionDot" aria-label="Loading member data"></span>
+        </div>
+      </div>
+      <div class="welcome-copy">
+        <span class="home-eyebrow">YOUR VINYRD</span>
+        <h1 id="memberGreeting">Good morning, Member</h1>
+        <p>Stay close to your church, your people and your growth.</p>
+        <span class="gold-accent" aria-hidden="true"></span>
+      </div>
+    </header>
+
+    <section class="app-content">
+      <section class="shortcut-card" aria-label="Member shortcuts">
+        <a class="shortcut" href="./profile.html" data-route="profile"><span class="shortcut-icon"><img src="./assets/icon-profile.svg" alt=""></span><span>My Profile</span></a>
+        <a class="shortcut" href="./giving.html"><span class="shortcut-icon"><img src="./assets/icon-giving.svg" alt=""></span><span>My Giving</span></a>
+        <a class="shortcut" href="./events.html"><span class="shortcut-icon"><img src="./assets/icon-events.svg" alt=""></span><span>Events</span></a>
+        <a class="shortcut" href="./messages.html"><span class="shortcut-icon"><img src="./assets/icon-messages.svg" alt=""></span><span>Messages</span></a>
+        <a class="shortcut" href="./groups.html"><span class="shortcut-icon"><img src="./assets/icon-groups.svg" alt=""></span><span>My Groups</span></a>
+        <a class="shortcut" href="./prayers.html"><span class="shortcut-icon"><img src="./assets/icon-prayers.svg" alt=""></span><span>Prayers</span></a>
+        <a class="shortcut" href="./bible.html"><span class="shortcut-icon"><img src="./assets/icon-bible.svg" alt=""></span><span>Bible</span></a>
+        <a class="shortcut" href="#" data-route="more"><span class="shortcut-icon"><img src="./assets/icon-more.svg" alt=""></span><span>More</span></a>
+      </section>
+
+      <article class="event-card">
+        <div class="card-heading"><h2>Upcoming Event</h2><a class="link-button" href="./events.html">View all</a></div>
+        <div class="divider"></div>
+        <div class="event-details">
+          <div class="date-badge" aria-hidden="true"><strong id="eventDay">--</strong><span id="eventMonth">---</span></div>
+          <div class="event-copy"><strong id="eventTitle">Loading events...</strong><span id="eventWhen">Please wait</span><span id="eventLocation">Vinyrd</span></div>
+        </div>
+      </article>
+
+      <article class="verse-card">
+        <div class="card-heading"><h2>Daily Verse</h2><a class="link-button" href="./bible.html">View all</a></div>
+        <p>"I am the vine; you are the branches. If you remain in me and I in you, you will bear much fruit."</p>
+        <strong>John 15:5</strong>
+      </article>
+    </section>
+
+    <nav class="bottom-nav" aria-label="Primary member navigation">
+      <a class="nav-item active" href="./home.html" aria-current="page"><img src="./assets/nav-home.svg" alt=""><span>Home</span></a>
+      <a class="nav-item" href="./groups.html"><img src="./assets/nav-groups.svg" alt=""><span>Groups</span></a>
+      <a class="nav-item" href="./giving.html"><img src="./assets/nav-giving.svg" alt=""><span>Giving</span></a>
+      <a class="nav-item" href="./events.html"><img src="./assets/nav-events.svg" alt=""><span>Events</span></a>
+      <a class="nav-item" href="./profile.html"><img src="./assets/nav-profile.svg" alt=""><span>Profile</span></a>
+    </nav>
+
+    <div class="status-toast" id="statusToast" role="status" aria-live="polite"></div>
+  </main>
+  <script src="./client.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
