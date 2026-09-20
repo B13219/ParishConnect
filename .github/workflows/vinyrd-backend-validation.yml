@@ -1,4 +1,5 @@
 name: Vinyrd Backend Validation
+# Merge gate: migrations, tests, lint
 
 on:
   pull_request:
