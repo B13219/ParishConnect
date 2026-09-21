@@ -403,12 +403,13 @@ async def sms_delivery_report(
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
     mode = settings.sms_mode.lower().strip()
-    if mode in {"sandbox", "live"} and not settings.sms_callback_token:
+    callback_token = (settings.sms_callback_token or "").strip()
+    if mode in {"sandbox", "live"} and not callback_token:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="SMS delivery callback token is not configured.",
         )
-    if settings.sms_callback_token and token != settings.sms_callback_token:
+    if callback_token and (token or "").strip() != callback_token:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid callback token.")
 
     body_bytes = await request.body()
