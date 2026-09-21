@@ -30,6 +30,13 @@ class SmsProviderError(RuntimeError):
     pass
 
 
+def _clean_credential(value: str | None) -> str:
+    cleaned = (value or "").strip()
+    if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {'"', "'"}:
+        cleaned = cleaned[1:-1].strip()
+    return cleaned
+
+
 @dataclass
 class SmsRecipientResult:
     phone: str
@@ -71,7 +78,9 @@ def normalize_phone_number(phone: str | None) -> str | None:
 
 def sms_provider_status() -> dict[str, object]:
     mode = settings.sms_mode.lower().strip()
-    credentials_configured = bool(settings.sms_username and settings.sms_api_key)
+    username = _clean_credential(settings.sms_username)
+    api_key = _clean_credential(settings.sms_api_key)
+    credentials_configured = bool(username and api_key)
     external_sending = mode in {"sandbox", "live"}
     ready = mode == "simulate" or (external_sending and credentials_configured)
 
@@ -168,13 +177,15 @@ def send_sms(body: str, phones: list[str | None]) -> list[SmsRecipientResult]:
             "SMS mode must be one of simulate, sandbox, live, or disabled."
         )
 
-    if not settings.sms_username or not settings.sms_api_key:
+    username = _clean_credential(settings.sms_username)
+    api_key = _clean_credential(settings.sms_api_key)
+    if not username or not api_key:
         raise SmsProviderError(
             "Africa's Talking credentials are not configured for this SMS mode."
         )
 
     payload: dict[str, str] = {
-        "username": settings.sms_username,
+        "username": username,
         "to": ",".join(normalized_numbers),
         "message": body,
     }
@@ -188,7 +199,7 @@ def send_sms(body: str, phones: list[str | None]) -> list[SmsRecipientResult]:
         headers={
             "Accept": "application/json",
             "Content-Type": "application/x-www-form-urlencoded",
-            "apiKey": settings.sms_api_key,
+            "apiKey": api_key,
         },
     )
 
