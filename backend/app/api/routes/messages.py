@@ -281,17 +281,25 @@ def get_sms_provider(
 ) -> dict[str, object]:
     provider = sms_provider_status()
     provider["delivery_report_path"] = "/api/v1/messages/sms/delivery-report"
-    provider["delivery_callback_observed"] = bool(
+    callback_observed = bool(
         db.scalar(
             select(MessageRecipient.id)
+            .join(Message, Message.id == MessageRecipient.message_id)
             .where(
+                Message.channel == "sms",
+                MessageRecipient.provider_reference.is_not(None),
                 MessageRecipient.delivery_status.in_(
                     ["delivered", "failed", "rejected", "buffered", "submitted", "expired"]
-                )
+                ),
             )
             .limit(1)
         )
     )
+    provider["delivery_callback_observed"] = callback_observed
+    production = dict(provider.get("production") or {})
+    production["delivery_callback_verified"] = callback_observed
+    production["ready"] = bool(production.get("ready") and callback_observed)
+    provider["production"] = production
     return provider
 
 
