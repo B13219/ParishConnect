@@ -2846,3 +2846,35 @@ textarea:focus {
   }
 }
 
+.sms-callback-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 9px;
+}
+
+.sms-callback-tools code {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 8px 10px;
+  border: 1px solid rgba(197, 163, 91, .25);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .72);
+  color: #53594f;
+  font-size: 10px;
+}
+
+@media (max-width: 720px) {
+  .sms-callback-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .sms-callback-tools .mini-button {
+    justify-self: start;
+  }
+}
+
