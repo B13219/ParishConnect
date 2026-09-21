@@ -26,6 +26,7 @@ const state = {
   messages: null,
   messageRecipients: null,
   smsProvider: null,
+  smsCallbackConfig: null,
   pastoral: null,
   sermons: null,
   stewardship: null,
@@ -2267,14 +2268,18 @@ renderMinistries();
     renderHouseholds();
   }
   if (section === "messages") {
-    const [messages, smsProvider, ministries] = await Promise.all([
+    const [messages, smsProvider, ministries, smsCallbackConfig] = await Promise.all([
       fetchJson("/messages/"),
       fetchJson("/messages/sms/provider"),
       state.ministries ? Promise.resolve(state.ministries) : fetchJson("/members/ministries"),
+      currentRoles().includes("administrator")
+        ? fetchJson("/messages/sms/callback-config")
+        : Promise.resolve(null),
     ]);
     state.messages = messages;
     state.smsProvider = smsProvider;
     state.ministries = ministries;
+    state.smsCallbackConfig = smsCallbackConfig;
     renderSmsProviderStatus();
     updateSmsSandboxTestVisibility();
     renderMessageAudienceOptions();
@@ -2404,6 +2409,7 @@ const clearSession = () => {
   state.messages = null;
   state.messageRecipients = null;
   state.smsProvider = null;
+  state.smsCallbackConfig = null;
   state.stewardship = null;
   state.reports = null;
   state.admin = null;
@@ -3040,10 +3046,21 @@ const renderSmsProviderStatus = () => {
 
   const mode = labelize(provider.mode);
   const sender = provider.sender_id ? `Sender ID: ${provider.sender_id}` : "Sender ID not set";
-  const callback = provider.delivery_report_configured
-    ? "Delivery reports ready"
-    : "Delivery reports not configured";
+  const callback = provider.delivery_callback_observed
+    ? "Delivery callback verified"
+    : provider.delivery_report_configured
+      ? "Callback URL prepared · awaiting provider callback"
+      : "Delivery callback not configured";
   const liveTone = provider.external_sending && provider.ready ? "green" : "amber";
+  const callbackConfig = state.smsCallbackConfig;
+  const callbackTools = callbackConfig?.callback_url
+    ? `
+      <div class="sms-callback-tools">
+        <code title="${escapeHtml(callbackConfig.callback_url)}">${escapeHtml(callbackConfig.callback_url)}</code>
+        <button class="mini-button" id="copySmsCallbackUrl" type="button">Copy callback URL</button>
+      </div>
+    `
+    : "";
 
   panel.innerHTML = `
     <div class="sms-provider-icon">SMS</div>
@@ -3051,10 +3068,16 @@ const renderSmsProviderStatus = () => {
       <span class="eyebrow">SMS Gateway · ${escapeHtml(provider.provider || "Provider")}</span>
       <strong>${escapeHtml(provider.summary || "SMS provider status unavailable.")}</strong>
       <p>${escapeHtml(sender)} · ${escapeHtml(callback)}</p>
+      ${callbackTools}
     </div>
     <span class="tag ${liveTone}">${escapeHtml(mode)}</span>
   `;
   panel.classList.toggle("external-sms-ready", Boolean(provider.external_sending && provider.ready));
+
+  panel.querySelector("#copySmsCallbackUrl")?.addEventListener("click", async () => {
+    await copyText(callbackConfig.callback_url);
+    setStatus("SMS callback URL copied", "ok");
+  });
 };
 
 const updateSmsSandboxTestVisibility = () => {
