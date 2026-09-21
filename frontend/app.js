@@ -3062,6 +3062,39 @@ const renderSmsProviderStatus = () => {
     `
     : "";
 
+  const production = provider.production || {};
+  const readinessItems = [
+    ["Live app credentials", Boolean(production.live_credentials_configured)],
+    ["VINYRD Sender ID entered", Boolean(production.sender_id_configured)],
+    ["VINYRD Sender ID approved", Boolean(production.sender_id_approved)],
+    ["Delivery callback configured", Boolean(production.delivery_report_configured)],
+    ["Delivery callback verified", Boolean(production.delivery_callback_verified)],
+  ];
+  const productionChecklist = `
+    <div class="sms-production-readiness">
+      <div class="sms-production-heading">
+        <div>
+          <span class="eyebrow">Production readiness</span>
+          <strong>${production.ready ? "Ready for Live SMS" : "Sandbox stays active until setup is complete"}</strong>
+        </div>
+        <span class="tag ${production.ready ? "green" : "amber"}">${production.ready ? "Ready" : "Setup"}</span>
+      </div>
+      <div class="sms-readiness-grid">
+        ${readinessItems
+          .map(
+            ([label, done]) => `
+              <div class="sms-readiness-item ${done ? "is-ready" : ""}">
+                <span class="sms-readiness-mark">${done ? "✓" : "•"}</span>
+                <span>${escapeHtml(label)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <p>Live sending remains locked until the Africa's Talking Live app credentials and approved VINYRD Sender ID are in Railway.</p>
+    </div>
+  `;
+
   panel.innerHTML = `
     <div class="sms-provider-icon">SMS</div>
     <div>
@@ -3069,6 +3102,7 @@ const renderSmsProviderStatus = () => {
       <strong>${escapeHtml(provider.summary || "SMS provider status unavailable.")}</strong>
       <p>${escapeHtml(sender)} · ${escapeHtml(callback)}</p>
       ${callbackTools}
+      ${productionChecklist}
     </div>
     <span class="tag ${liveTone}">${escapeHtml(mode)}</span>
   `;
