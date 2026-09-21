@@ -2878,3 +2878,71 @@ textarea:focus {
   }
 }
 
+.sms-production-readiness {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(197, 163, 91, .22);
+  border-radius: 10px;
+  background: rgba(255,255,255,.62);
+}
+
+.sms-production-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.sms-production-heading strong {
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.sms-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.sms-readiness-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #7d7768;
+  font-size: 10px;
+}
+
+.sms-readiness-item.is-ready {
+  color: #45613e;
+}
+
+.sms-readiness-mark {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #eee7d8;
+  color: #8c7d5e;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.sms-readiness-item.is-ready .sms-readiness-mark {
+  background: #e4efe0;
+  color: #42643a;
+}
+
+.sms-production-readiness > p {
+  margin-top: 9px;
+}
+
+@media (max-width: 620px) {
+  .sms-readiness-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
