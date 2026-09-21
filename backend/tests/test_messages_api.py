@@ -238,3 +238,49 @@ def test_sms_provider_status_and_delivery_callback() -> None:
     ).json()["recipients"]
     assert refreshed[0]["delivery_status"] == "delivered"
 
+def test_sms_sandbox_test_is_tracked_and_callback_updates_it() -> None:
+    client = build_client()
+    headers = auth_headers(client, "Pastor / Leader")
+
+    response = client.post(
+        "/api/v1/messages/sms/test",
+        json={
+            "phone": "0711 100 001",
+            "body": "VINYRD sandbox callback test.",
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["delivery_status"] == "queued"
+    assert payload["provider_reference"]
+    assert payload["message_id"]
+    assert payload["recipient_id"]
+
+    recipients = client.get(
+        f"/api/v1/messages/{payload['message_id']}/recipients",
+        headers=headers,
+    )
+    assert recipients.status_code == 200
+    recipient = recipients.json()["recipients"][0]
+    assert recipient["phone"] == "+255711100001"
+    assert recipient["delivery_status"] == "queued"
+    assert recipient["provider_reference"] == payload["provider_reference"]
+
+    callback = client.post(
+        "/api/v1/messages/sms/delivery-report",
+        data={
+            "id": payload["provider_reference"],
+            "status": "Success",
+            "phoneNumber": "+255711100001",
+        },
+    )
+    assert callback.status_code == 200
+    assert callback.json()["delivery_status"] == "delivered"
+
+    refreshed = client.get(
+        f"/api/v1/messages/{payload['message_id']}/recipients",
+        headers=headers,
+    ).json()["recipients"][0]
+    assert refreshed["delivery_status"] == "delivered"
+
