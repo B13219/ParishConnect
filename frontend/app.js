@@ -2336,19 +2336,39 @@ const loadDashboard = async () => {
     setBusy(true);
     setStatus("Connecting");
     setSkeletons();
-    await Promise.all(permittedSections().map(loadSection));
-    renderDashboardOverview();
-    setStatus("API Connected", "ok");
-  } catch (error) {
-    console.error(error);
-    if (String(error.message || "").includes("401")) {
+
+    const sectionsToLoad = permittedSections();
+    const results = await Promise.allSettled(sectionsToLoad.map(loadSection));
+    const failures = results
+      .map((result, index) => ({ result, section: sectionsToLoad[index] }))
+      .filter(({ result }) => result.status === "rejected");
+
+    const authFailure = failures.find(({ result }) =>
+      String(result.reason?.message || "").includes("401"),
+    );
+    if (authFailure) {
       state.auth = null;
       localStorage.removeItem(STAFF_AUTH_KEY);
-  localStorage.removeItem(LEGACY_AUTH_KEY);
+      localStorage.removeItem(LEGACY_AUTH_KEY);
       applyRoleAccess();
       setStatus("Login required", "error");
       return;
     }
+
+    failures.forEach(({ section, result }) => {
+      console.error(`Failed to load ${section}`, result.reason);
+    });
+
+    renderDashboardOverview();
+    if (failures.length === 0) {
+      setStatus("API Connected", "ok");
+    } else if (failures.length < sectionsToLoad.length) {
+      setStatus(`Connected · ${failures.length} section unavailable${failures.length === 1 ? "" : "s"}`);
+    } else {
+      setStatus("API Offline", "error");
+    }
+  } catch (error) {
+    console.error(error);
     setStatus("API Offline", "error");
   } finally {
     setBusy(false);
