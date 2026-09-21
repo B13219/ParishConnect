@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     sms_username: str = ""
     sms_api_key: str = ""
     sms_sender_id: str = "VINYRD"
+    sms_live_username: str = ""
+    sms_live_api_key: str = ""
+    sms_live_sender_id: str = "VINYRD"
+    sms_live_sender_id_approved: bool = False
     sms_default_country_code: str = "255"
     sms_callback_token: str = ""
     sms_request_timeout_seconds: int = 15
