@@ -204,6 +204,9 @@ def serialize_recipient(recipient: MessageRecipient, db: Session) -> dict[str, o
         "phone": recipient.phone,
         "delivery_status": recipient.delivery_status,
         "provider_reference": recipient.provider_reference,
+        "provider_status_code": recipient.provider_status_code,
+        "provider_cost": recipient.provider_cost,
+        "failure_reason": recipient.failure_reason,
         "created_at": recipient.created_at.isoformat(),
     }
 
@@ -247,6 +250,9 @@ def dispatch_recipients(
 
         recipient.delivery_status = result.delivery_status
         recipient.provider_reference = result.provider_reference
+        recipient.provider_status_code = result.status_code
+        recipient.provider_cost = result.cost
+        recipient.failure_reason = result.error
         if result.delivery_status in ACCEPTED_SMS_STATUSES:
             accepted_count += 1
 
@@ -270,16 +276,49 @@ def list_messages(
 
 @router.get("/sms/provider")
 def get_sms_provider(
+    db: Session = Depends(get_db),
     _user=Depends(require_roles("pastor_leader")),
 ) -> dict[str, object]:
     provider = sms_provider_status()
     provider["delivery_report_path"] = "/api/v1/messages/sms/delivery-report"
+    provider["delivery_callback_observed"] = bool(
+        db.scalar(
+            select(MessageRecipient.id)
+            .where(
+                MessageRecipient.delivery_status.in_(
+                    ["delivered", "failed", "rejected", "buffered", "submitted", "expired"]
+                )
+            )
+            .limit(1)
+        )
+    )
     return provider
+
+
+@router.get("/sms/callback-config")
+def sms_callback_config(
+    request: Request,
+    _user=Depends(require_roles("administrator")),
+) -> dict[str, object]:
+    base = (settings.public_base_url or str(request.base_url)).rstrip("/")
+    token = (settings.sms_callback_token or "").strip()
+    callback_url = (
+        f"{base}/api/v1/messages/sms/delivery-report?token={token}"
+        if token
+        else None
+    )
+    return {
+        "configured": bool(callback_url),
+        "callback_url": callback_url,
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded",
+    }
 
 
 @router.post("/sms/test")
 def send_test_sms(
     payload: SmsTestRequest,
+    db: Session = Depends(get_db),
     actor: User = Depends(require_roles("pastor_leader")),
 ) -> dict[str, object]:
     mode = settings.sms_mode.lower().strip()
@@ -296,23 +335,64 @@ def send_test_sms(
             detail="Enter a valid phone number.",
         )
 
+    branch = get_default_branch(db)
+    body = payload.body.strip() or "VINYRD SMS sandbox connection test."
+    message = Message(
+        branch_id=branch.id,
+        sender_user_id=actor.id,
+        channel="sms",
+        subject="Sandbox connection test",
+        body=body,
+        audience_type="sandbox_test",
+        status="sending",
+        scheduled_at=None,
+        sent_at=None,
+    )
+    db.add(message)
+    db.flush()
+
+    recipient = MessageRecipient(
+        message_id=message.id,
+        member_id=None,
+        visitor_id=None,
+        phone=phone,
+        delivery_status="pending",
+        provider_reference=None,
+    )
+    db.add(recipient)
+    db.flush()
+
     try:
-        result = send_sms(payload.body.strip() or "VINYRD SMS sandbox connection test.", [phone])[0]
+        result = send_sms(body, [phone])[0]
+        recipient.delivery_status = result.delivery_status
+        recipient.provider_reference = result.provider_reference
+        recipient.provider_status_code = result.status_code
+        recipient.provider_cost = result.cost
+        recipient.failure_reason = result.error
+        message.status = "sent" if result.delivery_status in ACCEPTED_SMS_STATUSES else "failed"
+        message.sent_at = utc_now() if message.status == "sent" else None
+        db.commit()
     except SmsProviderError as exc:
+        recipient.delivery_status = "provider_error"
+        recipient.failure_reason = str(exc)[:160]
+        message.status = "failed"
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
 
     return {
+        "message_id": str(message.id),
+        "recipient_id": str(recipient.id),
         "provider": settings.sms_provider,
         "mode": mode,
-        "phone": result.phone,
-        "delivery_status": result.delivery_status,
-        "provider_reference": result.provider_reference,
-        "status_code": result.status_code,
-        "cost": result.cost,
-        "error": result.error,
+        "phone": recipient.phone,
+        "delivery_status": recipient.delivery_status,
+        "provider_reference": recipient.provider_reference,
+        "status_code": recipient.provider_status_code,
+        "cost": recipient.provider_cost,
+        "error": recipient.failure_reason,
     }
 
 
@@ -331,13 +411,26 @@ async def sms_delivery_report(
     if settings.sms_callback_token and token != settings.sms_callback_token:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid callback token.")
 
-    body = (await request.body()).decode("utf-8", errors="replace")
-    parsed = parse_qs(body)
-    payload = {key: values[-1] for key, values in parsed.items() if values}
+    body_bytes = await request.body()
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+    else:
+        body = body_bytes.decode("utf-8", errors="replace")
+        parsed = parse_qs(body)
+        payload = {key: values[-1] for key, values in parsed.items() if values}
 
     provider_reference = payload.get("id") or payload.get("messageId")
     status_text = payload.get("status")
     phone = normalize_phone_number(payload.get("phoneNumber") or payload.get("phone"))
+    failure_reason = (
+        payload.get("failureReason")
+        or payload.get("failure_reason")
+        or payload.get("reason")
+    )
 
     recipient = None
     if provider_reference:
@@ -355,11 +448,25 @@ async def sms_delivery_report(
         }
 
     recipient.delivery_status = delivery_report_status(status_text)
+    if failure_reason:
+        recipient.failure_reason = str(failure_reason)[:160]
+
+    message = db.get(Message, recipient.message_id)
+    if message is not None:
+        counts = delivery_counts(db, message.id)
+        terminal_statuses = {"delivered", "failed", "rejected", "expired"}
+        if recipient.delivery_status == "delivered" and sum(counts.values()) == 1:
+            message.status = "delivered"
+        elif recipient.delivery_status in terminal_statuses and sum(counts.values()) == 1:
+            message.status = recipient.delivery_status
+
     db.commit()
     return {
         "status": "ok",
         "provider_reference": provider_reference,
         "delivery_status": recipient.delivery_status,
+        "phone": recipient.phone,
+        "failure_reason": recipient.failure_reason,
     }
 
 
