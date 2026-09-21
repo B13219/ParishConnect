@@ -441,6 +441,9 @@ class MessageRecipient(IdMixin, TimestampMixin, Base):
     phone: Mapped[str | None] = mapped_column(String(40))
     delivery_status: Mapped[str] = mapped_column(String(40), default="queued")
     provider_reference: Mapped[str | None] = mapped_column(String(120))
+    provider_status_code: Mapped[int | None] = mapped_column(Integer)
+    provider_cost: Mapped[str | None] = mapped_column(String(40))
+    failure_reason: Mapped[str | None] = mapped_column(String(160))
 
 
 class PrayerRequest(IdMixin, TimestampMixin, Base):
