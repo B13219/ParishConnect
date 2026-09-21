@@ -45,3 +45,22 @@ def test_delivery_report_status_mapping() -> None:
     assert delivery_report_status("Delivered") == "delivered"
     assert delivery_report_status("Buffered") == "buffered"
     assert delivery_report_status("Failed") == "failed"
+
+def test_live_mode_requires_separate_production_credentials(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "sms_mode", "live")
+    monkeypatch.setattr(settings, "sms_username", "sandbox")
+    monkeypatch.setattr(settings, "sms_api_key", "sandbox-key")
+    monkeypatch.setattr(settings, "sms_live_username", "")
+    monkeypatch.setattr(settings, "sms_live_api_key", "")
+    monkeypatch.setattr(settings, "sms_live_sender_id", "VINYRD")
+    monkeypatch.setattr(settings, "sms_live_sender_id_approved", False)
+
+    provider = sms_provider_status()
+
+    assert provider["mode"] == "live"
+    assert provider["credentials_configured"] is False
+    assert provider["ready"] is False
+    assert provider["production"]["live_credentials_configured"] is False
+    assert provider["production"]["sender_id_configured"] is True
+    assert provider["production"]["sender_id_approved"] is False
+
