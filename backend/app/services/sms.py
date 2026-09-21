@@ -76,39 +76,87 @@ def normalize_phone_number(phone: str | None) -> str | None:
     return f"+{digits}"
 
 
+def _credentials_for_mode(mode: str) -> tuple[str, str, str]:
+    if mode == "live":
+        return (
+            _clean_credential(settings.sms_live_username),
+            _clean_credential(settings.sms_live_api_key),
+            _clean_credential(settings.sms_live_sender_id),
+        )
+    return (
+        _clean_credential(settings.sms_username),
+        _clean_credential(settings.sms_api_key),
+        _clean_credential(settings.sms_sender_id),
+    )
+
+
 def sms_provider_status() -> dict[str, object]:
     mode = settings.sms_mode.lower().strip()
-    username = _clean_credential(settings.sms_username)
-    api_key = _clean_credential(settings.sms_api_key)
+    username, api_key, sender_id = _credentials_for_mode(mode)
     credentials_configured = bool(username and api_key)
     external_sending = mode in {"sandbox", "live"}
-    ready = mode == "simulate" or (external_sending and credentials_configured)
+
+    live_username = _clean_credential(settings.sms_live_username)
+    live_api_key = _clean_credential(settings.sms_live_api_key)
+    live_sender_id = _clean_credential(settings.sms_live_sender_id)
+    live_credentials_configured = bool(live_username and live_api_key)
+    live_sender_id_configured = bool(live_sender_id)
+    live_sender_id_approved = bool(settings.sms_live_sender_id_approved)
+    callback_configured = bool(
+        settings.public_base_url and settings.sms_callback_token
+    )
+    production_ready = bool(
+        live_credentials_configured
+        and live_sender_id_configured
+        and live_sender_id_approved
+        and callback_configured
+    )
 
     if mode == "disabled":
         summary = "SMS sending is disabled."
     elif mode == "simulate":
         summary = "Simulation mode: messages are recorded but no carrier SMS is sent."
-    elif ready:
+    elif mode == "live" and not production_ready:
+        summary = (
+            "Live SMS is selected but production requirements are incomplete. "
+            "VINYRD will not send carrier SMS until the production checklist is complete."
+        )
+    elif ready := (external_sending and credentials_configured):
         summary = (
             f"Africa's Talking {mode} credentials are present. "
-            "Send a sandbox test to verify authentication."
+            + (
+                "Production sending is enabled."
+                if mode == "live"
+                else "Sandbox authentication is ready for testing."
+            )
         )
     else:
         summary = f"Africa's Talking {mode} needs a username and API key."
 
+    ready = (
+        mode == "simulate"
+        or (mode == "sandbox" and credentials_configured)
+        or (mode == "live" and production_ready)
+    )
+
     return {
         "provider": settings.sms_provider,
         "mode": mode,
-        "sender_id": settings.sms_sender_id or None,
+        "sender_id": sender_id or None,
         "credentials_configured": credentials_configured,
         "external_sending": external_sending,
         "ready": ready,
-        "delivery_report_configured": bool(
-            settings.public_base_url and settings.sms_callback_token
-        ),
+        "delivery_report_configured": callback_configured,
         "summary": summary,
+        "production": {
+            "live_credentials_configured": live_credentials_configured,
+            "sender_id": live_sender_id or None,
+            "sender_id_configured": live_sender_id_configured,
+            "sender_id_approved": live_sender_id_approved,
+            "delivery_report_configured": callback_configured,
+            "ready": production_ready,
+        },
     }
-
 
 def _endpoint_for_mode(mode: str) -> str:
     if mode == "sandbox":
@@ -177,8 +225,7 @@ def send_sms(body: str, phones: list[str | None]) -> list[SmsRecipientResult]:
             "SMS mode must be one of simulate, sandbox, live, or disabled."
         )
 
-    username = _clean_credential(settings.sms_username)
-    api_key = _clean_credential(settings.sms_api_key)
+    username, api_key, sender_id = _credentials_for_mode(mode)
     if not username or not api_key:
         raise SmsProviderError(
             "Africa's Talking credentials are not configured for this SMS mode."
@@ -189,8 +236,17 @@ def send_sms(body: str, phones: list[str | None]) -> list[SmsRecipientResult]:
         "to": ",".join(normalized_numbers),
         "message": body,
     }
-    if settings.sms_sender_id:
-        payload["from"] = settings.sms_sender_id
+    if mode == "live":
+        if not settings.sms_live_sender_id_approved:
+            raise SmsProviderError(
+                "Live SMS is blocked until the VINYRD Sender ID is marked approved."
+            )
+        if not sender_id:
+            raise SmsProviderError(
+                "Live SMS requires an approved Sender ID."
+            )
+    if sender_id:
+        payload["from"] = sender_id
 
     request = Request(
         _endpoint_for_mode(mode),
