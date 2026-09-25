@@ -64,7 +64,21 @@ if (VinyrdClient.requireSession()) {
       renderEvent(nextEvent(data.events));
       indicator.classList.add("ok");
     } catch (error) {
-      if (error.status === 401 || error.status === 403) {
+      if (error.status === 403) {
+        try {
+          const profile = await VinyrdClient.apiRequest("/identity/me");
+          qs("#memberGreeting").textContent =
+            greetingForHour(new Date().getHours()) + ", " + firstName(profile);
+          renderEvent(null);
+          qs("#eventTitle").textContent = "Welcome to VINYRD";
+          qs("#eventWhen").textContent = "Your account is ready. Church membership is separate.";
+          indicator.classList.add("ok");
+        } catch {
+          showToast("Could not load your account.");
+        }
+        return;
+      }
+      if (error.status === 401) {
         VinyrdClient.clearSession();
         window.location.replace("./login.html");
         return;

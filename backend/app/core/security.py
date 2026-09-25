@@ -10,9 +10,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.settings import settings
+from app.core.tenancy import set_actor
 from app.db.base import utc_now
 from app.db.session import get_db
 from app.models import Role, User, UserRole
+from app.services import identity_compat  # noqa: F401 - register transactional compatibility hooks
 
 
 def password_hash(password: str, *, salt: str | None = None) -> str:
@@ -120,6 +122,8 @@ def current_user(
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Login required.")
     payload = decode_access_token(authorization.split(" ", 1)[1])
+    if payload.get("purpose") is not None:
+        raise HTTPException(status_code=401, detail="An access token is required.")
     user_id = payload.get("sub")
     try:
         user = db.get(User, UUID(str(user_id)))
@@ -127,6 +131,7 @@ def current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token.") from exc
     if user is None or user.status != "active":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User unavailable.")
+    set_actor(db, user)
     return user
 
 
@@ -136,6 +141,9 @@ def require_roles(*allowed_roles: str):
     def dependency(user: User = Depends(current_user), db: Session = Depends(get_db)) -> User:
         roles = set(user_roles(db, user.id))
         if "administrator" in roles or roles.intersection(allowed):
+            if user.branch_id is None:
+                raise HTTPException(status_code=403, detail="Staff church is not configured.")
+            db.info["staff_church"] = user.branch_id
             return user
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied.")
 

@@ -66,6 +66,8 @@ jobs:
         run: alembic upgrade head
 
       - name: Run Pytest
+        env:
+          VINYRD_TEST_POSTGRES_URL: ${{ env.PARISHCONNECT_DATABASE_URL }}
         run: pytest -q
 
       - name: Run Ruff

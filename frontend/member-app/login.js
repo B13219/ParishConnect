@@ -9,7 +9,7 @@ const showError = (message) => {
 const validateExistingSession = async () => {
   if (!VinyrdClient.token()) return;
   try {
-    await VinyrdClient.apiRequest("/member-portal/me");
+    await VinyrdClient.apiRequest("/auth/me");
     window.location.replace("./home.html");
   } catch {
     VinyrdClient.clearSession();
@@ -35,12 +35,9 @@ form.addEventListener("submit", async (event) => {
     VinyrdClient.setSession(login.access_token, login.user);
 
     try {
-      await VinyrdClient.apiRequest("/member-portal/me");
+      await VinyrdClient.apiRequest("/auth/me");
     } catch (error) {
       VinyrdClient.clearSession();
-      if (error.status === 403) {
-        throw new Error("This login is not linked to a Vinyrd member profile yet.");
-      }
       throw error;
     }
 

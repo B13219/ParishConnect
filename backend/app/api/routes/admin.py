@@ -372,6 +372,8 @@ def update_user(
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if user.identity_self_managed:
+        raise HTTPException(403, "This person manages their global account. Manage church records instead.")
 
     updates = payload.model_dump(exclude_unset=True)
     if "email" in updates and updates["email"] is not None:

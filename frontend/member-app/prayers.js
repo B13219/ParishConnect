@@ -62,7 +62,11 @@ if (VinyrdClient.requireSession()) {
       const prayers = await VinyrdClient.apiRequest("/member-portal/prayers");
       renderPrayers(prayers);
     } catch (error) {
-      if (error.status === 401 || error.status === 403) {
+      if (error.status === 403) {
+        window.location.replace("./home.html");
+        return;
+      }
+      if (error.status === 401) {
         VinyrdClient.clearSession();
         window.location.replace("./login.html");
         return;

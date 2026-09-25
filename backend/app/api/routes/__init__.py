@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routes.admin import router as admin_router
 from app.api.routes.attendance import router as attendance_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.identity import router as identity_router
 from app.api.routes.imports import router as imports_router
 from app.api.routes.member_portal import router as member_portal_router
 from app.api.routes.members import router as members_router
@@ -15,6 +16,7 @@ from app.api.routes.stewardship import router as stewardship_router
 router = APIRouter()
 router.include_router(root_router, tags=["product"])
 router.include_router(auth_router, prefix="/auth", tags=["auth"])
+router.include_router(identity_router, tags=["identity"])
 router.include_router(admin_router, prefix="/admin", tags=["admin"])
 router.include_router(members_router, prefix="/members", tags=["members"])
 router.include_router(member_portal_router, prefix="/member-portal", tags=["member-portal"])

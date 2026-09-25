@@ -791,6 +791,14 @@ def create_attendance_record(
     if person is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person not found.")
 
+    person_branch = getattr(person, "branch_id", None)
+    if payload.person_type == "household_person":
+        from app.models import Household
+        household = db.get(Household, person.household_id)
+        person_branch = household.branch_id if household else None
+    if person_branch != event.branch_id:
+        raise HTTPException(403, "Person and event must belong to the same church.")
+
     duplicate = db.scalar(
         select(AttendanceRecord).where(
             AttendanceRecord.event_id == payload.event_id,

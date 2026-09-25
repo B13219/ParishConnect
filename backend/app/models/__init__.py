@@ -22,11 +22,14 @@ from app.models.church import (
     UserRole,
     Visitor,
 )
+from app.models.identity import ChurchFollow, ChurchMembership, MembershipRequest, Profile
 
 __all__ = [
     "AttendanceRecord",
     "AuditLog",
     "Branch",
+    "ChurchFollow",
+    "ChurchMembership",
     "CommunityGroup",
     "CommunityGroupMembership",
     "Contribution",
@@ -35,11 +38,13 @@ __all__ = [
     "HouseholdPerson",
     "ImportBatch",
     "Member",
+    "MembershipRequest",
     "Message",
     "MessageRecipient",
     "Ministry",
     "MinistryMembership",
     "PrayerRequest",
+    "Profile",
     "Role",
     "SermonLesson",
     "ServiceTemplate",

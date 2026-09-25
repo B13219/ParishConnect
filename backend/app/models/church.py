@@ -8,12 +8,14 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
     Text,
     Time,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -42,6 +44,9 @@ class Branch(IdMixin, TimestampMixin, Base):
 
 class User(IdMixin, TimestampMixin, Base):
     __tablename__ = "users"
+    __table_args__ = (Index("uq_users_email_normalized", text("lower(email)"), unique=True),)
+
+    identity_self_managed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     branch_id: Mapped[UUID | None] = mapped_column(ForeignKey("branches.id"))
     member_id: Mapped[UUID | None] = mapped_column(
@@ -95,6 +100,7 @@ class ImportBatch(IdMixin, TimestampMixin, Base):
 
 class Member(IdMixin, TimestampMixin, Base):
     __tablename__ = "members"
+    __table_args__ = (UniqueConstraint("id", "branch_id", name="uq_members_id_branch"),)
 
     branch_id: Mapped[UUID] = mapped_column(
         ForeignKey("branches.id"),
@@ -542,4 +548,3 @@ class Contribution(IdMixin, TimestampMixin, Base):
     received_at: Mapped[datetime] = mapped_column(default=utc_now)
     recorded_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
     notes: Mapped[str | None] = mapped_column(Text)
-   

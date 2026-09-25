@@ -30,7 +30,15 @@ if (VinyrdClient.requireSession()) {
       const data = await VinyrdClient.apiRequest("/member-portal/me");
       renderProfile(data.profile);
     } catch (error) {
-      if (error.status === 401 || error.status === 403) {
+      if (error.status === 403) {
+        const profile = await VinyrdClient.apiRequest("/identity/me");
+        renderProfile({...profile, id: profile.user_id,
+          name: profile.first_name + " " + profile.last_name,
+          branch_name: "No active home church"});
+        qs("#profileMeta").textContent = "VINYRD account";
+        return;
+      }
+      if (error.status === 401) {
         VinyrdClient.clearSession();
         window.location.replace("./login.html");
         return;

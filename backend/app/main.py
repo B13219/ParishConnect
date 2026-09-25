@@ -2,8 +2,9 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import IntegrityError
 
 from app.api.health import router as health_router
 from app.api.routes import router as api_router
@@ -19,6 +20,12 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         description="Vinyrd church management and engagement API.",
     )
+
+    @app.exception_handler(IntegrityError)
+    async def integrity_conflict(request, exc):
+        # Database constraints also protect concurrent legacy provisioning/imports.
+        # Never expose constraint names, SQL, or another church's account details.
+        return JSONResponse(status_code=409, content={"detail": "A conflicting record already exists."})
 
     origins = [
         origin.strip()

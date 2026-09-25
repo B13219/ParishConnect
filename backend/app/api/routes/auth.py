@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.security import (
@@ -38,7 +38,7 @@ class PasswordResetConfirm(BaseModel):
 
 @router.post("/login")
 def login(payload: LoginRequest, db: Session = Depends(get_db)) -> dict[str, object]:
-    user = db.scalar(select(User).where(User.email == payload.email.lower()))
+    user = db.scalar(select(User).where(func.lower(User.email) == payload.email.strip().lower()))
     if user is None or user.status != "active" or not verify_password(payload.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

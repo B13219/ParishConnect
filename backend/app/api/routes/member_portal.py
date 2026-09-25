@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -30,6 +30,7 @@ from app.models import (
     User,
 )
 from app.services.geofence import is_inside_geofence
+from app.services.global_identity import current_membership
 
 router = APIRouter()
 
@@ -81,7 +82,21 @@ class MemberLocationCheckInCreate(BaseModel):
 def get_current_member(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
+    x_church_id: UUID | None = Header(default=None),
 ) -> Member:
+    membership = current_membership(db, user, x_church_id)
+    if membership is not None:
+        member = db.get(Member, membership.legacy_member_id) if membership.legacy_member_id else None
+        if (membership.status != "active" or member is None
+                or member.branch_id != membership.church_id or member.membership_status != "active"):
+            raise HTTPException(403, "An active linked membership is required.")
+        return member
+
+    # Compatibility for unmigrated legacy links; never fall back across an
+    # explicitly requested church or bypass a revoked relationship.
+    from app.models import ChurchMembership
+    if db.scalar(select(ChurchMembership.id).where(ChurchMembership.user_id == user.id).limit(1)):
+        raise HTTPException(403, "Select an active membership or set a home church.")
     if user.member_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -94,6 +109,9 @@ def get_current_member(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Member profile is unavailable.",
         )
+
+    if x_church_id is not None and member.branch_id != x_church_id:
+        raise HTTPException(403, "No membership in the requested church.")
 
     if user.branch_id is not None and user.branch_id != member.branch_id:
         raise HTTPException(
@@ -333,12 +351,14 @@ def member_home(
     contributions = db.scalars(
         select(Contribution)
         .where(Contribution.member_id == member.id)
+        .where(Contribution.branch_id == member.branch_id)
         .order_by(Contribution.received_at.desc())
         .limit(6)
     ).all()
     contribution_total = db.scalar(
         select(func.coalesce(func.sum(Contribution.amount), Decimal("0.00"))).where(
-            Contribution.member_id == member.id
+            Contribution.member_id == member.id,
+            Contribution.branch_id == member.branch_id,
         )
     )
 

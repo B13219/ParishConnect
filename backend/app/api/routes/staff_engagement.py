@@ -12,6 +12,7 @@ from app.db.base import utc_now
 from app.db.session import get_db
 from app.models import (
     Branch,
+    ChurchMembership,
     Event,
     Member,
     PrayerRequest,
@@ -99,6 +100,18 @@ def member_role(db: Session) -> Role:
 def serialize_member_access(member: Member, db: Session) -> dict[str, object]:
     account = db.scalar(select(User).where(User.member_id == member.id))
     if account is None:
+        linked = db.scalar(select(ChurchMembership).where(
+            ChurchMembership.legacy_member_id == member.id,
+            ChurchMembership.user_id.is_not(None),
+        ))
+        if linked is not None:
+            return {
+                "member_id": str(member.id), "exists": True,
+                "account_id": str(linked.user_id), "email": member.email,
+                "status": linked.status, "self_managed": True,
+                "created_at": linked.created_at.isoformat(),
+                "updated_at": linked.updated_at.isoformat(),
+            }
         return {
             "member_id": str(member.id),
             "exists": False,
@@ -197,7 +210,7 @@ def provision_member_access(
     actor: User = Depends(require_roles("receptionist")),
 ) -> dict[str, object]:
     member = branch_member(member_id, actor, db)
-    if db.scalar(select(User).where(User.member_id == member.id)) is not None:
+    if serialize_member_access(member, db)["exists"]:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This member already has a Vinyrd account.",
@@ -259,6 +272,9 @@ def reset_member_password(
             detail="Member account has not been activated.",
         )
 
+    if account.identity_self_managed:
+        raise HTTPException(403, "The account owner must use the password reset flow.")
+
     temporary_password = secrets.token_urlsafe(9)
     account.password_hash = password_hash(temporary_password)
     write_audit_log(
@@ -290,6 +306,8 @@ def update_member_access_status(
             detail="Member account has not been activated.",
         )
 
+    if account.identity_self_managed:
+        raise HTTPException(403, "Manage this person's church membership instead of their global account.")
     account.status = payload.status
     write_audit_log(
         db,
