@@ -27,8 +27,8 @@ if (VinyrdClient.requireSession()) {
 
   const loadProfile = async () => {
     try {
-      const data = await VinyrdClient.apiRequest("/member-portal/me");
-      renderProfile(data.profile);
+      const [data, globalProfile] = await Promise.all([VinyrdClient.apiRequest("/member-portal/me"), VinyrdClient.apiRequest("/identity/me")]);
+      renderProfile({...data.profile, ...globalProfile, name: globalProfile.first_name + " " + globalProfile.last_name});
     } catch (error) {
       if (error.status === 403) {
         const profile = await VinyrdClient.apiRequest("/identity/me");

@@ -15,6 +15,7 @@ from app.models import (
     Branch,
     ChurchFollow,
     ChurchMembership,
+    ChurchPublicProfile,
     Member,
     MembershipRequest,
     Profile,
@@ -73,6 +74,7 @@ class ProfileUpdate(Input):
 
 class RequestCreate(Input):
     message: str | None = Field(default=None, max_length=2000)
+    share_contact: bool = False
 
 
 class RequestReview(Input):
@@ -110,6 +112,7 @@ class RequestView(BaseModel):
     reviewed_at: datetime | None
     rejection_reason: str | None
     matched_member_id: UUID | None
+    applicant_snapshot: dict
 
 
 def commit(db):
@@ -178,10 +181,14 @@ def update_profile(
 
 @router.get("/identity/churches")
 def churches(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    # Deliberately limited discovery data. No directory, staff, geofence or member data.
+    # Compatibility response shape; only explicitly published directory entries.
     return [
-        {"id": b.id, "name": b.name, "location": b.location}
-        for b in db.scalars(select(Branch).order_by(Branch.name))
+        {"id": b.church_id, "name": b.name, "location": b.location}
+        for b in db.scalars(
+            select(ChurchPublicProfile)
+            .where(ChurchPublicProfile.is_published.is_(True))
+            .order_by(ChurchPublicProfile.name)
+        )
     ]
 
 
@@ -222,7 +229,17 @@ def request_membership(
         )
     ):
         raise HTTPException(409, "An open request already exists.")
-    request = MembershipRequest(user_id=user.id, church_id=church_id, message=payload.message)
+    profile = profile_data(db, user)
+    snapshot = {
+        "name": user.name,
+        "first_name": profile["first_name"],
+        "last_name": profile["last_name"],
+    }
+    if payload.share_contact:
+        snapshot.update({key: profile[key] for key in ("email", "phone", "avatar_url")})
+    request = MembershipRequest(
+        user_id=user.id, church_id=church_id, message=payload.message, applicant_snapshot=snapshot
+    )
     db.add(request)
     commit(db)
     return request

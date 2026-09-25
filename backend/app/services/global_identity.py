@@ -21,7 +21,11 @@ def lock_user(db: Session, user_id: UUID) -> User:
 
 
 def require_church_admin(db: Session, actor: User, church_id: UUID) -> None:
-    if actor.branch_id != church_id or "administrator" not in user_roles(db, actor.id):
+    if (
+        church_id is None
+        or actor.branch_id != church_id
+        or "administrator" not in user_roles(db, actor.id)
+    ):
         raise HTTPException(403, "Church administrator permission required.")
 
 
@@ -61,6 +65,8 @@ def review_request(
     if request is None:
         raise HTTPException(404, "Membership request not found.")
     require_church_admin(db, actor, request.church_id)
+    if request.user_id == actor.id:
+        raise HTTPException(403, "Another church administrator must review your request.")
     user = lock_user(db, request.user_id)
     db.refresh(request, with_for_update=True)
     if request.status not in OPEN_REQUESTS:
@@ -115,6 +121,8 @@ def approve_membership(db, actor, user, request, matched_member_id):
         # This lookup does not auto-claim. Even an unverified matching email must
         # lead to explicit church review instead of silently duplicating a person.
         first, _, last = user.name.partition(" ")
+        first = (request.applicant_snapshot or {}).get("first_name", first)
+        last = (request.applicant_snapshot or {}).get("last_name", last)
         candidates = [func.lower(Member.email) == user.email.lower()]
         if user.phone:
             candidates.append(Member.phone == user.phone)
@@ -132,8 +140,8 @@ def approve_membership(db, actor, user, request, matched_member_id):
             branch_id=request.church_id,
             first_name=first[:100],
             last_name=last[:100],
-            email=user.email,
-            phone=user.phone,
+            email=(request.applicant_snapshot or {}).get("email"),
+            phone=(request.applicant_snapshot or {}).get("phone"),
             membership_status="active",
         )
         db.add(member)

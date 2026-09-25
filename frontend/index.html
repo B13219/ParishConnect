@@ -14,7 +14,7 @@
   integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
   crossorigin=""
 >
-</head>
+<link rel="stylesheet" href="./network-admin.css"></head>
 <body class="vinyrd-console">
   <section class="login-screen vinyrd-login" id="loginScreen">
     <div class="login-card vinyrd-login-card">
@@ -58,6 +58,7 @@
           <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg></span>
           Dashboard
         </a>
+        <a href="#registration-requests" data-section-link="registration-requests">Members / Registration Requests</a>
         <a href="#people" data-section-link="people">
           <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.6-4 2.4-6 5.5-6s4.9 2 5.5 6"/><circle cx="17" cy="9" r="2.2"/><path d="M15.5 14c2.9-.6 5 1.1 5.5 4"/></svg></span>
           People
@@ -207,6 +208,7 @@
       </section>
 
       <section class="content-grid">
+        <article class="panel" id="registration-requests"><div class="panel-heading"><div><p class="eyebrow">Members</p><h2>Registration Requests</h2></div></div><p>Review requests for your church. Linking requires verified identity; a possible match is not proof.</p><label>Request status <select id="networkRequestStatus"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="more_info_required">Requires more information</option><option value="cancelled">Cancelled</option></select></label><button id="networkRefresh" type="button">Refresh requests</button><p id="networkAdminStatus" role="status" aria-live="polite"></p><div id="networkRequests"></div><button id="networkRequestsMore" type="button" hidden>Load more requests</button><hr><h2>Public church profile</h2><p>Only fields entered here are published. Private church settings, events and announcements are not copied. Use a two-letter country code, such as TZ, KE or UG.</p><form id="publicChurchForm" class="network-form"></form></article>
         <article class="panel" id="people">
           <div class="panel-header">
             <div>
@@ -1895,6 +1897,7 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
   crossorigin=""
 ></script>
 
-<script src="./app.js?v=20260921-liveprep1"></script>
+<script src="./network-admin.js"></script>
+<script src="./app.js?v=20260925-network2"></script>
 </body>
 </html>

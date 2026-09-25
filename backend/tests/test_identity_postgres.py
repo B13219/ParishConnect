@@ -161,7 +161,24 @@ def postgres_identity():
                 for table in metadata.sorted_tables
                 if table.name != "alembic_version"
             }
+        migrate("20260925_0015")
+        old_request = uuid4()
+        with owner.begin() as conn:
+            conn.execute(
+                text("""INSERT INTO membership_requests
+                (id,user_id,church_id,status,message,created_at,updated_at)
+                VALUES (:id,:u,:c,'rejected','Prior-phase request',now(),now())"""),
+                {"id": old_request, "u": user, "c": b},
+            )
         migrate("head")
+        with owner.connect() as conn:
+            preserved = conn.execute(
+                text("SELECT message, applicant_snapshot FROM membership_requests WHERE id=:id"),
+                {"id": old_request},
+            ).one()
+            original_name = conn.scalar(text("SELECT name FROM users WHERE id=:u"), {"u": user})
+            assert preserved.message == "Prior-phase request"
+            assert preserved.applicant_snapshot == {"name": original_name}
         with owner.begin() as conn:
             # Reading with the old reflected column set proves preservation of
             # every legacy value (including password hashes and relationship IDs).
@@ -325,3 +342,94 @@ def test_api_with_rls_runtime_role(postgres_identity):
             client.get("/api/v1/identity/me", headers=staff_a).json()["email"]
             == "admin-a@test.local"
         )
+
+
+def test_network_publication_rls_and_self_review(postgres_identity):
+    owner, runtime, ids = postgres_identity
+    sessions = sessionmaker(bind=runtime, autoflush=False)
+    app = create_app()
+
+    def database():
+        with sessions() as db:
+            yield db
+
+    app.dependency_overrides[get_db] = database
+    with TestClient(app) as client:
+        staff = {}
+        for key in ("a", "b"):
+            result = client.post(
+                "/api/v1/auth/login",
+                json={"email": f"admin-{key}@test.local", "password": "test-password"},
+            )
+            staff[key] = {"Authorization": "Bearer " + result.json()["access_token"]}
+            result = client.put(
+                "/api/v1/network/admin/profile",
+                headers=staff[key],
+                json={
+                    "name": "Published A" if key == "a" else "Draft B",
+                    "country": "TZ",
+                    "is_published": key == "a",
+                },
+            )
+            assert result.status_code == 200, result.text
+        assert len(client.get("/api/v1/network/churches").json()["items"]) == 1
+        assert client.get("/api/v1/network/churches/" + str(ids["b"])).status_code == 404
+        registered = client.post(
+            "/api/v1/auth/register",
+            json={
+                "first_name": "Network",
+                "last_name": "Applicant",
+                "email": "network@test.local",
+                "password": "long-test-password",
+            },
+        )
+        user = {"Authorization": "Bearer " + registered.json()["access_token"]}
+        for key in ("a", "b"):
+            req = client.post(
+                "/api/v1/identity/churches/" + str(ids[key]) + "/requests",
+                headers=user,
+                json={"share_contact": True},
+            )
+            assert req.status_code == 201, req.text
+            queue = client.get("/api/v1/network/admin/requests", headers=staff[key])
+            assert queue.status_code == 200, queue.text
+            assert all(row["church_id"] == str(ids[key]) for row in queue.json()["items"])
+            reviewed = client.post(
+                "/api/v1/identity/requests/" + req.json()["id"] + "/review",
+                headers=staff[key],
+                json={"status": "approved"},
+            )
+            assert reviewed.status_code == 200, reviewed.text
+        initialized = client.post("/api/v1/network/me/initialize-home", headers=user)
+        assert initialized.status_code == 200, initialized.text
+        assert initialized.json()["home_church_id"] == str(ids["a"])
+        assert len(client.get("/api/v1/network/me", headers=user).json()["memberships"]) == 2
+        own = client.post(
+            "/api/v1/identity/churches/" + str(ids["a"]) + "/requests", headers=staff["a"], json={}
+        )
+        assert own.status_code == 201, own.text
+        own_id = own.json()["id"]
+    with owner.connect() as conn:
+        admin_a = conn.scalar(text("SELECT id FROM users WHERE email='admin-a@test.local'"))
+    with runtime.begin() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM church_public_profiles")) == 1
+        conn.execute(text("SELECT set_config('vinyrd.user_id', :u, true)"), {"u": str(admin_a)})
+        assert (
+            conn.execute(
+                text("UPDATE church_public_profiles SET name='Wrong tenant' WHERE church_id=:id"),
+                {"id": ids["b"]},
+            ).rowcount
+            == 0
+        )
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            conn.execute(
+                text("UPDATE membership_requests SET status='approved' WHERE id=:id"),
+                {"id": own_id},
+            )
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            conn.execute(
+                text(
+                    "INSERT INTO church_public_profiles (church_id,name,country,is_published,created_at,updated_at) VALUES (:id,'Invalid','TZ',true,now(),now())"
+                ),
+                {"id": ids["b"]},
+            )

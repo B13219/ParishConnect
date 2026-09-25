@@ -7,15 +7,23 @@
 
   const TOKEN_KEY = "vinyrd_member_access_token";
   const USER_KEY = "vinyrd_member_user";
+  const CONTEXT_KEY = "vinyrd_viewed_church";
+  const viewedChurch = () => sessionStorage.getItem(CONTEXT_KEY);
+  const setViewedChurch = id => {
+    if (id) sessionStorage.setItem(CONTEXT_KEY, id);
+    else sessionStorage.removeItem(CONTEXT_KEY);
+  };
 
   const token = () => sessionStorage.getItem(TOKEN_KEY);
 
   const setSession = (accessToken, user) => {
+    setViewedChurch(null);
     sessionStorage.setItem(TOKEN_KEY, accessToken);
     sessionStorage.setItem(USER_KEY, JSON.stringify(user || {}));
   };
 
   const clearSession = () => {
+    setViewedChurch(null);
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(USER_KEY);
   };
@@ -42,6 +50,7 @@
   };
 
   const apiRequest = async (path, options = {}) => {
+    if (path.startsWith("/member-portal/")) await window.VinyrdClient.contextReady;
     const accessToken = token();
     if (!accessToken) {
       const error = new Error("Login required.");
@@ -51,6 +60,8 @@
 
     const headers = new Headers(options.headers || {});
     headers.set("Authorization", "Bearer " + accessToken);
+    // Context affects private portal reads/writes only; it never sets Home Church.
+    if (path.startsWith("/member-portal/") && viewedChurch()) headers.set("X-Church-ID", viewedChurch());
     if (options.body && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }
@@ -70,6 +81,13 @@
     return false;
   };
 
+  document.querySelectorAll('.bottom-nav a').forEach(link => {
+    const active = new URL(link.href).pathname === location.pathname;
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  });
+
   window.VinyrdClient = {
     API_BASE,
     token,
@@ -78,5 +96,7 @@
     publicRequest,
     apiRequest,
     requireSession,
+    viewedChurch,
+    setViewedChurch,
   };
 })();

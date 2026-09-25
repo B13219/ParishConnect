@@ -45,6 +45,7 @@ let geofenceMarker = null;
 let geofenceCircle = null;
 
 const sections = [
+  "registration-requests",
   "people",
   "imports",
   "attendance",
@@ -58,6 +59,7 @@ const sections = [
   "admin",
 ];
 const navSections = [
+  "registration-requests",
   "overview",
   "people",
   "imports",
@@ -2222,6 +2224,7 @@ const deleteServiceTemplate = async (templateId) => {
 };
 
 const loadSection = async (section) => {
+  if (section === "registration-requests") return window.VinyrdNetworkAdmin.load();
   if (section === "people") {
   const [people, communities, ministries] = await Promise.all([
   fetchJson("/members/"),

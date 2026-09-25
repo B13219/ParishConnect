@@ -9,7 +9,7 @@
     <link rel="icon" href="./assets/vinyrd-logo.png?v=20260920-master" type="image/png">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="./styles.css?v=20260920-badge2">
-</head>
+<link rel="stylesheet" href="./network.css"></head>
 <body class="member-app-page member-home-page">
   <main class="vinyrd-app" aria-label="Vinyrd member home">
     <header class="app-header">
@@ -59,17 +59,12 @@
       </article>
     </section>
 
-    <nav class="bottom-nav" aria-label="Primary member navigation">
-      <a class="nav-item active" href="./home.html" aria-current="page"><img src="./assets/nav-home.svg" alt=""><span>Home</span></a>
-      <a class="nav-item" href="./groups.html"><img src="./assets/nav-groups.svg" alt=""><span>Groups</span></a>
-      <a class="nav-item" href="./giving.html"><img src="./assets/nav-giving.svg" alt=""><span>Giving</span></a>
-      <a class="nav-item" href="./events.html"><img src="./assets/nav-events.svg" alt=""><span>Events</span></a>
-      <a class="nav-item" href="./profile.html"><img src="./assets/nav-profile.svg" alt=""><span>Profile</span></a>
-    </nav>
+    <nav class="bottom-nav" aria-label="Primary member navigation"><a class="nav-item" href="./home.html"><img src="./assets/nav-home.svg" alt=""><span>Home</span></a><a class="nav-item" href="./my-church.html"><img src="./assets/nav-groups.svg" alt=""><span>My Church</span></a><a class="nav-item" href="./discover.html"><img src="./assets/nav-events.svg" alt=""><span>Discover</span></a><a class="nav-item" href="./following.html"><img src="./assets/nav-giving.svg" alt=""><span>Following</span></a><a class="nav-item" href="./profile.html"><img src="./assets/nav-profile.svg" alt=""><span>Profile</span></a></nav>
 
     <div class="status-toast" id="statusToast" role="status" aria-live="polite"></div>
   </main>
   <script src="./client.js"></script>
+  <script src="./context.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

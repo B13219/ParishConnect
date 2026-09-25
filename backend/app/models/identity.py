@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -105,6 +106,7 @@ class MembershipRequest(IdMixin, TimestampMixin, Base):
     reviewed_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
     rejection_reason: Mapped[str | None] = mapped_column(Text)
     matched_member_id: Mapped[UUID | None] = mapped_column(ForeignKey("members.id"))
+    applicant_snapshot: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
 
 
 class ChurchFollow(IdMixin, TimestampMixin, Base):
@@ -113,3 +115,29 @@ class ChurchFollow(IdMixin, TimestampMixin, Base):
 
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     church_id: Mapped[UUID] = mapped_column(ForeignKey("branches.id"), index=True)
+
+
+class ChurchPublicProfile(TimestampMixin, Base):
+    __tablename__ = "church_public_profiles"
+    __table_args__ = (
+        Index("ix_church_public_geography", "country", "region", "city"),
+        CheckConstraint("length(country) = 2", name="country_code"),
+    )
+
+    church_id: Mapped[UUID] = mapped_column(ForeignKey("branches.id"), primary_key=True)
+    name: Mapped[str] = mapped_column(String(160))
+    country: Mapped[str] = mapped_column(String(2))
+    region: Mapped[str | None] = mapped_column(String(100))
+    city: Mapped[str | None] = mapped_column(String(100))
+    denomination: Mapped[str | None] = mapped_column(String(120))
+    location: Mapped[str | None] = mapped_column(String(240))
+    logo_url: Mapped[str | None] = mapped_column(String(2048))
+    about: Mapped[str | None] = mapped_column(Text)
+    service_times: Mapped[str | None] = mapped_column(Text)
+    contact_email: Mapped[str | None] = mapped_column(String(255))
+    contact_phone: Mapped[str | None] = mapped_column(String(40))
+    website: Mapped[str | None] = mapped_column(String(2048))
+    public_events: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    public_announcements: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    public_ministries: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))

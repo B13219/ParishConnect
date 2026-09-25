@@ -1,0 +1,40 @@
+#registration-requests {
+  grid-column: 1 / -1;
+}
+#registration-requests .network-form {
+  display: grid;
+  gap: 16px;
+  max-width: 800px;
+}
+#registration-requests label {
+  display: grid;
+  gap: 6px;
+}
+#registration-requests input,
+#registration-requests textarea,
+#registration-requests select {
+  padding: 10px;
+  border: 1px solid #bbbfae;
+  border-radius: 8px;
+  font: inherit;
+  max-width: 100%;
+}
+#registration-requests .request-card,
+#registration-requests fieldset {
+  padding: 20px;
+  margin: 16px 0;
+  border: 1px solid #d4d9cc;
+  border-radius: 12px;
+}
+#registration-requests button {
+  margin: 8px 8px 8px 0;
+}
+#registration-requests img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+#registration-requests [hidden] {
+  display: none !important;
+}

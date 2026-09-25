@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Discover churches · VINYRD</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./network.css" />
+  </head>
+  <body class="member-app-page" data-network-page="discover">
+    <main class="vinyrd-app network-app">
+      <header class="profile-header">
+        <a class="member-brand member-brand-light" href="./home.html">VINYRD</a>
+        <h1>Discover churches</h1>
+      </header>
+      <section class="network-content">
+        <form id="discoverForm" class="network-form network-grid">
+          <label
+            >Church name<input
+              name="q"
+              maxlength="160"
+              placeholder="Search churches" /></label
+          ><label
+            >Country code<input
+              name="country"
+              maxlength="2"
+              placeholder="TZ, KE, UG…" /></label
+          ><label
+            >Region<input
+              name="region"
+              maxlength="100"
+              placeholder="Any region" /></label
+          ><label
+            >City<input
+              name="city"
+              maxlength="100"
+              placeholder="Any city" /></label
+          ><label
+            >Denomination<input
+              name="denomination"
+              maxlength="120"
+              placeholder="Any denomination" /></label
+          ><label
+            >Browse<select name="view">
+              <option value="all">All churches</option>
+              <option value="local">
+                Local churches (choose region or city)
+              </option>
+              <option value="new">New on VINYRD</option>
+              <option value="tanzania">Churches in Tanzania</option>
+            </select></label
+          ><button class="network-button">Search churches</button
+          ><a href="./following.html">Followed churches</a>
+        </form>
+        <p
+          id="networkStatus"
+          class="network-status"
+          role="status"
+          aria-live="polite"
+        >
+          Loading…
+        </p>
+        <div id="networkContent" class="network-form"></div>
+        <button id="moreChurches" class="network-button" hidden>
+          Load more churches
+        </button>
+      </section>
+      <nav class="bottom-nav" aria-label="Primary member navigation">
+        <a class="nav-item" href="./home.html"
+          ><img src="./assets/nav-home.svg" alt="" /><span>Home</span></a
+        ><a class="nav-item" href="./my-church.html"
+          ><img src="./assets/nav-groups.svg" alt="" /><span>My Church</span></a
+        ><a class="nav-item" href="./discover.html"
+          ><img src="./assets/nav-events.svg" alt="" /><span>Discover</span></a
+        ><a class="nav-item" href="./following.html"
+          ><img src="./assets/nav-giving.svg" alt="" /><span>Following</span></a
+        ><a class="nav-item" href="./profile.html"
+          ><img src="./assets/nav-profile.svg" alt="" /><span>Profile</span></a
+        >
+      </nav>
+    </main>
+    <script src="./client.js"></script>
+    <script src="./network.js"></script>
+  </body>
+</html>

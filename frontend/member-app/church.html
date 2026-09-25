@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Church profile · VINYRD</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./network.css" />
+  </head>
+  <body class="member-app-page" data-network-page="church">
+    <main class="vinyrd-app network-app">
+      <header class="profile-header">
+        <a class="member-brand member-brand-light" href="./home.html">VINYRD</a>
+        <h1>Church profile</h1>
+      </header>
+      <section class="network-content">
+        <p
+          id="networkStatus"
+          class="network-status"
+          role="status"
+          aria-live="polite"
+        >
+          Loading…
+        </p>
+        <div id="networkContent" class="network-form"></div>
+      </section>
+      <nav class="bottom-nav" aria-label="Primary member navigation">
+        <a class="nav-item" href="./home.html"
+          ><img src="./assets/nav-home.svg" alt="" /><span>Home</span></a
+        ><a class="nav-item" href="./my-church.html"
+          ><img src="./assets/nav-groups.svg" alt="" /><span>My Church</span></a
+        ><a class="nav-item" href="./discover.html"
+          ><img src="./assets/nav-events.svg" alt="" /><span>Discover</span></a
+        ><a class="nav-item" href="./following.html"
+          ><img src="./assets/nav-giving.svg" alt="" /><span>Following</span></a
+        ><a class="nav-item" href="./profile.html"
+          ><img src="./assets/nav-profile.svg" alt="" /><span>Profile</span></a
+        >
+      </nav>
+    </main>
+    <script src="./client.js"></script>
+    <script src="./network.js"></script>
+  </body>
+</html>

@@ -1,6 +1,9 @@
 # Global VINYRD identity
 
-## Audit and baseline
+Current state: Prompt 2 is implemented on `feature/global-member-identity`.
+Prompt 1 remains intact. Prompt 3 has not begun.
+
+## Original audit and baseline (before Prompt 1)
 
 Repository: B13219/ParishConnect, product VINYRD. Baseline: origin/main,
 `8d72e24b9c0d0f881cd1ea1248177af294d69942`. Feature branch:
@@ -48,10 +51,11 @@ deployment, push or merge is part of this task.
 | --- | --- |
 | users (retained) | Permanent account and existing password hash/token implementation. Nullable legacy branch/member pointers stay intact. New `identity_self_managed` flag protects global accounts from church password resets/deactivation. Case-insensitive email uniqueness prevents duplicate credentials. |
 | profiles (new) | One row keyed by users.id; first/last name, phone, avatar URL, country, region, city and timestamps. Email comes from users, not a second credential/contact source. |
-| branches (retained) | Church identity. No rename or parallel churches table. Discovery exposes only ID, name and location. |
+| branches (retained) | Private church identity and configuration. No rename or parallel churches table. Public data comes from the explicit publication below. |
 | church_memberships (new) | Church, nullable user, nullable unique legacy member, optional membership number, status, descriptive role, primary flag, joined/approved dates and approver. At least a user or legacy member is required. |
-| membership_requests (new) | User/church, message, status, review metadata, reason and optional matched member. One pending/more-info request per user/church. Resolved requests are retained. |
+| membership_requests (new) | User/church, message, status, review metadata, reason and optional matched member. One pending/more-info request per user/church. Resolved requests are retained. Prompt 2 adds a consent-scoped applicant snapshot for reviewers. |
 | church_follows (new) | Unique user/church pair and timestamps. No member ID, primary flag, staff role, or permission side effects. No follow-count limit. |
+| church_public_profiles (Prompt 2) | One explicit publication/draft per branch: name, ISO-style two-letter country code, region/city, optional denomination, location, HTTPS logo/site, about, service times, public contact and bounded public events/announcements/ministries. No automatic copying from private settings. |
 
 Membership statuses: pending, active, inactive, former, suspended. Request statuses:
 pending, approved, rejected, more_info_required, cancelled. Membership indexes
@@ -167,15 +171,17 @@ memberships can be primary; the old primary is cleared before the new one is set
 in a single transaction. Other memberships remain active. Approval does not
 implicitly change home church or inspect the person's other churches. Existing
 home associations are preserved by backfill. Suspending a home membership clears
-its primary flag, leaving the person free to select another active membership.
+its primary flag. On the next member synchronization, the owner-only initialize-home
+endpoint chooses the oldest active membership if none is primary. It never
+replaces an existing Home Church. The owner can select another active membership.
 Neither this selection nor following modifies users.branch_id (staff scope).
 
 The existing member login now accepts an account without a membership. Home/profile
 show an account-only state; membership-only pages send that person home without
-clearing a valid login. No self-registration, church-picker or review-form UI is
-introduced here. Existing staff/public/member URLs and Railway files are preserved.
+clearing a valid login. Prompt 2 adds the account, church-picker and review-form
+screens described below. Existing staff/public/member URLs and Railway files are preserved.
 
-## API contract for the next member-app flow
+## Identity API contract
 
 All paths are under `/api/v1`; authenticated operations use the existing bearer token.
 
@@ -183,10 +189,10 @@ All paths are under `/api/v1`; authenticated operations use the existing bearer 
 | --- | --- |
 | POST /auth/register | First/last name, email, password (12+ characters), optional phone; returns existing login response shape. No role, church or member IDs accepted. |
 | GET, PUT /identity/me | Read/replace personal profile. Email is read-only here; self-service email change is not implemented. Password reset uses the existing /auth/password-reset/request and /auth/password-reset/confirm endpoints. |
-| GET /identity/churches | Limited church discovery. |
+| GET /identity/churches | Compatibility ID/name/location list, now restricted to explicitly published profiles. Use the paginated network API for new discovery. |
 | GET /identity/memberships | Own relationships. |
 | PUT /identity/memberships/{id}/primary | Owner's active home church. |
-| POST /identity/churches/{id}/requests | Submit membership request with optional message. |
+| POST /identity/churches/{id}/requests | Submit membership request with optional message and share_contact (default false). |
 | GET /identity/requests | Own request history. |
 | POST /identity/requests/{id}/cancel | Cancel pending/more-info request. |
 | GET /identity/churches/{id}/requests | Church administrator's review queue. |
@@ -196,80 +202,170 @@ All paths are under `/api/v1`; authenticated operations use the existing bearer 
 | GET /identity/follows | Own follows. |
 | PUT, DELETE /identity/churches/{id}/follow | Idempotent follow/unfollow. |
 
-Before a public registration UI rollout: rehearse migration/backfill and role setup;
-implement registration, church discovery, request status/review, verified manual
-claiming and home selection screens; wire X-Church-ID for context switching. The
-current password-reset implementation prepares a token but does not deliver email
-in production. Implement verified email/recovery delivery and registration abuse
-controls before public launch. No unverified email should authorize claiming.
-For more-info requests, this first API supports review plus cancellation/reapply;
-a dedicated reply/resubmission UI/API remains future work. Staff roles remain
-bound to the existing staff branch; multi-church staff delegation is separate
-from multi-church membership.
+## Prompt 2: church network and administration
 
-## Validation
+The member application now includes account registration/profile editing, recovery
+screens using the existing reset API, Discover, public church profiles, Following
+and My Church. Bottom navigation provides Home / My Church / Discover / Following /
+Profile. Existing giving, groups, events, messages and prayers remain reachable
+through Home and My Church. Empty membership lists remain a valid signed-in state.
 
-* 132 tests passed, including all 118 existing tests and 14 new tests.
-* PostgreSQL 16: full migration chain applied; upgrade from populated prior head
-  preserved every seeded legacy column value across all legacy tables.
-* Non-owner RLS: own-only reads, no-context denial, cancellation versus self-approval,
-  membership-column protection and pooled-context reset passed. API registration,
-  two-church approval and concurrent primary switching passed with RLS active.
-* All frontend JavaScript files passed node --check; Python compileall passed.
-* New/changed identity code passes Ruff. Full Ruff reports two existing findings:
-  app/api/routes/messages.py:428 (BLE001), app/services/sms.py:1 (I001).
-* Python wheel build succeeded. Production Docker build could not run because
-  this machine's Docker engine is unavailable; rerun the CI Docker build before
-  deployment. There is no configured standalone typecheck or frontend build task.
-* No production database was contacted or migrated. No deployment, push or merge.
+Discovery supports name substring and case-insensitive country, region, city and
+denomination filters; pages are bounded to 24 by default (maximum 100). Views are
+All, Local (requires region or city), New on VINYRD (publication-record creation
+order), Tanzania and the separate Followed Churches screen. Country codes are
+normalized to uppercase; the schema is not tied to one country/city. Local is a
+structured location filter, not GPS/radius ranking. No recommendations are added.
 
-Run the PostgreSQL tests against an explicitly local disposable cluster:
-`VINYRD_TEST_POSTGRES_URL=postgresql+psycopg://...@127.0.0.1:PORT/postgres pytest -q`.
-Those tests create a uniquely named temporary database/runtime role and remove
-only those resources. Without that variable the two PostgreSQL tests are skipped.
-The existing backend CI workflow supplies this variable from its disposable
-PostgreSQL service, so those tests run in CI too.
+Only explicitly published profiles are anonymously readable. Publication has its
+own editor in Members / Registration Requests in the existing staff console.
+Events, announcements and ministries are intentionally entered public summaries;
+there is no automatic join to private calendars, messages, ministry membership,
+contact directories, geofences or SMS configuration. Unpublishing removes discovery
+and public detail access; existing follows and memberships remain intact.
 
-## Prompt 1 completion and Prompt 2 prerequisites
+Follow and Request to join are separate controls and separate tables. This phase
+serves public content to followers; it does not introduce follower-only private
+content or a recommendation feed. Unfollow never changes membership.
 
-The implementation is committed in `b0d17599a899d65b74f63056ff28b6edd19d7a24`.
-Continuation review found a clean working tree and a completed implementation
-commit, not a WIP preservation commit. No unfinished identity TODO/FIXME markers
-or uncommitted implementation changes remain. Alembic metadata was checked again
-from `backend/`: there is one head, `20260925_0015`, directly following
-`20260921_0014`. The previously verified application, migration and test files
-are unchanged; the 132-test, PostgreSQL preservation/RLS/concurrency and syntax
-results above remain applicable. This documentation-only closeout does not
-require repeating those suites. The production Docker check remains outstanding.
+The staff queue provides pending/approved/rejected/more-information/cancelled
+filters, request date, applicant name/message, consented contact/photo and possible
+unclaimed church-local matches. Suggestions are not proof of identity. Selecting
+an existing member requires explicit reviewer confirmation in the UI; the server
+rechecks tenant, ownership and competing claims transactionally. No matching by
+email automatically grants access. Approval preserves the selected member ID and
+all its history. Rejection and more-information notes remain visible to the owner;
+neither deletes the account or follows. More-information replies use contact with
+the office or cancellation/reapplication in this version.
 
-Prompt 2 can build on the API contract above without replacing the schema or
-repeating the architecture audit. Before starting its implementation:
+Snapshot privacy: names/message are shared when requesting membership. Email,
+phone and photo are included only when share_contact is true; no global profile
+RLS policy is widened for reviewers. New local member records copy only the
+consented snapshot contacts. Linking an existing local member preserves the
+church's already-held contacts and history. Prior-phase requests receive name-only
+snapshots on upgrade. Snapshots describe the submitted request, so later global
+profile edits do not retroactively change them. External HTTPS photos are loaded
+by the browser without a referrer; no server-side URL fetching or upload storage
+is added.
 
-1. Confirm Prompt 2's requested screens and acceptance criteria. No registration,
-   Discover/Following, review or native mobile UI is implemented by this closeout.
-2. Prepare a local or staging PostgreSQL database at `20260925_0015`. Run Alembic
-   commands from `backend/`, using development credentials. Seed two churches,
-   their staff accounts, an unclaimed legacy member and an account with no church
-   for end-to-end frontend testing. No production migration is required to start.
-3. Use bearer authentication for identity endpoints. Treat an empty memberships
-   list as a valid signed-in state; following does not supply membership. After
-   approval, have the owner choose Home Church explicitly. Send `X-Church-ID`
-   when accessing another active membership's portal data; a 403 must not erase
-   a valid login.
+Viewed church is sessionStorage `vinyrd_viewed_church`, validated against the
+owner's active memberships before portal requests. The browser sends X-Church-ID
+only to member-portal routes. Changing it reloads the selected private context,
+without touching is_primary. My Church has a separate Make Home Church action.
+Owner-side synchronization initializes the oldest active membership only when no
+Home Church exists, under the same account lock used for primary changes. Church
+reviewers never inspect other churches' memberships to choose Home Church.
 
-The following are public-launch gates, not reasons to block local UI development:
+All routes below are relative to /api/v1:
 
-* Resolve legacy case-insensitive email conflicts and inconsistent user/member
-  branch links; rehearse migration/backfill and backup restoration on a copy.
-* Separate schema-owner migration/bootstrap credentials from a non-owner runtime
-  role if deployment is to rely on PostgreSQL RLS. Verify role grants and the
-  actual deployment connection; the existing Railway startup is unchanged.
-* Implement and verify email/recovery delivery and registration abuse controls.
-  The existing production reset request does not deliver its prepared token.
-  Establish identity verification for manual claims; email equality alone must
-  never link a person's private church history.
-* Run the production Python 3.12/Docker CI validation. Local checks used Python
-  3.14. Track the two pre-existing SMS lint findings separately; they were not
-  changed to make this identity work pass. No standalone typecheck is configured.
+| Method/path | Contract |
+| --- | --- |
+| GET /network/churches | Anonymous paginated published directory: q, country, region, city, denomination, view, offset, limit. |
+| GET /network/churches/{church_id} | Anonymous published allowlist only; unpublished/absent returns 404. |
+| GET /network/me | Own memberships with church names, own request history and followed church IDs. |
+| POST /network/me/initialize-home | Owner-only, idempotent initialization when no primary exists. |
+| GET, PUT /network/admin/profile | Read/write only the authenticated administrator's church publication. The client cannot supply church_id. |
+| GET /network/admin/requests | Own-church queue by status, 50 at a time; scoped unclaimed member suggestions. |
 
-Prompt 2, production deployment and merging to main require separate instructions.
+The existing identity follow, request, review and primary routes remain the mutation
+APIs. Users cannot assign roles, approve their own requests (even if they are a
+church administrator), or access the queue as an ordinary member. Errors and note
+content are rendered as text, not executable HTML. Server authorization remains
+mandatory regardless of hidden/disabled UI controls.
+
+## Prompt 2 migration and staging procedure
+
+New migration `20260925_0016_church_network.py` follows `20260925_0015`; there is one
+Alembic head. It adds membership_requests.applicant_snapshot and
+church_public_profiles, a geography index, public-profile RLS and a trigger that
+also denies an administrator's self-review. No existing member/auth/attendance/
+giving/group rows are removed or rewritten. Existing request messages/statuses are
+preserved. No church is automatically published. Downgrade refuses destructive
+removal; roll application code back while retaining additive data.
+
+Public-profile RLS permits published reads, and draft reads/inserts/updates only
+for an active Administrator whose existing users.branch_id matches. No delete
+policy is installed. Request RLS remains owner/own-church-admin, with self-review
+blocked both by service authorization and a PostgreSQL trigger. Giving and
+attendance retain the existing server-enforced church scope rather than claiming
+that RLS has been added to every legacy table.
+
+Recommended staging steps (no production action has been run):
+
+1. Back up and restore into isolated staging. Verify migration 0015 legacy email/
+   branch prerequisites if staging is still at 0014. Rehearse the complete chain;
+   inspect legacy member counts, IDs, credential hashes and histories afterward.
+2. As schema owner, run `alembic upgrade head` from backend/. New runtime table
+   grants must be applied explicitly, for example SELECT/INSERT/UPDATE on
+   church_public_profiles to the actual backend runtime role. Existing grants
+   on membership_requests cover its new column. Do not grant browser/PUBLIC access.
+3. Run HTTP traffic with a non-owner NOSUPERUSER NOBYPASSRLS role. Verify ownership,
+   grants and transaction-local actor context. Migration/bootstrap must use the
+   schema owner. The unchanged Railway startup uses one URL for both; arrange the
+   separate migration/runtime launch procedure before relying on RLS in deployment.
+4. Preserve PARISHCONNECT_* secret values and existing API/URL configuration;
+   changing token/password secrets can invalidate existing access. No new service,
+   Supabase credentials, object store or third-party API key is required. The
+   member app uses existing bearer auth; publish HTTPS asset/site URLs only.
+5. Deploy backend and static frontend together in staging. As two separate church
+   administrators, enter and explicitly publish profiles. Confirm draft exclusion,
+   tenant separation, consent behavior and safe manual identity verification.
+6. Repeat the browser journey and non-owner PostgreSQL tests, migration preservation
+   and concurrent Home Church checks. Validate attendance, giving, groups, staff
+   provisioning/imports and recovery for legacy and newly registered people.
+7. Run production Python 3.12/Docker CI, readiness and backup-restore checks.
+   Resolve the independently tracked SMS lint baseline before calling CI green.
+   Production rollout is a separate authorized operation.
+
+No new production environment variables are required by this phase. The browser
+test has optional VINYRD_TEST_BROWSER=1 and VINYRD_BROWSER_ARTIFACTS; PostgreSQL tests
+require VINYRD_TEST_POSTGRES_URL pointing to localhost/127.0.0.1. Test dependencies
+are installed with `pip install -e ".[dev,browser]"` and
+`python -m playwright install chromium` (CI installs Linux dependencies too).
+Browser tests start a disposable loopback service on port 8003, which must be free.
+They use an isolated file-backed SQLite copy to support concurrent browser calls.
+PostgreSQL tests create/drop only uniquely named local test databases and roles.
+
+## Validation and release readiness
+
+* 142 tests passed: prior regression suite plus network/API privacy tests, real
+  PostgreSQL migration/RLS tests and a real Chromium member/admin workflow. The
+  browser journey also verifies legacy login/giving and global profile editing.
+* PostgreSQL 16.15: 0014 -> 0015 -> 0016 with populated legacy tables and a populated
+  0015 request; all legacy columns and request message/status remain preserved.
+  Non-owner publication, tenant-denial, self-review denial, owner-home initialization,
+  two memberships and concurrent primary updates pass.
+* API regression covers Church A/B attendance and giving separation, follower/
+  pending private-access denial, rejection preserving the account/follows,
+  consent, matching/linking, draft privacy, publication filters and pagination.
+* Chromium covers signup, discovery, separate follow/join, more information,
+  verified legacy linking, rejection/reapplication, second membership, Home Church,
+  viewed church switching, unfollow, legacy authentication and profile editing.
+  Mobile discovery and desktop console were visually inspected; mobile has no
+  horizontal overflow. Other browser engines and physical devices are not tested.
+* Changed Python code passes Ruff. Full Ruff still reports exactly two pre-existing
+  SMS findings: messages.py:428 BLE001 and services/sms.py:1 I001, left unchanged.
+* All frontend JavaScript passes node --check; Python compileall and package wheel
+  build pass. The existing static frontend has no bundle build, and neither a
+  standalone typecheck nor TypeScript configuration exists. Syntax checks are not
+  represented as typechecking. The existing wheel package list is narrow; production
+  uses the unchanged Docker editable install, so wheel success is not a deployment
+  validation.
+* Docker engine is unavailable locally (dockerDesktopLinuxEngine pipe missing).
+  Production container/Python 3.12 validation remains outstanding; local Python is
+  3.14. Existing framework deprecation warnings remain. CI now includes the opt-in
+  Chromium journey and syntax checks for every frontend JavaScript file.
+
+Public-launch gates remain: verified recovery/email delivery and registration
+abuse controls; an operational manual-identity verification procedure; non-owner
+runtime deployment; backup/restore rehearsal and successful production container
+validation. The existing production password-reset request prepares but does not
+send its token. Recovery screens do not claim delivery or verified email; local
+mode supports the existing demo token only. Email equality never proves identity.
+Profiles and public content require church staff curation. ISO-style country codes
+are format-validated, not backed by a country/administrative-area catalog yet.
+
+Prompt 1 implementation remains in b0d1759 with documentation closeout de431cd.
+The missing registration/profile screens were committed separately as dde5710.
+The church network phase is a separate commit. No production deployment, merge or
+push occurred. Prompt 2 is complete for staging review; Prompt 3 has not started.

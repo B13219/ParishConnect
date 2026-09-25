@@ -8,6 +8,7 @@ from app.api.routes.imports import router as imports_router
 from app.api.routes.member_portal import router as member_portal_router
 from app.api.routes.members import router as members_router
 from app.api.routes.messages import router as messages_router
+from app.api.routes.network import router as network_router
 from app.api.routes.reports import router as reports_router
 from app.api.routes.root import router as root_router
 from app.api.routes.staff_engagement import router as staff_engagement_router
@@ -17,6 +18,7 @@ router = APIRouter()
 router.include_router(root_router, tags=["product"])
 router.include_router(auth_router, prefix="/auth", tags=["auth"])
 router.include_router(identity_router, tags=["identity"])
+router.include_router(network_router, prefix="/network", tags=["church-network"])
 router.include_router(admin_router, prefix="/admin", tags=["admin"])
 router.include_router(members_router, prefix="/members", tags=["members"])
 router.include_router(member_portal_router, prefix="/member-portal", tags=["member-portal"])
