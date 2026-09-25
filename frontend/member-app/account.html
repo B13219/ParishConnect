@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your account · VINYRD</title><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./network.css"></head>
+<body class="member-app-page"><main class="vinyrd-app">
+<header class="profile-header"><a class="member-brand member-brand-light" href="./home.html">VINYRD</a><h1 id="accountTitle">Create your account</h1></header>
+<section class="network-content"><p id="accountIntro">One VINYRD account, wherever you worship. No church membership is required.</p>
+<form id="accountForm" class="network-form">
+<div data-profile-fields><label>First name<input name="first_name" maxlength="80" autocomplete="given-name" required></label>
+<label>Last name<input name="last_name" maxlength="79" autocomplete="family-name" required></label>
+<label>Phone (optional)<input name="phone" type="tel" maxlength="40" autocomplete="tel"></label></div>
+<label data-email-field>Email<input name="email" type="email" autocomplete="email" required maxlength="255"></label>
+<label data-password-field>Password<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
+<div data-profile-fields><label>Country (optional)<input name="country" maxlength="100" autocomplete="country-name"></label>
+<label>Region (optional)<input name="region" maxlength="100" autocomplete="address-level1"></label>
+<label>City (optional)<input name="city" maxlength="100" autocomplete="address-level2"></label>
+<label>Profile photo URL (optional)<input name="avatar_url" type="url" placeholder="https://" maxlength="2048"></label></div>
+<label data-reset-token hidden>Reset token<input name="token" autocomplete="off"></label>
+<button class="login-button" id="accountSubmit">Create VINYRD account</button>
+</form><p id="accountStatus" role="status" aria-live="polite"></p>
+<div id="accountNext" hidden><a class="network-button" href="./discover.html">Find a church</a><a class="network-button secondary" href="./home.html">Skip for now · Go home</a></div>
+<a href="./login.html">Back to sign in</a></section></main>
+<script src="./client.js"></script><script src="./account.js"></script></body></html>

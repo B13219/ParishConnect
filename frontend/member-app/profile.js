@@ -48,7 +48,7 @@ if (VinyrdClient.requireSession()) {
   };
 
   qs("#editProfileButton").addEventListener("click", () => {
-    showToast("Profile update requests are coming next.");
+    window.location.href = "./account.html?mode=profile";
   });
 
   qs("#signOutButton").addEventListener("click", async () => {

@@ -23,7 +23,8 @@
   const parseResponse = async (response) => {
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const error = new Error(body.detail || "Request failed with " + response.status);
+      const detail = Array.isArray(body.detail) ? body.detail.map(item => item.msg).join("; ") : body.detail;
+      const error = new Error(typeof detail === "string" ? detail : "Request failed with " + response.status);
       error.status = response.status;
       error.body = body;
       throw error;
