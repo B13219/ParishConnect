@@ -182,7 +182,7 @@ All paths are under `/api/v1`; authenticated operations use the existing bearer 
 | Method/path | Operation |
 | --- | --- |
 | POST /auth/register | First/last name, email, password (12+ characters), optional phone; returns existing login response shape. No role, church or member IDs accepted. |
-| GET, PUT /identity/me | Read/replace personal profile. Email/password changes use the existing auth/account flows, not this profile payload. |
+| GET, PUT /identity/me | Read/replace personal profile. Email is read-only here; self-service email change is not implemented. Password reset uses the existing /auth/password-reset/request and /auth/password-reset/confirm endpoints. |
 | GET /identity/churches | Limited church discovery. |
 | GET /identity/memberships | Own relationships. |
 | PUT /identity/memberships/{id}/primary | Owner's active home church. |
@@ -229,3 +229,47 @@ Those tests create a uniquely named temporary database/runtime role and remove
 only those resources. Without that variable the two PostgreSQL tests are skipped.
 The existing backend CI workflow supplies this variable from its disposable
 PostgreSQL service, so those tests run in CI too.
+
+## Prompt 1 completion and Prompt 2 prerequisites
+
+The implementation is committed in `b0d17599a899d65b74f63056ff28b6edd19d7a24`.
+Continuation review found a clean working tree and a completed implementation
+commit, not a WIP preservation commit. No unfinished identity TODO/FIXME markers
+or uncommitted implementation changes remain. Alembic metadata was checked again
+from `backend/`: there is one head, `20260925_0015`, directly following
+`20260921_0014`. The previously verified application, migration and test files
+are unchanged; the 132-test, PostgreSQL preservation/RLS/concurrency and syntax
+results above remain applicable. This documentation-only closeout does not
+require repeating those suites. The production Docker check remains outstanding.
+
+Prompt 2 can build on the API contract above without replacing the schema or
+repeating the architecture audit. Before starting its implementation:
+
+1. Confirm Prompt 2's requested screens and acceptance criteria. No registration,
+   Discover/Following, review or native mobile UI is implemented by this closeout.
+2. Prepare a local or staging PostgreSQL database at `20260925_0015`. Run Alembic
+   commands from `backend/`, using development credentials. Seed two churches,
+   their staff accounts, an unclaimed legacy member and an account with no church
+   for end-to-end frontend testing. No production migration is required to start.
+3. Use bearer authentication for identity endpoints. Treat an empty memberships
+   list as a valid signed-in state; following does not supply membership. After
+   approval, have the owner choose Home Church explicitly. Send `X-Church-ID`
+   when accessing another active membership's portal data; a 403 must not erase
+   a valid login.
+
+The following are public-launch gates, not reasons to block local UI development:
+
+* Resolve legacy case-insensitive email conflicts and inconsistent user/member
+  branch links; rehearse migration/backfill and backup restoration on a copy.
+* Separate schema-owner migration/bootstrap credentials from a non-owner runtime
+  role if deployment is to rely on PostgreSQL RLS. Verify role grants and the
+  actual deployment connection; the existing Railway startup is unchanged.
+* Implement and verify email/recovery delivery and registration abuse controls.
+  The existing production reset request does not deliver its prepared token.
+  Establish identity verification for manual claims; email equality alone must
+  never link a person's private church history.
+* Run the production Python 3.12/Docker CI validation. Local checks used Python
+  3.14. Track the two pre-existing SMS lint findings separately; they were not
+  changed to make this identity work pass. No standalone typecheck is configured.
+
+Prompt 2, production deployment and merging to main require separate instructions.
