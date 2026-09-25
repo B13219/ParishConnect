@@ -6,10 +6,13 @@ and member self-service.
 
 ## Pilot v1.0
 
-The repository now ships a single deployable service:
+The FastAPI deployment serves the web applications and API. The native mobile
+application is built separately and shares the same backend:
 
-- **Staff console:** `/staff/`
-- **Member webapp:** `/member/`
+- **VINYRD Staff Console:** `/staff/`
+- **VINYRD Member Webapp:** `/member/`
+- **VINYRD Member Mobile App:** native React Native/Expo application in
+  [`apps/member-mobile/`](apps/member-mobile/README.md), built separately for Android/iOS
 - **API:** `/api/v1`
 - **Health check:** `/health`
 - **API docs:** `/docs`
