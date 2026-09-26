@@ -3,6 +3,7 @@ import type {
   Church,
   DiscoveryFilters,
   DiscoveryPage,
+  DenominationCatalog,
   Profile,
   ProfileInput,
   Network,
@@ -32,6 +33,10 @@ export const createServices = (api: ApiClient) => ({
       `/identity/memberships/${encodeURIComponent(id)}/primary`,
       { method: "PUT" },
     ),
+  denominations: () =>
+    api.request<DenominationCatalog>("/network/denominations", {
+      public: true,
+    }),
   discover: (filters: DiscoveryFilters, offset = 0) => {
     const params = new URLSearchParams({
       ...filters,
