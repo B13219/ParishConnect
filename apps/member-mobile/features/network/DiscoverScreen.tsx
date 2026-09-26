@@ -162,10 +162,20 @@ export default function DiscoverScreen() {
                     )
                     .join(" → ")}
                 </Body>
+                {selectedDenomination.levels.map((level) => (
+                  <View key={level.key} style={{ gap: 3 }}>
+                    <Text style={{ color: colors.text, fontWeight: "600" }}>
+                      {level.label}{level.optional ? " (optional)" : ""}
+                    </Text>
+                    <Body>
+                      {level.positions.map((position) => position.title).join(" · ")}
+                    </Body>
+                  </View>
+                ))}
                 <Body>
-                  VINYRD uses this as the default organisation template. A
-                  denomination administrator can adapt optional levels to the
-                  church body's constitution.
+                  VINYRD uses these as default organisation and office-title
+                  templates. Denomination administrators can adapt optional
+                  levels and titles to their church body's constitution.
                 </Body>
               </View>
             ) : null}
