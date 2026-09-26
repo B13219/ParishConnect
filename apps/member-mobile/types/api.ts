@@ -73,6 +73,21 @@ export type Church = {
   public_announcements: PublicItem[];
   public_ministries: PublicItem[];
 };
+export type DenominationLevel = {
+  key: string;
+  label: string;
+  optional: boolean;
+};
+export type DenominationOption = {
+  value: string;
+  label: string;
+  governance_model: string;
+  levels: DenominationLevel[];
+};
+export type DenominationCatalog = {
+  items: DenominationOption[];
+  custom_allowed: boolean;
+};
 export type DiscoveryFilters = {
   q?: string;
   country?: string;
