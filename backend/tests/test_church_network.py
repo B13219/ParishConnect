@@ -15,6 +15,30 @@ def publish(client, admin, **changes):
     return client.put("/api/v1/network/admin/profile", headers=admin, json=payload)
 
 
+
+def test_denomination_catalog_exposes_architecture_templates(identity):
+    c, _, _ = identity
+    response = c.get("/api/v1/network/denominations")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["custom_allowed"] is True
+    by_value = {item["value"]: item for item in data["items"]}
+    assert [level["label"] for level in by_value["Assemblies of God"]["levels"]] == [
+        "National Church / General Council",
+        "Zone (Kanda)",
+        "District (Jimbo)",
+        "Section (Sehemu)",
+        "Local Church",
+    ]
+    assert [level["label"] for level in by_value["Africa Inland Church"]["levels"]] == [
+        "National Church",
+        "Diocese",
+        "Pastorate",
+        "Local Congregation",
+    ]
+    assert by_value["Catholic"]["governance_model"] == "episcopal"
+    assert by_value["Non-denominational"]["levels"][-1]["label"] == "Local Church"
+
 def test_publication_is_explicit_and_scoped(identity):
     c, _, ids = identity
     assert c.get("/api/v1/network/churches").json()["items"] == []
