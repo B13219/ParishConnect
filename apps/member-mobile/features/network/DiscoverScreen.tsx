@@ -6,12 +6,12 @@ import {
   Body,
   Button,
   Field,
+  Loading,
   Notice,
   Screen,
   styles,
 } from "../../components/ui";
 import { ChurchCard } from "../../components/ChurchCard";
-import { DENOMINATIONS } from "../../constants/denominations";
 import { colors } from "../../constants/theme";
 import { useServices } from "../../providers/SessionProvider";
 import { useLoad } from "../../hooks/useLoad";
@@ -28,6 +28,7 @@ export default function DiscoverScreen() {
   const generation = useRef(0);
   const key = JSON.stringify(filters);
   const result = useLoad(key, () => services.discover(filters));
+  const catalogue = useLoad("denomination-catalogue", services.denominations);
 
   const reset = () => {
     generation.current++;
@@ -46,6 +47,9 @@ export default function DiscoverScreen() {
     setDraft({ ...draft, denomination });
   };
 
+  const selectedDenomination = catalogue.data?.items.find(
+    (option) => option.value === draft.denomination,
+  );
   const churches = [...(result.data?.items || []), ...extra];
 
   return (
@@ -55,6 +59,7 @@ export default function DiscoverScreen() {
       onRefresh={() => {
         reset();
         result.refresh();
+        catalogue.refresh();
       }}
       refreshing={result.loading}
     >
@@ -112,6 +117,8 @@ export default function DiscoverScreen() {
             <Text style={{ color: colors.text, fontWeight: "500" }}>
               Denomination
             </Text>
+            {catalogue.loading ? <Loading /> : null}
+            <Notice message={catalogue.error} />
             <ScrollView
               horizontal
               nestedScrollEnabled
@@ -123,7 +130,7 @@ export default function DiscoverScreen() {
                 secondary={Boolean(draft.denomination) || customDenomination}
                 onPress={() => selectDenomination(undefined)}
               />
-              {DENOMINATIONS.map((option) => (
+              {(catalogue.data?.items || []).map((option) => (
                 <Button
                   key={option.value}
                   title={option.label}
@@ -142,16 +149,43 @@ export default function DiscoverScreen() {
                 }}
               />
             </ScrollView>
+
+            {selectedDenomination ? (
+              <View style={styles.card}>
+                <Text style={styles.heading}>
+                  {selectedDenomination.label} structure
+                </Text>
+                <Body>
+                  {selectedDenomination.levels
+                    .map((level) =>
+                      level.optional ? `${level.label} (optional)` : level.label,
+                    )
+                    .join(" → ")}
+                </Body>
+                <Body>
+                  VINYRD uses this as the default organisation template. A
+                  denomination administrator can adapt optional levels to the
+                  church body's constitution.
+                </Body>
+              </View>
+            ) : null}
+
             {customDenomination ? (
-              <Field
-                label="Other denomination"
-                value={draft.denomination || ""}
-                onChangeText={(denomination) =>
-                  setDraft({ ...draft, denomination })
-                }
-                maxLength={120}
-                autoCapitalize="words"
-              />
+              <>
+                <Field
+                  label="Other denomination"
+                  value={draft.denomination || ""}
+                  onChangeText={(denomination) =>
+                    setDraft({ ...draft, denomination })
+                  }
+                  maxLength={120}
+                  autoCapitalize="words"
+                />
+                <Body>
+                  Custom denominations can use their own hierarchy template when
+                  they are onboarded into VINYRD.
+                </Body>
+              </>
             ) : null}
           </View>
         </>
