@@ -2,7 +2,7 @@ import json
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,7 @@ from app.models import (
     Visitor,
 )
 from app.services.audit import write_audit_log
+from app.services.denominations import normalize_denomination
 
 router = APIRouter()
 
@@ -62,6 +63,11 @@ class BranchUpdate(BaseModel):
     default_language: str | None = None
     timezone: str | None = None
     community_label: str | None = None
+
+    @field_validator("denomination", mode="before")
+    @classmethod
+    def denomination_name(cls, value):
+        return normalize_denomination(value) if isinstance(value, str) else value
 
 class BranchGeofenceUpdate(BaseModel):
     geofence_enabled: bool
