@@ -4,15 +4,29 @@
     "slug": "vinyrd-member",
     "scheme": "vinyrd",
     "version": "0.1.0",
+    "platforms": ["android", "ios"],
     "orientation": "default",
     "icon": "./assets/vinyrd-logo.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.vinyrd.member"
+      "bundleIdentifier": "app.vinyrd.member",
+      "buildNumber": "1",
+      "icon": "./assets/vinyrd-logo.png",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSAllowsLocalNetworking": true
+        }
+      }
     },
     "android": {
       "package": "app.vinyrd.member",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/vinyrd-logo.png",
+        "backgroundColor": "#171D18"
+      },
       "permissions": [],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
@@ -28,10 +42,20 @@
       [
         "expo-secure-store",
         {
-          "configureAndroidBackup": true
+          "configureAndroidBackup": true,
+          "faceIDPermission": false
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/vinyrd-logo.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#171D18"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

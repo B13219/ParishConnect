@@ -70,7 +70,7 @@ export function Screen({
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: colors.ink }}
-      edges={["top", "left", "right"]}
+      edges={["top", "left", "right", "bottom"]}
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}

@@ -29,7 +29,6 @@ function Navigation() {
     );
   return (
     <>
-      <StatusBar style="light" />
       <Stack
         screenOptions={{
           headerShown: false,
@@ -49,6 +48,7 @@ function Navigation() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
+      <StatusBar style="light" />
       <SessionProvider>
         <Navigation />
       </SessionProvider>
