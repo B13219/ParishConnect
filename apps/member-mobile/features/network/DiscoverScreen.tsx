@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import {
   Action,
@@ -11,9 +11,12 @@ import {
   styles,
 } from "../../components/ui";
 import { ChurchCard } from "../../components/ChurchCard";
+import { DENOMINATIONS } from "../../constants/denominations";
+import { colors } from "../../constants/theme";
 import { useServices } from "../../providers/SessionProvider";
 import { useLoad } from "../../hooks/useLoad";
 import type { Church, DiscoveryFilters } from "../../types/api";
+
 export default function DiscoverScreen() {
   const services = useServices();
   const [draft, setDraft] = useState<DiscoveryFilters>({ view: "all" });
@@ -21,20 +24,30 @@ export default function DiscoverScreen() {
   const [extra, setExtra] = useState<Church[]>([]);
   const [more, setMore] = useState<boolean | null>(null);
   const [advanced, setAdvanced] = useState(false);
+  const [customDenomination, setCustomDenomination] = useState(false);
   const generation = useRef(0);
   const key = JSON.stringify(filters);
   const result = useLoad(key, () => services.discover(filters));
+
   const reset = () => {
     generation.current++;
     setExtra([]);
     setMore(null);
   };
+
   const search = () => {
     reset();
     setFilters({ ...draft, country: draft.country?.toUpperCase() });
     result.refresh();
   };
+
+  const selectDenomination = (denomination?: string) => {
+    setCustomDenomination(false);
+    setDraft({ ...draft, denomination });
+  };
+
   const churches = [...(result.data?.items || []), ...extra];
+
   return (
     <Screen
       title="Discover churches"
@@ -52,6 +65,7 @@ export default function DiscoverScreen() {
         returnKeyType="search"
         onSubmitEditing={search}
       />
+
       <View style={styles.row}>
         {(
           [
@@ -69,18 +83,20 @@ export default function DiscoverScreen() {
           />
         ))}
       </View>
+
       <Button
         secondary
         title={advanced ? "Hide location filters" : "Location & denomination"}
         onPress={() => setAdvanced(!advanced)}
       />
-      {advanced
-        ? (
+
+      {advanced ? (
+        <>
+          {(
             [
               ["country", "Country code (TZ, KE, UG…)"],
               ["region", "Region"],
               ["city", "City"],
-              ["denomination", "Denomination"],
             ] as const
           ).map(([field, label]) => (
             <Field
@@ -88,21 +104,70 @@ export default function DiscoverScreen() {
               label={label}
               value={draft[field] || ""}
               onChangeText={(value) => setDraft({ ...draft, [field]: value })}
-              maxLength={
-                field === "country" ? 2 : field === "denomination" ? 120 : 100
-              }
+              maxLength={field === "country" ? 2 : 100}
             />
-          ))
-        : null}
+          ))}
+
+          <View style={{ gap: 8 }}>
+            <Text style={{ color: colors.text, fontWeight: "500" }}>
+              Denomination
+            </Text>
+            <ScrollView
+              horizontal
+              nestedScrollEnabled
+              contentContainerStyle={{ gap: 10, paddingBottom: 4 }}
+              accessibilityLabel="Denomination choices"
+            >
+              <Button
+                title="All denominations"
+                secondary={Boolean(draft.denomination) || customDenomination}
+                onPress={() => selectDenomination(undefined)}
+              />
+              {DENOMINATIONS.map((option) => (
+                <Button
+                  key={option.value}
+                  title={option.label}
+                  secondary={
+                    customDenomination || draft.denomination !== option.value
+                  }
+                  onPress={() => selectDenomination(option.value)}
+                />
+              ))}
+              <Button
+                title="Other"
+                secondary={!customDenomination}
+                onPress={() => {
+                  setCustomDenomination(true);
+                  setDraft({ ...draft, denomination: "" });
+                }}
+              />
+            </ScrollView>
+            {customDenomination ? (
+              <Field
+                label="Other denomination"
+                value={draft.denomination || ""}
+                onChangeText={(denomination) =>
+                  setDraft({ ...draft, denomination })
+                }
+                maxLength={120}
+                autoCapitalize="words"
+              />
+            ) : null}
+          </View>
+        </>
+      ) : null}
+
       {draft.view === "local" ? (
         <Body>Choose a region or city using Location & denomination.</Body>
       ) : null}
+
       <Button title="Search churches" onPress={search} />
       <Button
         secondary
         title="Followed churches"
         onPress={() => router.push("/following")}
       />
+
       <Notice message={result.error} />
       {result.error ? (
         <Button title="Retry search" secondary onPress={result.refresh} />
@@ -110,9 +175,11 @@ export default function DiscoverScreen() {
       {!result.loading && !result.error && !churches.length ? (
         <Body>No published churches match. Try a broader location.</Body>
       ) : null}
+
       {churches.map((church) => (
         <ChurchCard key={church.church_id} church={church} />
       ))}
+
       {(more ?? result.data?.has_more) ? (
         <Action
           title="Load more"
