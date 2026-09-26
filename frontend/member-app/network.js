@@ -398,17 +398,36 @@
         );
         customDenominationLabel.hidden =
           denominationSelect.value !== "__other__";
-        denominationArchitecture.textContent = selected
-          ? selected.label +
-            ": " +
-            selected.levels
-              .map((level) =>
-                level.optional ? level.label + " (optional)" : level.label,
-              )
-              .join(" → ")
-          : denominationSelect.value === "__other__"
-            ? "Custom denomination: its hierarchy can be configured during onboarding."
-            : "";
+        if (selected) {
+          denominationArchitecture.replaceChildren();
+          denominationArchitecture.append(
+            el(
+              "strong",
+              selected.label +
+                ": " +
+                selected.levels
+                  .map((level) =>
+                    level.optional ? level.label + " (optional)" : level.label,
+                  )
+                  .join(" → "),
+            ),
+          );
+          selected.levels.forEach((level) => {
+            denominationArchitecture.append(
+              el(
+                "span",
+                level.label +
+                  ": " +
+                  level.positions.map((position) => position.title).join(" · "),
+              ),
+            );
+          });
+        } else {
+          denominationArchitecture.textContent =
+            denominationSelect.value === "__other__"
+              ? "Custom denomination: its hierarchy and office titles can be configured during onboarding."
+              : "";
+        }
       };
       denominationSelect.addEventListener(
         "change",
