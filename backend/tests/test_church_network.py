@@ -37,6 +37,20 @@ def test_denomination_catalog_exposes_architecture_templates(identity):
         "Local Congregation",
     ]
     assert by_value["Catholic"]["governance_model"] == "episcopal"
+    catholic_parish = next(
+        level for level in by_value["Catholic"]["levels"] if level["key"] == "parish"
+    )
+    assert catholic_parish["positions"][0]["title"] == "Parish Priest"
+    tag_section = next(
+        level for level in by_value["Assemblies of God"]["levels"] if level["key"] == "section"
+    )
+    assert [position["title"] for position in tag_section["positions"]] == [
+        "Mwangalizi",
+        "Makamu Mwangalizi",
+        "Katibu",
+        "Mtunza Hazina",
+    ]
+    assert tag_section["positions"][0]["permission_role"] == "pastor_leader"
     assert by_value["Non-denominational"]["levels"][-1]["label"] == "Local Church"
 
 def test_publication_is_explicit_and_scoped(identity):
