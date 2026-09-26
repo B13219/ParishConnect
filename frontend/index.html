@@ -1612,7 +1612,35 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
               </div>
               <div class="field-row">
                 <label>
-                  Role
+                  Church structure level
+                  <select
+                    name="organization_level"
+                    id="adminUserOrganizationLevel"
+                  ></select>
+                </label>
+                <label>
+                  Office / position
+                  <select
+                    name="position_title"
+                    id="adminUserPositionTitle"
+                  ></select>
+                </label>
+              </div>
+              <label id="adminUserPositionCustomLabel" hidden>
+                Custom office / position title
+                <input
+                  name="position_title_custom"
+                  id="adminUserPositionCustom"
+                  maxlength="160"
+                  placeholder="Enter the church's official title"
+                >
+              </label>
+              <p id="adminPositionHint" class="network-status">
+                Select the church denomination to load its office titles.
+              </p>
+              <div class="field-row">
+                <label>
+                  VINYRD permission profile
                   <select name="role" id="adminUserRole" required></select>
                 </label>
                 <label>
@@ -1667,10 +1695,21 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
               <div class="field-row">
   <label>
     Denomination
-    <input
+    <select
       name="denomination"
       id="branchDenomination"
-      placeholder="e.g. Roman Catholic, Lutheran, Anglican"
+    >
+      <option value="">Choose denomination</option>
+    </select>
+  </label>
+
+  <label id="branchDenominationCustomLabel" hidden>
+    Other denomination
+    <input
+      name="denomination_custom"
+      id="branchDenominationCustom"
+      maxlength="120"
+      placeholder="Enter denomination"
     >
   </label>
 
@@ -1711,6 +1750,11 @@ Baraka,Mwita,+255 711 100 002,baraka.mwita@example.test,active</textarea>
     </select>
   </label>
 </div>
+              <div
+                id="branchDenominationArchitecture"
+                class="receipt-panel"
+                aria-live="polite"
+              ></div>
               <button class="primary-button" type="submit">Save branch settings</button>
             </form>
             <div class="assist-panel">
