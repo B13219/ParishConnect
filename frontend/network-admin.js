@@ -118,7 +118,11 @@
     $("networkRequestsMore").hidden = !data.has_more;
   };
   const profile = async () => {
-    const [data, denominationData] = await Promise.all([\n      fetchJson("/network/admin/profile"),\n      fetchJson("/network/denominations"),\n    ]);\n    const form = $("publicChurchForm");
+    const [data, denominationData] = await Promise.all([
+      fetchJson("/network/admin/profile"),
+      fetchJson("/network/denominations"),
+    ]);
+    const form = $("publicChurchForm");
     form.replaceChildren();
     const fields = [
       ["name", "Church name", 160],
