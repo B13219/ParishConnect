@@ -57,6 +57,8 @@ def user_profile(db: Session, user: User) -> dict[str, object]:
         "name": user.name,
         "email": user.email,
         "phone": user.phone,
+        "position_title": user.position_title,
+        "organization_level": user.organization_level,
         "status": user.status,
         "roles": roles,
         "primary_role": roles[0] if roles else "unassigned",
