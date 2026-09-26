@@ -73,10 +73,15 @@ export type Church = {
   public_announcements: PublicItem[];
   public_ministries: PublicItem[];
 };
+export type DenominationPosition = {
+  title: string;
+  permission_role: string;
+};
 export type DenominationLevel = {
   key: string;
   label: string;
   optional: boolean;
+  positions: DenominationPosition[];
 };
 export type DenominationOption = {
   value: string;
