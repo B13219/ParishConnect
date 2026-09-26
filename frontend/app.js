@@ -2098,8 +2098,14 @@ const updateGeofenceSetupMethod = () => {
   }
 };
 
-const denominationTemplate = (value) =>
-  (state.admin?.denominations || []).find((item) => item.value === value);
+const denominationTemplate = (value) => {
+  const match = String(value || "").trim().toLowerCase();
+  return (state.admin?.denominations || []).find(
+    (item) =>
+      item.value.toLowerCase() === match ||
+      (item.aliases || []).some((alias) => alias.toLowerCase() === match),
+  );
+};
 
 const currentAdminDenomination = () => {
   const select = document.querySelector("#branchDenomination");
