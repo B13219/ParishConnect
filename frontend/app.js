@@ -606,7 +606,9 @@ const applyRoleAccess = () => {
 
   const userName = state.auth?.user?.name || "Vinyrd Staff";
   const firstName = userName.split(" ")[0] || "Friend";
-  const primaryRole = roles[0] ? labelize(roles[0]) : "Staff Console";
+  const primaryRole =
+    state.auth?.user?.position_title ||
+    (roles[0] ? labelize(roles[0]) : "Staff Console");
   const welcomeName = document.querySelector("#welcomeUserName");
   const topbarName = document.querySelector("#topbarUserName");
   const topbarRole = document.querySelector("#topbarUserRole");
@@ -2096,6 +2098,123 @@ const updateGeofenceSetupMethod = () => {
   }
 };
 
+const denominationTemplate = (value) =>
+  (state.admin?.denominations || []).find((item) => item.value === value);
+
+const currentAdminDenomination = () => {
+  const select = document.querySelector("#branchDenomination");
+  if (!select) return state.admin?.branch?.denomination || "";
+  return select.value === "__other__"
+    ? document.querySelector("#branchDenominationCustom")?.value.trim() || ""
+    : select.value;
+};
+
+const renderBranchDenominationArchitecture = () => {
+  const panel = document.querySelector("#branchDenominationArchitecture");
+  const select = document.querySelector("#branchDenomination");
+  const customLabel = document.querySelector("#branchDenominationCustomLabel");
+  if (!panel || !select || !customLabel) return;
+
+  customLabel.hidden = select.value !== "__other__";
+  const template = denominationTemplate(select.value);
+  if (!template) {
+    panel.innerHTML = select.value === "__other__"
+      ? "<strong>Custom denomination</strong><span>Use a custom office title for staff until a denomination template is added.</span>"
+      : "<strong>No denomination selected.</strong><span>Select one to load its church hierarchy and office titles.</span>";
+    return;
+  }
+
+  panel.innerHTML = `
+    <strong>${escapeHtml(template.label)} structure</strong>
+    <span>${template.levels
+      .map((level) => escapeHtml(level.label + (level.optional ? " (optional)" : "")))
+      .join(" → ")}</span>
+    ${template.levels
+      .map(
+        (level) => `
+          <small>
+            <b>${escapeHtml(level.label)}:</b>
+            ${level.positions.map((position) => escapeHtml(position.title)).join(" · ")}
+          </small>
+        `,
+      )
+      .join("")}
+  `;
+};
+
+const renderAdminPositionOptions = (preferredLevel = "", preferredTitle = "") => {
+  const levelSelect = document.querySelector("#adminUserOrganizationLevel");
+  const positionSelect = document.querySelector("#adminUserPositionTitle");
+  const customLabel = document.querySelector("#adminUserPositionCustomLabel");
+  const customInput = document.querySelector("#adminUserPositionCustom");
+  const hint = document.querySelector("#adminPositionHint");
+  const roleSelect = document.querySelector("#adminUserRole");
+  if (!levelSelect || !positionSelect || !customLabel || !customInput || !hint) return;
+
+  const template = denominationTemplate(
+    document.querySelector("#branchDenomination")?.value || "",
+  );
+
+  levelSelect.innerHTML = '<option value="">No structure level</option>';
+  if (template) {
+    template.levels.forEach((level) => {
+      levelSelect.append(
+        new Option(
+          level.label + (level.optional ? " (optional)" : ""),
+          level.key,
+        ),
+      );
+    });
+  }
+
+  if (preferredLevel && [...levelSelect.options].some((o) => o.value === preferredLevel)) {
+    levelSelect.value = preferredLevel;
+  } else if (template?.levels.length) {
+    levelSelect.value = template.levels[template.levels.length - 1].key;
+  } else {
+    levelSelect.value = "";
+  }
+
+  const level = template?.levels.find((item) => item.key === levelSelect.value);
+  positionSelect.innerHTML = '<option value="">No office title</option>';
+  (level?.positions || []).forEach((position) => {
+    const option = new Option(position.title, position.title);
+    option.dataset.permissionRole = position.permission_role;
+    positionSelect.append(option);
+  });
+  positionSelect.append(new Option("Other / custom title", "__custom__"));
+
+  const known = [...positionSelect.options].some(
+    (option) => option.value === preferredTitle,
+  );
+  if (preferredTitle && known) {
+    positionSelect.value = preferredTitle;
+    customInput.value = "";
+  } else if (preferredTitle) {
+    positionSelect.value = "__custom__";
+    customInput.value = preferredTitle;
+  } else {
+    positionSelect.value = "";
+    customInput.value = "";
+  }
+
+  customLabel.hidden = positionSelect.value !== "__custom__";
+  hint.textContent = template
+    ? "Office titles follow " + template.label +
+      ". The VINYRD permission profile remains a separate security setting."
+    : "No built-in denomination template is active. Use a custom office title if needed.";
+
+  positionSelect.onchange = () => {
+    customLabel.hidden = positionSelect.value !== "__custom__";
+    const option = positionSelect.selectedOptions[0];
+    const suggestedRole = option?.dataset.permissionRole;
+    if (suggestedRole && [...roleSelect.options].some((item) => item.value === suggestedRole)) {
+      roleSelect.value = suggestedRole;
+    }
+  };
+  levelSelect.onchange = () => renderAdminPositionOptions(levelSelect.value, "");
+};
+
 const renderAdmin = () => {
   const roles = state.admin?.roles || [];
   const users = state.admin?.users || [];
@@ -2124,8 +2243,15 @@ const renderAdmin = () => {
       .map((user) =>
         row({
           title: user.name,
-          subtitle: [user.email, user.phone || "No phone"].join(" - "),
-          tag: `${labelize(user.primary_role)} / ${labelize(user.status)}`,
+          subtitle: [
+            user.position_title || labelize(user.primary_role),
+            user.organization_level ? labelize(user.organization_level) : null,
+            user.email,
+            user.phone || "No phone",
+          ]
+            .filter(Boolean)
+            .join(" - "),
+          tag: `${user.position_title || labelize(user.primary_role)} / ${labelize(user.status)}`,
           tone: user.status === "active" ? "green" : "muted",
           action: `<button class="mini-button" data-admin-edit-user="${user.id}" type="button">Edit</button>`,
         }),
@@ -2147,8 +2273,31 @@ const renderAdmin = () => {
   document.querySelector("#branchName").value = branch.name || "";
   document.querySelector("#branchLocation").value = branch.location || "";
   document.querySelector("#branchPhone").value = branch.contact_phone || "";
-  document.querySelector("#branchDenomination").value =
-  branch.denomination || "";
+  const branchDenomination = document.querySelector("#branchDenomination");
+  const branchDenominationCustom = document.querySelector("#branchDenominationCustom");
+  branchDenomination.innerHTML = '<option value="">Choose denomination</option>';
+  (state.admin?.denominations || []).forEach((item) =>
+    branchDenomination.append(new Option(item.label, item.value)),
+  );
+  branchDenomination.append(new Option("Other / custom denomination", "__other__"));
+  const knownDenomination = denominationTemplate(branch.denomination || "");
+  if (knownDenomination) {
+    branchDenomination.value = knownDenomination.value;
+    branchDenominationCustom.value = "";
+  } else if (branch.denomination) {
+    branchDenomination.value = "__other__";
+    branchDenominationCustom.value = branch.denomination;
+  } else {
+    branchDenomination.value = "";
+    branchDenominationCustom.value = "";
+  }
+  branchDenomination.onchange = () => {
+    renderBranchDenominationArchitecture();
+    renderAdminPositionOptions("", "");
+  };
+  branchDenominationCustom.oninput = renderBranchDenominationArchitecture;
+  renderBranchDenominationArchitecture();
+  renderAdminPositionOptions("", "");
 
 document.querySelector("#branchCommunityLabel").value =
   branch.community_label || "Community Group";
@@ -2321,17 +2470,19 @@ renderMinistries();
     renderGeofenceSettings();
   }
   if (section === "admin") {
-    const [roles, users, auditLogs, branch] = await Promise.all([
+    const [roles, users, auditLogs, branch, denominations] = await Promise.all([
       fetchJson("/admin/roles"),
       fetchJson("/admin/users"),
       fetchJson("/admin/audit-logs"),
       fetchJson("/admin/branch"),
+      fetchJson("/network/denominations"),
     ]);
     state.admin = {
       roles: roles.roles || [],
       users: users.users || [],
       audit_logs: auditLogs.audit_logs || [],
       branch: branch.branch || null,
+      denominations: denominations.items || [],
     };
     renderAdmin();
   }
@@ -3454,6 +3605,7 @@ const clearAdminUserForm = () => {
   const form = document.querySelector("#adminUserForm");
   form.reset();
   form.elements.user_id.value = "";
+  renderAdminPositionOptions("", "");
   document.querySelector("#adminUserFormTitle").textContent = "Create Staff User";
   document.querySelector("#adminUserSubmit").textContent = "Create user";
   form.elements.password.required = true;
@@ -3470,6 +3622,7 @@ const openAdminUserForm = (userId) => {
   form.elements.name.value = user.name || "";
   form.elements.email.value = user.email || "";
   form.elements.phone.value = user.phone || "";
+  renderAdminPositionOptions(user.organization_level || "", user.position_title || "");
   form.elements.role.value = user.primary_role || "";
   form.elements.status.value = user.status || "active";
   form.elements.password.value = "";
@@ -3482,6 +3635,10 @@ const submitAdminUserForm = async (form) => {
   const payload = formPayload(form);
   const userId = payload.user_id;
   delete payload.user_id;
+  if (payload.position_title === "__custom__") {
+    payload.position_title = payload.position_title_custom || null;
+  }
+  delete payload.position_title_custom;
   if (!payload.password) {
     delete payload.password;
   }
@@ -3574,11 +3731,16 @@ const submitBranchSettingsForm = async (form) => {
   try {
     setBusy(true);
     setStatus("Saving branch");
+    const payload = formPayload(form);
+    if (payload.denomination === "__other__") {
+      payload.denomination = payload.denomination_custom || null;
+    }
+    delete payload.denomination_custom;
 
     await sendJson(
       "/admin/branch",
       "PATCH",
-      formPayload(form),
+      payload,
     );
 
     await loadSection("admin");
