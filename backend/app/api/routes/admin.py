@@ -38,6 +38,8 @@ class AdminUserCreate(BaseModel):
     phone: str | None = None
     password: str
     role: str
+    position_title: str | None = Field(default=None, max_length=160)
+    organization_level: str | None = Field(default=None, max_length=80)
     status: str = "active"
 
 
@@ -47,6 +49,8 @@ class AdminUserUpdate(BaseModel):
     phone: str | None = None
     password: str | None = None
     role: str | None = None
+    position_title: str | None = Field(default=None, max_length=160)
+    organization_level: str | None = Field(default=None, max_length=80)
     status: str | None = None
 
 
@@ -136,6 +140,8 @@ def serialize_user(user: User, db: Session) -> dict[str, object]:
         "name": user.name,
         "email": user.email,
         "phone": user.phone,
+        "position_title": user.position_title,
+        "organization_level": user.organization_level,
         "status": user.status,
         "roles": roles,
         "primary_role": roles[0] if roles else "unassigned",
@@ -343,6 +349,8 @@ def create_user(
         name=payload.name,
         email=str(payload.email),
         phone=payload.phone,
+        position_title=payload.position_title,
+        organization_level=payload.organization_level,
         password_hash=password_hash(payload.password),
         status=payload.status,
     )
@@ -355,7 +363,12 @@ def create_user(
         action="admin.user_created",
         entity_type="user",
         entity_id=user.id,
-        metadata={"email": user.email, "role": role_slug(role.name)},
+        metadata={
+            "email": user.email,
+            "role": role_slug(role.name),
+            "position_title": user.position_title,
+            "organization_level": user.organization_level,
+        },
     )
     db.commit()
     db.refresh(user)
@@ -393,7 +406,7 @@ def update_user(
         updates.pop("role")
 
     for key, value in updates.items():
-        if key in {"name", "phone", "status"}:
+        if key in {"name", "phone", "status", "position_title", "organization_level"}:
             setattr(user, key, value)
 
     write_audit_log(
