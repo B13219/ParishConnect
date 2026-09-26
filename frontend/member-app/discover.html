@@ -36,10 +36,24 @@
               maxlength="100"
               placeholder="Any city" /></label
           ><label
-            >Denomination<input
+            >Denomination<select
+              id="denominationSelect"
               name="denomination"
+              aria-describedby="denominationArchitecture"
+            >
+              <option value="">Any denomination</option>
+            </select></label
+          ><label id="customDenominationLabel" hidden
+            >Other denomination<input
+              id="customDenomination"
+              name="denomination_custom"
               maxlength="120"
-              placeholder="Any denomination" /></label
+              placeholder="Enter denomination" /></label
+          ><p
+            id="denominationArchitecture"
+            class="network-status"
+            aria-live="polite"
+          ></p
           ><label
             >Browse<select name="view">
               <option value="all">All churches</option>
