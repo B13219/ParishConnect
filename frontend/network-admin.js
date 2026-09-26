@@ -185,9 +185,25 @@
               )
               .join(" → "),
           ),
+        );
+        selected.levels.forEach((level) => {
+          const row = node("p");
+          const heading = node(
+            "strong",
+            (level.optional ? level.label + " (optional)" : level.label) + ": ",
+          );
+          row.append(
+            heading,
+            document.createTextNode(
+              level.positions.map((position) => position.title).join(" · "),
+            ),
+          );
+          architecture.append(row);
+        });
+        architecture.append(
           node(
             "p",
-            "VINYRD preloads this hierarchy as the denomination template. Optional levels can be adapted to the church body's constitution.",
+            "Office titles are denomination-aware display names. VINYRD keeps the underlying permission profile separate for security.",
           ),
         );
       } else if (denominationSelect.value === "__other__") {
