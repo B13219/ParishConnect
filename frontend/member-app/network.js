@@ -241,6 +241,9 @@
   const renderList = async () => {
     const form = document.querySelector("#discoverForm");
     const params = new URLSearchParams(new FormData(form));
+    if (params.get("denomination") === "__other__")
+      params.set("denomination", params.get("denomination_custom") || "");
+    params.delete("denomination_custom");
     params.set("offset", String(offset));
     const data = await VinyrdClient.publicRequest(
       "/network/churches?" + params,
@@ -373,6 +376,49 @@
   )
     return;
   if (page === "discover") {
+    const denominationSelect = document.querySelector("#denominationSelect");
+    const customDenominationLabel = document.querySelector(
+      "#customDenominationLabel",
+    );
+    const denominationArchitecture = document.querySelector(
+      "#denominationArchitecture",
+    );
+    try {
+      const denominationData =
+        await VinyrdClient.publicRequest("/network/denominations");
+      denominationData.items.forEach((option) =>
+        denominationSelect.append(new Option(option.label, option.value)),
+      );
+      denominationSelect.append(
+        new Option("Other / custom denomination", "__other__"),
+      );
+      const renderDenominationArchitecture = () => {
+        const selected = denominationData.items.find(
+          (option) => option.value === denominationSelect.value,
+        );
+        customDenominationLabel.hidden =
+          denominationSelect.value !== "__other__";
+        denominationArchitecture.textContent = selected
+          ? selected.label +
+            ": " +
+            selected.levels
+              .map((level) =>
+                level.optional ? level.label + " (optional)" : level.label,
+              )
+              .join(" → ")
+          : denominationSelect.value === "__other__"
+            ? "Custom denomination: its hierarchy can be configured during onboarding."
+            : "";
+      };
+      denominationSelect.addEventListener(
+        "change",
+        renderDenominationArchitecture,
+      );
+      renderDenominationArchitecture();
+    } catch (error) {
+      denominationArchitecture.textContent =
+        "Denomination templates are temporarily unavailable. You can still search by church name or location.";
+    }
     document
       .querySelector("#discoverForm")
       .addEventListener("submit", async (event) => {
