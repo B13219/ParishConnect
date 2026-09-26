@@ -37,6 +37,7 @@ def test_denomination_catalog_exposes_architecture_templates(identity):
         "Local Congregation",
     ]
     assert by_value["Catholic"]["governance_model"] == "episcopal"
+    assert "Roman Catholic" in by_value["Catholic"]["aliases"]
     catholic_parish = next(
         level for level in by_value["Catholic"]["levels"] if level["key"] == "parish"
     )
@@ -76,7 +77,7 @@ def test_publication_is_explicit_and_scoped(identity):
 
 def test_discovery_geography_and_pagination(identity):
     c, _, ids = identity
-    publish(c, ids["admin_a"], name="Arusha Chapel", denomination="Lutheran")
+    publish(c, ids["admin_a"], name="Arusha Chapel", denomination="ELCT")
     publish(
         c, ids["admin_b"], name="Nairobi Chapel", country="KE", region="Nairobi", city="Nairobi"
     )
@@ -86,6 +87,7 @@ def test_discovery_geography_and_pagination(identity):
         "region=arusha",
         "city=Arusha",
         "denomination=lutheran",
+        "denomination=ELCT",
         "q=Arusha",
         "view=local&city=Arusha",
     ]:
