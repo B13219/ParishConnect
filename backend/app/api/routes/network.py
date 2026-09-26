@@ -21,6 +21,7 @@ from app.models import (
     MembershipRequest,
     User,
 )
+from app.services.denominations import denomination_catalog
 from app.services.global_identity import lock_user, require_church_admin, set_primary
 
 router = APIRouter()
@@ -69,6 +70,11 @@ def public_data(profile):
             if key != "is_published"
         },
     }
+
+
+@router.get("/denominations")
+def denominations():
+    return {"items": denomination_catalog(), "custom_allowed": True}
 
 
 @router.get("/churches")
