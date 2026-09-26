@@ -217,7 +217,11 @@
     };
 
     const knownDenomination = denominationData.items.find(
-      (option) => option.value === data.denomination,
+      (option) =>
+        option.value.toLowerCase() === String(data.denomination || "").toLowerCase() ||
+        (option.aliases || []).some(
+          (alias) => alias.toLowerCase() === String(data.denomination || "").toLowerCase(),
+        ),
     );
     if (knownDenomination) denominationSelect.value = knownDenomination.value;
     else if (data.denomination) {
