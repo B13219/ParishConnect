@@ -57,6 +57,8 @@ def test_admin_can_create_user_assign_role_and_view_audit_log() -> None:
             "phone": "+255 700 000 000",
             "password": "parishconnect",
             "role": "usher",
+            "position_title": "Mwangalizi",
+            "organization_level": "section",
         },
         headers=headers,
     )
@@ -65,6 +67,8 @@ def test_admin_can_create_user_assign_role_and_view_audit_log() -> None:
     created = response.json()
     assert created["email"] == "new.usher@test.local"
     assert created["roles"] == ["usher"]
+    assert created["position_title"] == "Mwangalizi"
+    assert created["organization_level"] == "section"
 
     users = client.get("/api/v1/admin/users", headers=headers)
     assert users.status_code == 200
@@ -89,7 +93,13 @@ def test_admin_can_update_user_role_status_and_password() -> None:
 
     response = client.patch(
         f"/api/v1/admin/users/{receptionist['id']}",
-        json={"role": "accountant", "status": "inactive", "password": "new-password"},
+        json={
+            "role": "accountant",
+            "position_title": "Parish Treasurer",
+            "organization_level": "parish",
+            "status": "inactive",
+            "password": "new-password",
+        },
         headers=headers,
     )
 
@@ -97,6 +107,8 @@ def test_admin_can_update_user_role_status_and_password() -> None:
     updated = response.json()
     assert updated["roles"] == ["accountant"]
     assert updated["status"] == "inactive"
+    assert updated["position_title"] == "Parish Treasurer"
+    assert updated["organization_level"] == "parish"
 
     login = client.post(
         "/api/v1/auth/login",
