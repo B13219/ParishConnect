@@ -86,6 +86,7 @@ export type DenominationLevel = {
 export type DenominationOption = {
   value: string;
   label: string;
+  aliases: string[];
   governance_model: string;
   levels: DenominationLevel[];
 };
