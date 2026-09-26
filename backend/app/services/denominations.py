@@ -19,6 +19,18 @@ def level(key, label, *positions, optional=False):
     }
 
 
+DENOMINATION_ALIASES = {
+    "Catholic": ["Roman Catholic", "Catholic Church"],
+    "Lutheran": ["ELCT", "KKKT", "Evangelical Lutheran Church in Tanzania"],
+    "Anglican": ["ACT", "KAT", "Anglican Church of Tanzania"],
+    "Moravian": ["KMT", "Moravian Church in Tanzania"],
+    "Africa Inland Church": ["AICT", "Africa Inland Church Tanzania"],
+    "Assemblies of God": ["TAG", "Tanzania Assemblies of God"],
+    "Seventh-day Adventist": ["SDA", "Seventh Day Adventist"],
+    "New Apostolic": ["NAC", "New Apostolic Church"],
+}
+
+
 DENOMINATION_CATALOG = [
     {
         "value": "Catholic",
@@ -702,11 +714,25 @@ DENOMINATION_CATALOG = [
 ]
 
 
+def normalize_denomination(value):
+    if not value:
+        return value
+    normalized = value.strip()
+    lowered = normalized.casefold()
+    for item in DENOMINATION_CATALOG:
+        if item["value"].casefold() == lowered:
+            return item["value"]
+        if any(alias.casefold() == lowered for alias in DENOMINATION_ALIASES.get(item["value"], [])):
+            return item["value"]
+    return normalized
+
+
 def denomination_catalog():
     # Deep-copy nested levels and position records so API callers cannot mutate defaults.
     return [
         {
             **item,
+            "aliases": list(DENOMINATION_ALIASES.get(item["value"], [])),
             "levels": [
                 {
                     **org_level,
