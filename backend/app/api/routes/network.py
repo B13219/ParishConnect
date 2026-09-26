@@ -21,7 +21,7 @@ from app.models import (
     MembershipRequest,
     User,
 )
-from app.services.denominations import denomination_catalog
+from app.services.denominations import denomination_catalog, normalize_denomination
 from app.services.global_identity import lock_user, require_church_admin, set_primary
 
 router = APIRouter()
@@ -58,6 +58,11 @@ class PublicProfileInput(BaseModel):
     @classmethod
     def country_code(cls, value):
         return value.strip().upper() if isinstance(value, str) else value
+
+    @field_validator("denomination", mode="before")
+    @classmethod
+    def denomination_name(cls, value):
+        return normalize_denomination(value) if isinstance(value, str) else value
 
 
 def public_data(profile):
@@ -96,6 +101,7 @@ def discover(
         country = "TZ"
     if view == "local" and not (city.strip() or region.strip()):
         raise HTTPException(422, "Choose a region or city for local churches.")
+    denomination = normalize_denomination(denomination)
     for key, value in (
         ("country", country),
         ("region", region),
