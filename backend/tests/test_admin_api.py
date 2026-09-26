@@ -148,7 +148,7 @@ def test_admin_can_update_branch_settings_and_audit_change() -> None:
     branch = response.json()["branch"]
     assert branch["name"] == "Grace Parish Main"
     assert branch["contact_phone"] == "+255 700 111 000"
-    assert branch["denomination"] == "Roman Catholic"
+    assert branch["denomination"] == "Catholic"
     assert branch["default_language"] == "sw"
     assert branch["timezone"] == "Africa/Dar_es_Salaam"
     assert branch["community_label"] == "Small Christian Community"
