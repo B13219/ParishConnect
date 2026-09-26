@@ -4,7 +4,10 @@
     "slug": "vinyrd-member",
     "scheme": "vinyrd",
     "version": "0.1.0",
-    "platforms": ["android", "ios"],
+    "platforms": [
+      "android",
+      "ios"
+    ],
     "orientation": "default",
     "icon": "./assets/vinyrd-logo.png",
     "userInterfaceStyle": "light",
@@ -17,7 +20,8 @@
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false,
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -59,6 +63,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "888318bc-8e30-490d-bf54-3651bba54efe"
+      }
+    },
+    "owner": "vinard"
   }
 }
