@@ -118,15 +118,13 @@
     $("networkRequestsMore").hidden = !data.has_more;
   };
   const profile = async () => {
-    const data = await fetchJson("/network/admin/profile");
-    const form = $("publicChurchForm");
+    const [data, denominationData] = await Promise.all([\n      fetchJson("/network/admin/profile"),\n      fetchJson("/network/denominations"),\n    ]);\n    const form = $("publicChurchForm");
     form.replaceChildren();
     const fields = [
       ["name", "Church name", 160],
       ["country", "Country code", 2],
       ["region", "Region", 100],
       ["city", "City", 100],
-      ["denomination", "Denomination", 120],
       ["location", "Public location", 240],
       ["logo_url", "Logo HTTPS URL", 2048],
       ["about", "About", 6000],
@@ -149,6 +147,76 @@
       label.append(input);
       form.append(label);
     }
+
+    const denominationGroup = node("fieldset");
+    denominationGroup.append(node("legend", "Denomination & church structure"));
+    const denominationLabel = node("label", "Denomination");
+    const denominationSelect = node("select");
+    denominationSelect.name = "denomination_choice";
+    denominationSelect.append(new Option("Choose denomination", ""));
+    denominationData.items.forEach((option) =>
+      denominationSelect.append(new Option(option.label, option.value)),
+    );
+    denominationSelect.append(new Option("Other / custom denomination", "__other__"));
+    denominationLabel.append(denominationSelect);
+
+    const denominationOtherLabel = node("label", "Other denomination");
+    const denominationOther = node("input");
+    denominationOther.name = "denomination_other";
+    denominationOther.maxLength = 120;
+    denominationOtherLabel.append(denominationOther);
+
+    const architecture = node("div");
+    architecture.className = "denomination-architecture";
+    const renderArchitecture = () => {
+      const selected = denominationData.items.find(
+        (option) => option.value === denominationSelect.value,
+      );
+      denominationOtherLabel.hidden = denominationSelect.value !== "__other__";
+      architecture.replaceChildren();
+      if (selected) {
+        architecture.append(
+          node("strong", selected.label + " default structure"),
+          node(
+            "p",
+            selected.levels
+              .map((level) =>
+                level.optional ? level.label + " (optional)" : level.label,
+              )
+              .join(" → "),
+          ),
+          node(
+            "p",
+            "VINYRD preloads this hierarchy as the denomination template. Optional levels can be adapted to the church body's constitution.",
+          ),
+        );
+      } else if (denominationSelect.value === "__other__") {
+        architecture.append(
+          node(
+            "p",
+            "Custom denomination selected. Its hierarchy can be configured when the denomination is onboarded.",
+          ),
+        );
+      }
+    };
+
+    const knownDenomination = denominationData.items.find(
+      (option) => option.value === data.denomination,
+    );
+    if (knownDenomination) denominationSelect.value = knownDenomination.value;
+    else if (data.denomination) {
+      denominationSelect.value = "__other__";
+      denominationOther.value = data.denomination;
+    }
+    denominationSelect.addEventListener("change", renderArchitecture);
+    denominationGroup.append(
+      denominationLabel,
+      denominationOtherLabel,
+      architecture,
+    );
+    form.append(denominationGroup);
+    renderArchitecture();
+
     const collections = {};
     for (const [key, title] of [
       ["public_events", "Public events"],
@@ -218,6 +286,10 @@
         fields.forEach(
           ([key]) => (payload[key] = form.elements[key].value.trim() || null),
         );
+        payload.denomination =
+          denominationSelect.value === "__other__"
+            ? denominationOther.value.trim() || null
+            : denominationSelect.value || null;
         payload.is_published = published.checked;
         for (const [key, rows] of Object.entries(collections))
           payload[key] = Array.from(rows.children, (row) => {
