@@ -32,6 +32,8 @@ class Profile(TimestampMixin, Base):
     country: Mapped[str | None] = mapped_column(String(100))
     region: Mapped[str | None] = mapped_column(String(100))
     city: Mapped[str | None] = mapped_column(String(100))
+    # Global interface preference, independent of church communication preferences.
+    ui_language: Mapped[str] = mapped_column(String(10), default="en")
 
 
 class ChurchMembership(IdMixin, TimestampMixin, Base):

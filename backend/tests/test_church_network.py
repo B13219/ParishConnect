@@ -25,9 +25,9 @@ def test_denomination_catalog_exposes_architecture_templates(identity):
     by_value = {item["value"]: item for item in data["items"]}
     assert [level["label"] for level in by_value["Assemblies of God"]["levels"]] == [
         "National Church / General Council",
-        "Zone (Kanda)",
-        "District (Jimbo)",
-        "Section (Sehemu)",
+        "Zone",
+        "District",
+        "Section",
         "Local Church",
     ]
     assert [level["label"] for level in by_value["Africa Inland Church"]["levels"]] == [
@@ -46,10 +46,10 @@ def test_denomination_catalog_exposes_architecture_templates(identity):
         level for level in by_value["Assemblies of God"]["levels"] if level["key"] == "section"
     )
     assert [position["title"] for position in tag_section["positions"]] == [
-        "Mwangalizi",
-        "Makamu Mwangalizi",
-        "Katibu",
-        "Mtunza Hazina",
+        "Section Overseer",
+        "Deputy Section Overseer",
+        "Section Secretary",
+        "Section Treasurer",
     ]
     assert tag_section["positions"][0]["permission_role"] == "pastor_leader"
     assert by_value["Non-denominational"]["levels"][-1]["label"] == "Local Church"

@@ -63,6 +63,7 @@ class Registration(Input):
 
 
 class ProfileUpdate(Input):
+    ui_language: Literal["en", "sw"] = "en"
     first_name: str = Field(min_length=1, max_length=80)
     last_name: str = Field(min_length=1, max_length=79)
     phone: str | None = Field(default=None, max_length=40)
@@ -171,6 +172,9 @@ def update_profile(
         profile = Profile(user_id=user.id)
         db.add(profile)
     for key, value in payload.model_dump().items():
+        # Older clients omit this new field; do not reset an existing preference.
+        if key == "ui_language" and key not in payload.model_fields_set:
+            continue
         setattr(profile, key, value)
     user.name = f"{payload.first_name} {payload.last_name}"
     user.phone = payload.phone

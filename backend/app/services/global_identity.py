@@ -183,6 +183,7 @@ def profile_data(db: Session, user: User) -> dict:
     first, _, last = user.name.partition(" ")
     return {
         "user_id": user.id,
+        "ui_language": profile.ui_language if profile else "en",
         "first_name": profile.first_name if profile else first,
         "last_name": profile.last_name if profile else last,
         "email": user.email,

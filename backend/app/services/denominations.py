@@ -5,15 +5,31 @@ constitution. Organisation levels, office titles and permission suggestions can
 be adapted by authorised denomination administrators.
 """
 
+from copy import deepcopy
 
-def position(title, permission_role="pastor_leader"):
-    return {"title": title, "permission_role": permission_role}
+from app.services.localization import localized_label
 
 
-def level(key, label, *positions, optional=False):
+def position(key, title, permission_role="pastor_leader", *, sw=None):
+    labels = {"en": title}
+    if sw:
+        labels["sw"] = sw
     return {
         "key": key,
-        "label": label,
+        "title": localized_label(labels, "en"),
+        "labels": labels,
+        "permission_role": permission_role,
+    }
+
+
+def level(key, label, *positions, optional=False, sw=None):
+    labels = {"en": label}
+    if sw:
+        labels["sw"] = sw
+    return {
+        "key": key,
+        "label": localized_label(labels, "en"),
+        "labels": labels,
         "optional": optional,
         "positions": list(positions),
     }
@@ -40,39 +56,41 @@ DENOMINATION_CATALOG = [
             level(
                 "ecclesiastical_province",
                 "Ecclesiastical Province / Archdiocese",
-                position("Archbishop", "administrator"),
-                position("Vicar General", "administrator"),
-                position("Chancellor", "administrator"),
-                position("Bursar / Treasurer", "accountant"),
+                position("archbishop", "Archbishop", "administrator"),
+                position("vicar_general", "Vicar General", "administrator"),
+                position("chancellor", "Chancellor", "administrator"),
+                position("bursar_treasurer", "Bursar / Treasurer", "accountant"),
                 optional=True,
             ),
             level(
                 "diocese",
                 "Diocese",
-                position("Bishop", "administrator"),
-                position("Vicar General", "administrator"),
-                position("Chancellor", "administrator"),
-                position("Diocesan Bursar / Treasurer", "accountant"),
+                position("bishop", "Bishop", "administrator"),
+                position("vicar_general", "Vicar General", "administrator"),
+                position("chancellor", "Chancellor", "administrator"),
+                position("diocesan_bursar_treasurer", "Diocesan Bursar / Treasurer", "accountant"),
             ),
             level(
                 "deanery",
                 "Deanery",
-                position("Dean", "pastor_leader"),
+                position("dean", "Dean", "pastor_leader"),
                 optional=True,
             ),
             level(
                 "parish",
                 "Parish",
-                position("Parish Priest", "pastor_leader"),
-                position("Assistant Parish Priest", "pastor_leader"),
-                position("Parish Secretary", "administrator"),
-                position("Parish Treasurer", "accountant"),
+                position("parish_priest", "Parish Priest", "pastor_leader"),
+                position("assistant_parish_priest", "Assistant Parish Priest", "pastor_leader"),
+                position("parish_secretary", "Parish Secretary", "administrator"),
+                position("parish_treasurer", "Parish Treasurer", "accountant"),
             ),
             level(
                 "outstation",
                 "Outstation / Chaplaincy",
-                position("Priest-in-Charge / Chaplain", "pastor_leader"),
-                position("Catechist", "pastor_leader"),
+                position(
+                    "priest_in_charge_chaplain", "Priest-in-Charge / Chaplain", "pastor_leader"
+                ),
+                position("catechist", "Catechist", "pastor_leader"),
                 optional=True,
             ),
         ],
@@ -85,38 +103,44 @@ DENOMINATION_CATALOG = [
             level(
                 "national_church",
                 "National Church",
-                position("Presiding Bishop / Head of Church", "administrator"),
-                position("Secretary General", "administrator"),
-                position("Treasurer / Finance Lead", "accountant"),
+                position(
+                    "presiding_bishop_head_of_church",
+                    "Presiding Bishop / Head of Church",
+                    "administrator",
+                ),
+                position("secretary_general", "Secretary General", "administrator"),
+                position("treasurer_finance_lead", "Treasurer / Finance Lead", "accountant"),
             ),
             level(
                 "diocese",
                 "Diocese / Mission Area",
-                position("Diocesan Bishop", "administrator"),
-                position("Diocesan General Secretary", "administrator"),
-                position("Diocesan Treasurer", "accountant"),
+                position("diocesan_bishop", "Diocesan Bishop", "administrator"),
+                position(
+                    "diocesan_general_secretary", "Diocesan General Secretary", "administrator"
+                ),
+                position("diocesan_treasurer", "Diocesan Treasurer", "accountant"),
             ),
             level(
                 "district",
                 "District",
-                position("District Pastor / Dean", "pastor_leader"),
-                position("District Secretary", "administrator"),
+                position("district_pastor_dean", "District Pastor / Dean", "pastor_leader"),
+                position("district_secretary", "District Secretary", "administrator"),
                 optional=True,
             ),
             level(
                 "parish",
                 "Parish",
-                position("Parish Pastor", "pastor_leader"),
-                position("Assistant Pastor", "pastor_leader"),
-                position("Parish Secretary", "administrator"),
-                position("Parish Treasurer", "accountant"),
+                position("parish_pastor", "Parish Pastor", "pastor_leader"),
+                position("assistant_pastor", "Assistant Pastor", "pastor_leader"),
+                position("parish_secretary", "Parish Secretary", "administrator"),
+                position("parish_treasurer", "Parish Treasurer", "accountant"),
             ),
             level(
                 "congregation",
                 "Congregation",
-                position("Congregation Pastor", "pastor_leader"),
-                position("Congregation Chairperson", "administrator"),
-                position("Congregation Treasurer", "accountant"),
+                position("congregation_pastor", "Congregation Pastor", "pastor_leader"),
+                position("congregation_chairperson", "Congregation Chairperson", "administrator"),
+                position("congregation_treasurer", "Congregation Treasurer", "accountant"),
             ),
         ],
     },
@@ -128,38 +152,38 @@ DENOMINATION_CATALOG = [
             level(
                 "province",
                 "Province / National Church",
-                position("Archbishop", "administrator"),
-                position("Dean of the Province", "administrator"),
-                position("General Secretary", "administrator"),
-                position("Provincial Registrar", "administrator"),
-                position("Treasurer", "accountant"),
+                position("archbishop", "Archbishop", "administrator"),
+                position("dean_of_the_province", "Dean of the Province", "administrator"),
+                position("general_secretary", "General Secretary", "administrator"),
+                position("provincial_registrar", "Provincial Registrar", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
             ),
             level(
                 "diocese",
                 "Diocese",
-                position("Bishop", "administrator"),
-                position("Diocesan Secretary", "administrator"),
-                position("Diocesan Treasurer", "accountant"),
+                position("bishop", "Bishop", "administrator"),
+                position("diocesan_secretary", "Diocesan Secretary", "administrator"),
+                position("diocesan_treasurer", "Diocesan Treasurer", "accountant"),
             ),
             level(
                 "archdeaconry",
                 "Archdeaconry / Deanery",
-                position("Archdeacon / Dean", "pastor_leader"),
+                position("archdeacon_dean", "Archdeacon / Dean", "pastor_leader"),
                 optional=True,
             ),
             level(
                 "parish",
                 "Parish",
-                position("Parish Priest / Rector", "pastor_leader"),
-                position("Assistant Priest / Curate", "pastor_leader"),
-                position("Parish Secretary", "administrator"),
-                position("Parish Treasurer", "accountant"),
+                position("parish_priest_rector", "Parish Priest / Rector", "pastor_leader"),
+                position("assistant_priest_curate", "Assistant Priest / Curate", "pastor_leader"),
+                position("parish_secretary", "Parish Secretary", "administrator"),
+                position("parish_treasurer", "Parish Treasurer", "accountant"),
             ),
             level(
                 "local_church",
                 "Local Church / Chapelry",
-                position("Priest-in-Charge", "pastor_leader"),
-                position("Lay Leader", "pastor_leader"),
+                position("priest_in_charge", "Priest-in-Charge", "pastor_leader"),
+                position("lay_leader", "Lay Leader", "pastor_leader"),
                 optional=True,
             ),
         ],
@@ -172,43 +196,61 @@ DENOMINATION_CATALOG = [
             level(
                 "national_church",
                 "Moravian Church in Tanzania",
-                position("Presiding Bishop (Askofu Kiongozi)", "administrator"),
-                position("Deputy Presiding Bishop", "administrator"),
-                position("General Secretary (Katibu Mkuu)", "administrator"),
-                position("General Treasurer (Mhazini Mkuu)", "accountant"),
+                position(
+                    "presiding_bishop_askofu_kiongozi",
+                    "Presiding Bishop (Askofu Kiongozi)",
+                    "administrator",
+                ),
+                position("deputy_presiding_bishop", "Deputy Presiding Bishop", "administrator"),
+                position(
+                    "general_secretary_katibu_mkuu",
+                    "General Secretary (Katibu Mkuu)",
+                    "administrator",
+                ),
+                position(
+                    "general_treasurer_mhazini_mkuu",
+                    "General Treasurer (Mhazini Mkuu)",
+                    "accountant",
+                ),
             ),
             level(
                 "province",
                 "Province",
-                position("Bishop / Provincial Chairperson", "administrator"),
-                position("Provincial Secretary", "administrator"),
-                position("Provincial Treasurer", "accountant"),
+                position(
+                    "bishop_provincial_chairperson",
+                    "Bishop / Provincial Chairperson",
+                    "administrator",
+                ),
+                position("provincial_secretary", "Provincial Secretary", "administrator"),
+                position("provincial_treasurer", "Provincial Treasurer", "accountant"),
             ),
             level(
                 "district",
                 "District",
-                position("District Chairperson / Pastor", "pastor_leader"),
-                position("District Secretary", "administrator"),
+                position(
+                    "district_chairperson_pastor", "District Chairperson / Pastor", "pastor_leader"
+                ),
+                position("district_secretary", "District Secretary", "administrator"),
             ),
             level(
                 "ward",
                 "Ward / Parish",
-                position("Parish Pastor", "pastor_leader"),
-                position("Parish Chairperson", "administrator"),
+                position("parish_pastor", "Parish Pastor", "pastor_leader"),
+                position("parish_chairperson", "Parish Chairperson", "administrator"),
                 optional=True,
             ),
             level(
                 "congregation",
                 "Congregation",
-                position("Congregation Pastor", "pastor_leader"),
-                position("Congregation Chairperson", "administrator"),
-                position("Congregation Treasurer", "accountant"),
+                position("congregation_pastor", "Congregation Pastor", "pastor_leader"),
+                position("congregation_chairperson", "Congregation Chairperson", "administrator"),
+                position("congregation_treasurer", "Congregation Treasurer", "accountant"),
             ),
             level(
                 "sub_congregation",
                 "Sub-congregation",
-                position("Pastor / Evangelist", "pastor_leader"),
-                position("Local Chairperson", "administrator"),
+                position("pastor_evangelist", "Pastor / Evangelist", "pastor_leader"),
+                position("local_chairperson", "Local Chairperson", "administrator"),
                 optional=True,
             ),
         ],
@@ -221,29 +263,29 @@ DENOMINATION_CATALOG = [
             level(
                 "national_church",
                 "National Church",
-                position("Archbishop", "administrator"),
-                position("General Secretary", "administrator"),
-                position("National Treasurer", "accountant"),
+                position("archbishop", "Archbishop", "administrator"),
+                position("general_secretary", "General Secretary", "administrator"),
+                position("national_treasurer", "National Treasurer", "accountant"),
             ),
             level(
                 "diocese",
                 "Diocese",
-                position("Bishop", "administrator"),
-                position("Diocesan Secretary", "administrator"),
-                position("Diocesan Treasurer", "accountant"),
+                position("bishop", "Bishop", "administrator"),
+                position("diocesan_secretary", "Diocesan Secretary", "administrator"),
+                position("diocesan_treasurer", "Diocesan Treasurer", "accountant"),
             ),
             level(
                 "pastorate",
                 "Pastorate",
-                position("Pastorate Pastor / Leader", "pastor_leader"),
-                position("Pastorate Secretary", "administrator"),
+                position("pastorate_pastor_leader", "Pastorate Pastor / Leader", "pastor_leader"),
+                position("pastorate_secretary", "Pastorate Secretary", "administrator"),
             ),
             level(
                 "local_congregation",
                 "Local Congregation",
-                position("Local Church Pastor", "pastor_leader"),
-                position("Church Secretary", "administrator"),
-                position("Church Treasurer", "accountant"),
+                position("local_church_pastor", "Local Church Pastor", "pastor_leader"),
+                position("church_secretary", "Church Secretary", "administrator"),
+                position("church_treasurer", "Church Treasurer", "accountant"),
             ),
         ],
     },
@@ -255,26 +297,26 @@ DENOMINATION_CATALOG = [
             level(
                 "convention",
                 "National Convention / Union",
-                position("President / Chairperson", "administrator"),
-                position("General Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position("president_chairperson", "President / Chairperson", "administrator"),
+                position("general_secretary", "General Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
                 optional=True,
             ),
             level(
                 "association",
                 "Regional Association",
-                position("Moderator / Chairperson", "administrator"),
-                position("Association Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position("moderator_chairperson", "Moderator / Chairperson", "administrator"),
+                position("association_secretary", "Association Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
                 optional=True,
             ),
             level(
                 "local_church",
                 "Local Church",
-                position("Senior Pastor / Pastor", "pastor_leader"),
-                position("Church Secretary", "administrator"),
-                position("Church Treasurer", "accountant"),
-                position("Deacon / Elder", "pastor_leader"),
+                position("senior_pastor_pastor", "Senior Pastor / Pastor", "pastor_leader"),
+                position("church_secretary", "Church Secretary", "administrator"),
+                position("church_treasurer", "Church Treasurer", "accountant"),
+                position("deacon_elder", "Deacon / Elder", "pastor_leader"),
             ),
         ],
     },
@@ -286,31 +328,39 @@ DENOMINATION_CATALOG = [
             level(
                 "national_church",
                 "National Church / Conference",
-                position("Bishop / Conference Chairperson", "administrator"),
-                position("General Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position(
+                    "bishop_conference_chairperson",
+                    "Bishop / Conference Chairperson",
+                    "administrator",
+                ),
+                position("general_secretary", "General Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
                 optional=True,
             ),
             level(
                 "region",
                 "Diocese / Region",
-                position("Bishop / Regional Chairperson", "administrator"),
-                position("Regional Secretary", "administrator"),
+                position(
+                    "bishop_regional_chairperson", "Bishop / Regional Chairperson", "administrator"
+                ),
+                position("regional_secretary", "Regional Secretary", "administrator"),
                 optional=True,
             ),
             level(
                 "district",
                 "District / Area",
-                position("District Pastor / Chairperson", "pastor_leader"),
+                position(
+                    "district_pastor_chairperson", "District Pastor / Chairperson", "pastor_leader"
+                ),
                 optional=True,
             ),
             level(
                 "congregation",
                 "Congregation",
-                position("Pastor", "pastor_leader"),
-                position("Church Elder", "pastor_leader"),
-                position("Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position("pastor", "Pastor", "pastor_leader"),
+                position("church_elder", "Church Elder", "pastor_leader"),
+                position("secretary", "Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
             ),
         ],
     },
@@ -322,33 +372,33 @@ DENOMINATION_CATALOG = [
             level(
                 "general_assembly",
                 "General Assembly / National Church",
-                position("Moderator", "administrator"),
-                position("General Secretary / Clerk", "administrator"),
-                position("Treasurer", "accountant"),
+                position("moderator", "Moderator", "administrator"),
+                position("general_secretary_clerk", "General Secretary / Clerk", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
                 optional=True,
             ),
             level(
                 "synod",
                 "Synod",
-                position("Synod Moderator", "administrator"),
-                position("Synod Clerk", "administrator"),
-                position("Treasurer", "accountant"),
+                position("synod_moderator", "Synod Moderator", "administrator"),
+                position("synod_clerk", "Synod Clerk", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
                 optional=True,
             ),
             level(
                 "presbytery",
                 "Presbytery",
-                position("Presbytery Moderator", "administrator"),
-                position("Presbytery Clerk", "administrator"),
-                position("Treasurer", "accountant"),
+                position("presbytery_moderator", "Presbytery Moderator", "administrator"),
+                position("presbytery_clerk", "Presbytery Clerk", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
             ),
             level(
                 "congregation",
                 "Congregation",
-                position("Minister / Pastor", "pastor_leader"),
-                position("Session Clerk", "administrator"),
-                position("Elder", "pastor_leader"),
-                position("Treasurer", "accountant"),
+                position("minister_pastor", "Minister / Pastor", "pastor_leader"),
+                position("session_clerk", "Session Clerk", "administrator"),
+                position("elder", "Elder", "pastor_leader"),
+                position("treasurer", "Treasurer", "accountant"),
             ),
         ],
     },
@@ -360,24 +410,26 @@ DENOMINATION_CATALOG = [
             level(
                 "national_church",
                 "National Church",
-                position("National Overseer / Bishop", "administrator"),
-                position("General Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position("national_overseer_bishop", "National Overseer / Bishop", "administrator"),
+                position("general_secretary", "General Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
                 optional=True,
             ),
             level(
                 "region",
                 "Region / District",
-                position("Regional / District Overseer", "administrator"),
-                position("Secretary", "administrator"),
+                position(
+                    "regional_district_overseer", "Regional / District Overseer", "administrator"
+                ),
+                position("secretary", "Secretary", "administrator"),
                 optional=True,
             ),
             level(
                 "local_church",
                 "Local Church",
-                position("Senior Pastor / Pastor", "pastor_leader"),
-                position("Church Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position("senior_pastor_pastor", "Senior Pastor / Pastor", "pastor_leader"),
+                position("church_secretary", "Church Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
             ),
         ],
     },
@@ -389,23 +441,29 @@ DENOMINATION_CATALOG = [
             level(
                 "national_fellowship",
                 "National Fellowship / Network",
-                position("National Leader / Chairperson", "administrator"),
-                position("General Secretary", "administrator"),
+                position(
+                    "national_leader_chairperson", "National Leader / Chairperson", "administrator"
+                ),
+                position("general_secretary", "General Secretary", "administrator"),
                 optional=True,
             ),
             level(
                 "region",
                 "Region / District",
-                position("Regional Coordinator / Overseer", "administrator"),
+                position(
+                    "regional_coordinator_overseer",
+                    "Regional Coordinator / Overseer",
+                    "administrator",
+                ),
                 optional=True,
             ),
             level(
                 "local_church",
                 "Local Church",
-                position("Senior Pastor / Pastor", "pastor_leader"),
-                position("Elder", "pastor_leader"),
-                position("Church Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position("senior_pastor_pastor", "Senior Pastor / Pastor", "pastor_leader"),
+                position("elder", "Elder", "pastor_leader"),
+                position("church_secretary", "Church Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
             ),
         ],
     },
@@ -417,24 +475,26 @@ DENOMINATION_CATALOG = [
             level(
                 "national_church",
                 "National Church",
-                position("National Bishop / Overseer", "administrator"),
-                position("General Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position("national_bishop_overseer", "National Bishop / Overseer", "administrator"),
+                position("general_secretary", "General Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
                 optional=True,
             ),
             level(
                 "region",
                 "Region / District",
-                position("Regional / District Overseer", "administrator"),
-                position("Secretary", "administrator"),
+                position(
+                    "regional_district_overseer", "Regional / District Overseer", "administrator"
+                ),
+                position("secretary", "Secretary", "administrator"),
                 optional=True,
             ),
             level(
                 "local_church",
                 "Local Church",
-                position("Senior Pastor / Pastor", "pastor_leader"),
-                position("Church Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position("senior_pastor_pastor", "Senior Pastor / Pastor", "pastor_leader"),
+                position("church_secretary", "Church Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
             ),
         ],
     },
@@ -446,28 +506,32 @@ DENOMINATION_CATALOG = [
             level(
                 "territory",
                 "Territory",
-                position("Territorial Commander", "administrator"),
-                position("Chief Secretary", "administrator"),
-                position("Finance Secretary", "accountant"),
+                position("territorial_commander", "Territorial Commander", "administrator"),
+                position("chief_secretary", "Chief Secretary", "administrator"),
+                position("finance_secretary", "Finance Secretary", "accountant"),
             ),
             level(
                 "division",
                 "Division / District",
-                position("Divisional / District Commander", "administrator"),
-                position("Divisional Secretary", "administrator"),
+                position(
+                    "divisional_district_commander",
+                    "Divisional / District Commander",
+                    "administrator",
+                ),
+                position("divisional_secretary", "Divisional Secretary", "administrator"),
                 optional=True,
             ),
             level(
                 "corps",
                 "Corps",
-                position("Corps Officer", "pastor_leader"),
-                position("Corps Secretary", "administrator"),
-                position("Corps Treasurer", "accountant"),
+                position("corps_officer", "Corps Officer", "pastor_leader"),
+                position("corps_secretary", "Corps Secretary", "administrator"),
+                position("corps_treasurer", "Corps Treasurer", "accountant"),
             ),
             level(
                 "outpost",
                 "Outpost",
-                position("Outpost Officer / Leader", "pastor_leader"),
+                position("outpost_officer_leader", "Outpost Officer / Leader", "pastor_leader"),
                 optional=True,
             ),
         ],
@@ -480,40 +544,102 @@ DENOMINATION_CATALOG = [
             level(
                 "national_church",
                 "National Church / General Council",
-                position("Askofu Mkuu", "administrator"),
-                position("Makamu Askofu Mkuu", "administrator"),
-                position("Katibu Mkuu", "administrator"),
-                position("Mtunza Hazina Mkuu", "accountant"),
+                position("presiding_bishop", "Presiding Bishop", "administrator", sw="Askofu Mkuu"),
+                position(
+                    "deputy_presiding_bishop",
+                    "Deputy Presiding Bishop",
+                    "administrator",
+                    sw="Makamu Askofu Mkuu",
+                ),
+                position(
+                    "general_secretary", "General Secretary", "administrator", sw="Katibu Mkuu"
+                ),
+                position(
+                    "general_treasurer", "General Treasurer", "accountant", sw="Mtunza Hazina Mkuu"
+                ),
+                sw="Kanisa la Taifa / Baraza Kuu",
             ),
             level(
                 "zone",
-                "Zone (Kanda)",
-                position("Mwenyekiti wa Ushirika wa Kanda", "administrator"),
-                position("Katibu / Mtunza Hazina wa Kanda", "accountant"),
+                "Zone",
+                position(
+                    "zone_fellowship_chairperson",
+                    "Zone Fellowship Chairperson",
+                    "administrator",
+                    sw="Mwenyekiti wa Ushirika wa Kanda",
+                ),
+                position(
+                    "zone_secretary_treasurer",
+                    "Zone Secretary / Treasurer",
+                    "accountant",
+                    sw="Katibu / Mtunza Hazina wa Kanda",
+                ),
+                sw="Kanda",
             ),
             level(
                 "district",
-                "District (Jimbo)",
-                position("Askofu", "administrator"),
-                position("Makamu Askofu", "administrator"),
-                position("Katibu", "administrator"),
-                position("Mtunza Hazina", "accountant"),
+                "District",
+                position(
+                    "district_bishop", "District Bishop", "administrator", sw="Askofu wa Jimbo"
+                ),
+                position(
+                    "deputy_district_bishop",
+                    "Deputy District Bishop",
+                    "administrator",
+                    sw="Makamu Askofu wa Jimbo",
+                ),
+                position(
+                    "district_secretary",
+                    "District Secretary",
+                    "administrator",
+                    sw="Katibu wa Jimbo",
+                ),
+                position(
+                    "district_treasurer",
+                    "District Treasurer",
+                    "accountant",
+                    sw="Mtunza Hazina wa Jimbo",
+                ),
+                sw="Jimbo",
             ),
             level(
                 "section",
-                "Section (Sehemu)",
-                position("Mwangalizi", "pastor_leader"),
-                position("Makamu Mwangalizi", "pastor_leader"),
-                position("Katibu", "administrator"),
-                position("Mtunza Hazina", "accountant"),
+                "Section",
+                position(
+                    "section_overseer",
+                    "Section Overseer",
+                    "pastor_leader",
+                    sw="Mwangalizi wa Sehemu",
+                ),
+                position(
+                    "deputy_section_overseer",
+                    "Deputy Section Overseer",
+                    "pastor_leader",
+                    sw="Makamu Mwangalizi wa Sehemu",
+                ),
+                position(
+                    "section_secretary", "Section Secretary", "administrator", sw="Katibu wa Sehemu"
+                ),
+                position(
+                    "section_treasurer",
+                    "Section Treasurer",
+                    "accountant",
+                    sw="Mtunza Hazina wa Sehemu",
+                ),
+                sw="Sehemu",
             ),
             level(
                 "local_church",
                 "Local Church",
-                position("Mchungaji Kiongozi", "pastor_leader"),
-                position("Mchungaji", "pastor_leader"),
-                position("Katibu wa Kanisa", "administrator"),
-                position("Mtunza Hazina", "accountant"),
+                position(
+                    "lead_pastor", "Lead / Senior Pastor", "pastor_leader", sw="Mchungaji Kiongozi"
+                ),
+                position("pastor", "Pastor", "pastor_leader", sw="Mchungaji"),
+                position(
+                    "church_secretary", "Church Secretary", "administrator", sw="Katibu wa Kanisa"
+                ),
+                position("church_treasurer", "Treasurer", "accountant", sw="Mtunza Hazina"),
+                sw="Kanisa la Mahali Pamoja",
             ),
         ],
     },
@@ -525,30 +651,30 @@ DENOMINATION_CATALOG = [
             level(
                 "union",
                 "Union Conference / Union Mission",
-                position("President", "administrator"),
-                position("Executive Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position("president", "President", "administrator"),
+                position("executive_secretary", "Executive Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
             ),
             level(
                 "conference",
                 "Conference / Field",
-                position("President", "administrator"),
-                position("Executive Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position("president", "President", "administrator"),
+                position("executive_secretary", "Executive Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
             ),
             level(
                 "district",
                 "District",
-                position("District Pastor", "pastor_leader"),
+                position("district_pastor", "District Pastor", "pastor_leader"),
                 optional=True,
             ),
             level(
                 "local_church",
                 "Local Church / Company",
-                position("Church Pastor", "pastor_leader"),
-                position("First Elder / Elder", "pastor_leader"),
-                position("Church Clerk", "administrator"),
-                position("Church Treasurer", "accountant"),
+                position("church_pastor", "Church Pastor", "pastor_leader"),
+                position("first_elder_elder", "First Elder / Elder", "pastor_leader"),
+                position("church_clerk", "Church Clerk", "administrator"),
+                position("church_treasurer", "Church Treasurer", "accountant"),
             ),
         ],
     },
@@ -560,28 +686,32 @@ DENOMINATION_CATALOG = [
             level(
                 "district_apostle_area",
                 "District Apostle Area",
-                position("District Apostle", "administrator"),
-                position("District Apostle Helper", "administrator"),
+                position("district_apostle", "District Apostle", "administrator"),
+                position("district_apostle_helper", "District Apostle Helper", "administrator"),
             ),
             level(
                 "apostle_area",
                 "Apostle Area",
-                position("Apostle", "administrator"),
-                position("Bishop", "administrator"),
+                position("apostle", "Apostle", "administrator"),
+                position("bishop", "Bishop", "administrator"),
                 optional=True,
             ),
             level(
                 "district",
                 "District",
-                position("District Rector / District Elder", "pastor_leader"),
-                position("District Evangelist", "pastor_leader"),
+                position(
+                    "district_rector_district_elder",
+                    "District Rector / District Elder",
+                    "pastor_leader",
+                ),
+                position("district_evangelist", "District Evangelist", "pastor_leader"),
             ),
             level(
                 "congregation",
                 "Congregation",
-                position("Rector", "pastor_leader"),
-                position("Priest", "pastor_leader"),
-                position("Deacon", "pastor_leader"),
+                position("rector", "Rector", "pastor_leader"),
+                position("priest", "Priest", "pastor_leader"),
+                position("deacon", "Deacon", "pastor_leader"),
             ),
         ],
     },
@@ -593,32 +723,44 @@ DENOMINATION_CATALOG = [
             level(
                 "national_church",
                 "National Church / Fellowship",
-                position("Presiding Bishop / General Overseer", "administrator"),
-                position("General Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position(
+                    "presiding_bishop_general_overseer",
+                    "Presiding Bishop / General Overseer",
+                    "administrator",
+                ),
+                position("general_secretary", "General Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
                 optional=True,
             ),
             level(
                 "region",
                 "Region / Zone",
-                position("Regional Bishop / Overseer", "administrator"),
-                position("Regional Secretary", "administrator"),
+                position("regional_bishop_overseer", "Regional Bishop / Overseer", "administrator"),
+                position("regional_secretary", "Regional Secretary", "administrator"),
                 optional=True,
             ),
             level(
                 "district",
                 "District / Section",
-                position("District / Section Overseer", "pastor_leader"),
-                position("Secretary", "administrator"),
+                position(
+                    "district_section_overseer", "District / Section Overseer", "pastor_leader"
+                ),
+                position("secretary", "Secretary", "administrator"),
                 optional=True,
             ),
             level(
                 "local_church",
                 "Local Church",
-                position("Senior Pastor / Lead Pastor", "pastor_leader"),
-                position("Associate Pastor", "pastor_leader"),
-                position("Church Administrator / Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position(
+                    "senior_pastor_lead_pastor", "Senior Pastor / Lead Pastor", "pastor_leader"
+                ),
+                position("associate_pastor", "Associate Pastor", "pastor_leader"),
+                position(
+                    "church_administrator_secretary",
+                    "Church Administrator / Secretary",
+                    "administrator",
+                ),
+                position("treasurer", "Treasurer", "accountant"),
             ),
         ],
     },
@@ -630,24 +772,28 @@ DENOMINATION_CATALOG = [
             level(
                 "patriarchate",
                 "Patriarchate / Church",
-                position("Patriarch / Primate", "administrator"),
-                position("General Secretary", "administrator"),
+                position("patriarch_primate", "Patriarch / Primate", "administrator"),
+                position("general_secretary", "General Secretary", "administrator"),
                 optional=True,
             ),
             level(
                 "archdiocese",
                 "Archdiocese / Metropolis",
-                position("Archbishop / Metropolitan", "administrator"),
-                position("Diocesan Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position("archbishop_metropolitan", "Archbishop / Metropolitan", "administrator"),
+                position("diocesan_secretary", "Diocesan Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
             ),
             level(
                 "parish",
                 "Parish / Mission",
-                position("Parish Priest / Priest-in-Charge", "pastor_leader"),
-                position("Deacon", "pastor_leader"),
-                position("Parish Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position(
+                    "parish_priest_priest_in_charge",
+                    "Parish Priest / Priest-in-Charge",
+                    "pastor_leader",
+                ),
+                position("deacon", "Deacon", "pastor_leader"),
+                position("parish_secretary", "Parish Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
             ),
         ],
     },
@@ -659,24 +805,32 @@ DENOMINATION_CATALOG = [
             level(
                 "conference",
                 "Annual Conference / National Church",
-                position("Presiding Bishop / Conference President", "administrator"),
-                position("Conference Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position(
+                    "presiding_bishop_conference_president",
+                    "Presiding Bishop / Conference President",
+                    "administrator",
+                ),
+                position("conference_secretary", "Conference Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
                 optional=True,
             ),
             level(
                 "district",
                 "District / Circuit",
-                position("District Superintendent / Circuit Superintendent", "administrator"),
-                position("Circuit Minister", "pastor_leader"),
+                position(
+                    "district_superintendent_circuit_superintendent",
+                    "District Superintendent / Circuit Superintendent",
+                    "administrator",
+                ),
+                position("circuit_minister", "Circuit Minister", "pastor_leader"),
             ),
             level(
                 "local_church",
                 "Local Church / Society",
-                position("Minister / Pastor", "pastor_leader"),
-                position("Lay Leader", "pastor_leader"),
-                position("Church Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position("minister_pastor", "Minister / Pastor", "pastor_leader"),
+                position("lay_leader", "Lay Leader", "pastor_leader"),
+                position("church_secretary", "Church Secretary", "administrator"),
+                position("treasurer", "Treasurer", "accountant"),
             ),
         ],
     },
@@ -688,26 +842,38 @@ DENOMINATION_CATALOG = [
             level(
                 "network",
                 "Network / Ministry",
-                position("Founder / Presiding Leader", "administrator"),
-                position("Executive Director / Administrator", "administrator"),
-                position("Finance Lead / Treasurer", "accountant"),
+                position("founder_presiding_leader", "Founder / Presiding Leader", "administrator"),
+                position(
+                    "executive_director_administrator",
+                    "Executive Director / Administrator",
+                    "administrator",
+                ),
+                position("finance_lead_treasurer", "Finance Lead / Treasurer", "accountant"),
                 optional=True,
             ),
             level(
                 "campus",
                 "Campus / Branch",
-                position("Campus Pastor / Branch Pastor", "pastor_leader"),
-                position("Campus Administrator", "administrator"),
-                position("Finance Lead", "accountant"),
+                position(
+                    "campus_pastor_branch_pastor", "Campus Pastor / Branch Pastor", "pastor_leader"
+                ),
+                position("campus_administrator", "Campus Administrator", "administrator"),
+                position("finance_lead", "Finance Lead", "accountant"),
                 optional=True,
             ),
             level(
                 "local_church",
                 "Local Church",
-                position("Lead Pastor / Senior Pastor", "pastor_leader"),
-                position("Associate Pastor", "pastor_leader"),
-                position("Church Administrator / Secretary", "administrator"),
-                position("Treasurer", "accountant"),
+                position(
+                    "lead_pastor_senior_pastor", "Lead Pastor / Senior Pastor", "pastor_leader"
+                ),
+                position("associate_pastor", "Associate Pastor", "pastor_leader"),
+                position(
+                    "church_administrator_secretary",
+                    "Church Administrator / Secretary",
+                    "administrator",
+                ),
+                position("treasurer", "Treasurer", "accountant"),
             ),
         ],
     },
@@ -722,24 +888,18 @@ def normalize_denomination(value):
     for item in DENOMINATION_CATALOG:
         if item["value"].casefold() == lowered:
             return item["value"]
-        if any(alias.casefold() == lowered for alias in DENOMINATION_ALIASES.get(item["value"], [])):
+        if any(
+            alias.casefold() == lowered for alias in DENOMINATION_ALIASES.get(item["value"], [])
+        ):
             return item["value"]
     return normalized
 
 
 def denomination_catalog():
-    # Deep-copy nested levels and position records so API callers cannot mutate defaults.
-    return [
-        {
-            **item,
-            "aliases": list(DENOMINATION_ALIASES.get(item["value"], [])),
-            "levels": [
-                {
-                    **org_level,
-                    "positions": [dict(position_item) for position_item in org_level["positions"]],
-                }
-                for org_level in item["levels"]
-            ],
-        }
-        for item in DENOMINATION_CATALOG
-    ]
+    # Include nested labels in the copy: API callers must not mutate defaults.
+    return deepcopy(
+        [
+            {**item, "aliases": DENOMINATION_ALIASES.get(item["value"], [])}
+            for item in DENOMINATION_CATALOG
+        ]
+    )

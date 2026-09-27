@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import AuthForm from "../features/auth/AuthForm";
+import ProfileForm from "../features/auth/ProfileForm";
 import MembershipScreen from "../features/network/MembershipScreen";
 import Home from "../app/(member)/(tabs)/index";
 import { useSession, useServices } from "../providers/SessionProvider";
@@ -39,6 +40,7 @@ beforeEach(() => {
           email: "a@test.local",
           phone: null,
           roles: [],
+          ui_language: "en",
         },
         message: null,
       },
@@ -195,4 +197,26 @@ test("private data is cleared immediately on church switch and late responses ca
   finishB("Church B giving");
   await waitFor(() => expect(seen).toHaveBeenLastCalledWith("Church B giving"));
   expect(seen).not.toHaveBeenCalledWith("Church A giving");
+});
+
+
+test("profile saves global UI language without a church communication field", async () => {
+  const profile = {
+    user_id: "u", email: "ada@test.local", first_name: "Ada", last_name: "Person",
+    phone: null, avatar_url: null, country: null, region: null, city: null,
+    ui_language: "en" as const,
+  };
+  const updateProfile = jest.fn(async () => ({ ...profile, ui_language: "sw" as const }));
+  jest.mocked(useServices).mockReturnValue({
+    profile: async () => profile, updateProfile,
+  } as unknown as ReturnType<typeof useServices>);
+  const ui = await render(<ProfileForm />);
+  await waitFor(() => expect(ui.getByText("Kiswahili")).toBeTruthy());
+  await fireEvent.press(ui.getByText("Kiswahili"));
+  await fireEvent.press(ui.getByText("Save profile"));
+  await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({
+    first_name: "Ada", last_name: "Person", phone: null, avatar_url: null,
+    country: null, region: null, city: null, ui_language: "sw",
+  }));
+  expect(ui.getByText("Profile saved.")).toBeTruthy();
 });

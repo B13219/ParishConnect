@@ -1,4 +1,7 @@
+export type SupportedLanguage = "en" | "sw";
+export type LocalizedLabels = { en: string; sw?: string };
 export type User = {
+  ui_language: SupportedLanguage;
   id: string;
   name: string;
   email: string;
@@ -14,6 +17,7 @@ export type Registration = {
   phone?: string | null;
 };
 export type ProfileInput = {
+  ui_language: SupportedLanguage;
   first_name: string;
   last_name: string;
   phone: string | null;
@@ -74,10 +78,13 @@ export type Church = {
   public_ministries: PublicItem[];
 };
 export type DenominationPosition = {
+  key: string;
+  labels: LocalizedLabels;
   title: string;
   permission_role: string;
 };
 export type DenominationLevel = {
+  labels: LocalizedLabels;
   key: string;
   label: string;
   optional: boolean;

@@ -42,6 +42,7 @@ export default function ProfileForm({
           region: result.data.region,
           city: result.data.city,
           avatar_url: result.data.avatar_url,
+          ui_language: result.data.ui_language || "en",
         }
       : null);
   const finish = () => {
@@ -72,6 +73,23 @@ export default function ProfileForm({
             />
           ))
         : null}
+      {form ? (
+        <>
+          <Body>VINYRD UI language (separate from church communication preference)</Body>
+          {(["en", "sw"] as const).map((language) => (
+            <Button
+              key={language}
+              title={language === "en" ? "English" : "Kiswahili"}
+              secondary={form.ui_language !== language}
+              onPress={() => {
+                setSaved(false);
+                setForm({ ...form, ui_language: language });
+              }}
+            />
+          ))}
+          <Body>This saves your interface preference. Full screen translations are not available yet.</Body>
+        </>
+      ) : null}
       {form ? (
         <Action
           title="Save profile"

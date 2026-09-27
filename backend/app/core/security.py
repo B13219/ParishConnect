@@ -13,7 +13,7 @@ from app.core.settings import settings
 from app.core.tenancy import set_actor
 from app.db.base import utc_now
 from app.db.session import get_db
-from app.models import Role, User, UserRole
+from app.models import Profile, Role, User, UserRole
 from app.services import identity_compat  # noqa: F401 - register transactional compatibility hooks
 
 
@@ -51,7 +51,9 @@ def user_roles(db: Session, user_id: UUID) -> list[str]:
 
 def user_profile(db: Session, user: User) -> dict[str, object]:
     roles = user_roles(db, user.id)
+    profile = db.get(Profile, user.id)
     return {
+        "ui_language": profile.ui_language if profile else "en",
         "id": str(user.id),
         "member_id": str(user.member_id) if user.member_id else None,
         "name": user.name,

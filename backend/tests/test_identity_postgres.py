@@ -225,11 +225,20 @@ def test_backfill_and_nonowner_rls(postgres_identity):
         assert len(rows) == 2
         assert rows[0]["user_id"] == ids["user"] and rows[0]["is_primary"]
         assert rows[1]["user_id"] is None
+        assert conn.scalar(text("SELECT count(*) FROM profiles WHERE ui_language <> 'en'")) == 0
+        column = conn.execute(
+            text("""SELECT is_nullable, column_default
+            FROM information_schema.columns
+            WHERE table_name='profiles' AND column_name='ui_language'""")
+        ).one()
+        assert column.is_nullable == "NO" and column.column_default is None
     with runtime.begin() as conn:
         assert conn.scalar(text("SELECT count(*) FROM profiles")) == 0
         assert conn.scalar(text("SELECT count(*) FROM church_memberships")) == 0
         conn.execute(text("SELECT set_config('vinyrd.user_id', :u, true)"), {"u": str(ids["user"])})
         assert conn.scalar(text("SELECT count(*) FROM profiles")) == 1
+        conn.execute(text("UPDATE profiles SET ui_language='sw'"))
+        assert conn.scalar(text("SELECT ui_language FROM profiles")) == "sw"
         assert conn.scalar(text("SELECT count(*) FROM church_memberships")) == 1
         with pytest.raises(DBAPIError), conn.begin_nested():
             conn.execute(text("UPDATE church_memberships SET status='suspended', is_primary=false"))

@@ -6,6 +6,7 @@ const user = {
   email: "ada@example.test",
   phone: null,
   roles: [],
+  ui_language: "en",
 };
 const response = (body: unknown, status = 200) =>
   ({ ok: status < 400, status, json: async () => body }) as Response;
