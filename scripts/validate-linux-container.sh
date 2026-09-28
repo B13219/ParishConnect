@@ -47,6 +47,7 @@ wait_for_health() {
 # Exercise the unchanged production CMD on the empty database: migrate, bootstrap, serve.
 docker run -d --name "$BOOT" --network host --env-file "$ARTIFACTS/owner.env" "$IMAGE"
 wait_for_health
+docker exec "$BOOT" python -c "import subprocess; versions=[subprocess.check_output([tool,'--version'],text=True).strip() for tool in ('pg_dump','pg_restore')]; print('\n'.join(versions)); assert all(version.split()[2].startswith('16.') for version in versions)" | tee "$ARTIFACTS/postgres-client-versions.log"
 docker exec "$BOOT" python -m alembic current | tee "$ARTIFACTS/migration-current.log"
 docker exec "$BOOT" python -c "from app.db.session import engine; from sqlalchemy import text; c=engine.connect(); assert c.scalar(text('SELECT version_num FROM alembic_version')) == '20260927_0019'; assert c.scalar(text('SHOW timezone')) == 'UTC'; assert c.scalar(text('SELECT count(*) FROM organization_units')) == 0"
 docker exec "$BOOT" python -m app.scripts.check_deployment_readiness --strict --allow-local-database

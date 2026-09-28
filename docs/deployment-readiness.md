@@ -25,6 +25,14 @@ Linux container CI sets the disposable database default to UTC and asserts UTC
 on the running application's connections. A local smoke run also verifies that
 the connection setting works when the server default is `Africa/Nairobi`.
 
+The production image installs `postgresql-client-16` from the signed
+[official PostgreSQL Apt repository](https://www.postgresql.org/download/linux/debian/),
+matching the supported PostgreSQL 16 server. The unversioned Debian client package
+previously selected client 17, whose restore prologue failed on PostgreSQL 16 with
+`unrecognized configuration parameter "transaction_timeout"`. Keep dump/restore
+client major versions aligned with the server during future upgrades; CI asserts
+both client versions and performs an actual restore.
+
 ## Required environment
 
 The legacy `PARISHCONNECT_` variable prefix is retained for compatibility.
@@ -119,7 +127,7 @@ database.
 
 The existing backend workflow also runs on pushes to
 `feature/vinyrd-member-mobile`. `scripts/validate-linux-container.sh` builds the
-unchanged production Dockerfile at `github.sha`, starts its production CMD against
+production Dockerfile at `github.sha`, starts its production CMD against
 an empty PostgreSQL 16 database, and verifies migration, bootstrap, health and
 readiness. It then serves the same image with the documented separate non-owner
 runtime role and exercises both the existing pilot and organization HTTP smoke
