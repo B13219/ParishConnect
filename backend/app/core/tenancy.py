@@ -72,6 +72,9 @@ def restore_actor(db, transaction, connection):
             text("SELECT set_config('vinyrd.user_id', :actor, true)"),
             {"actor": db.info["identity_actor"]},
         )
+        if db.info.get("staff_church") or db.info.get("authorized_identity_branch"):
+            connection.execute(text("SELECT set_config('vinyrd.branch_id', :branch, true)"),
+                               {"branch": str(db.info.get("staff_church") or db.info["authorized_identity_branch"])})
 
 
 @event.listens_for(Session, "do_orm_execute")
@@ -117,6 +120,8 @@ def validate_staff_writes(db, flush_context, instances):
                 continue
             for foreign_key in column.foreign_keys:
                 target = models.get(foreign_key.column.table.name)
+                if isinstance(obj, AuditLog) and column.key == "actor_user_id":
+                    continue  # The authenticated actor can administer another branch.
                 if target not in BRANCH_MODELS:
                     continue
                 linked = db.get(target, value)

@@ -23,6 +23,8 @@ router = APIRouter()
 
 
 def admin(user=Depends(current_user), db: Session = Depends(get_db)):
+    if db.info.get("requested_staff_branch") not in (None, user.branch_id):
+        raise HTTPException(403, "Organization setup remains local; use Organization Administration.")
     require_church_admin(db, user, user.branch_id)
     return user
 

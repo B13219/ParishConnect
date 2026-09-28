@@ -49,7 +49,7 @@ docker run -d --name "$BOOT" --network host --env-file "$ARTIFACTS/owner.env" "$
 wait_for_health
 docker exec "$BOOT" python -c "import subprocess; versions=[subprocess.check_output([tool,'--version'],text=True).strip() for tool in ('pg_dump','pg_restore')]; print('\n'.join(versions)); assert all(version.split()[2].startswith('16.') for version in versions)" | tee "$ARTIFACTS/postgres-client-versions.log"
 docker exec "$BOOT" python -m alembic current | tee "$ARTIFACTS/migration-current.log"
-docker exec "$BOOT" python -c "from app.db.session import engine; from sqlalchemy import text; c=engine.connect(); assert c.scalar(text('SELECT version_num FROM alembic_version')) == '20260927_0019'; assert c.scalar(text('SHOW timezone')) == 'UTC'; assert c.scalar(text('SELECT count(*) FROM organization_units')) == 0"
+docker exec "$BOOT" python -c "from app.db.session import engine; from sqlalchemy import text; c=engine.connect(); assert c.scalar(text('SELECT version_num FROM alembic_version')) == '20260928_0020'; assert c.scalar(text('SHOW timezone')) == 'UTC'; assert c.scalar(text('SELECT count(*) FROM organization_units')) == 0"
 docker exec "$BOOT" python -m app.scripts.check_deployment_readiness --strict --allow-local-database
 docker logs "$BOOT" > "$ARTIFACTS/bootstrap.log" 2>&1
 docker stop --time 10 "$BOOT"
@@ -69,6 +69,7 @@ docker exec "$API" python -c "from app.db.session import engine; from sqlalchemy
 curl --fail --silent "$VINYRD_PILOT_BASE_URL/staff/organization-admin.js" > /dev/null
 docker exec -e "PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD=$PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD" "$API" python -m app.scripts.pilot_smoke | tee "$ARTIFACTS/pilot-before.log"
 docker exec -e "PARISHCONNECT_DATABASE_URL=$OWNER_URL" -e "PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD=$PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD" "$API" python -m app.scripts.organization_smoke | tee "$ARTIFACTS/organization-smoke.log"
+docker exec -e "PARISHCONNECT_DATABASE_URL=$OWNER_URL" "$API" python -m app.scripts.organization_access_smoke | tee "$ARTIFACTS/organization-access-smoke.log"
 docker exec -e "PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD=$PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD" "$API" python -m app.scripts.pilot_smoke | tee "$ARTIFACTS/pilot-after.log"
 docker exec -e "PARISHCONNECT_DATABASE_URL=$OWNER_URL" "$API" python -m app.scripts.verify_backup_restore --backup-path /tmp/vinyrd-container.dump | tee "$ARTIFACTS/backup-restore.log"
 docker restart --time 10 "$API"

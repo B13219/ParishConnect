@@ -33,7 +33,7 @@ def test_organization_migration_runtime_rls_and_concurrent_confirmation(postgres
         "organization_office_assignments",
     )
     with owner.connect() as conn:
-        assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "20260927_0019"
+        assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "20260928_0020"
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM branches WHERE organization_unit_id IS NOT NULL")

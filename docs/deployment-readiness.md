@@ -142,3 +142,7 @@ alter Ruff rules globally or repair unrelated legacy findings. Generated local
 validation reports, environment files, and dumps are not part of the checkpoint.
 Workflow evidence is uploaded with the tested SHA; a checkpoint does not authorize
 merge, production deployment, or hierarchical RBAC work.
+
+## Organization access migration
+
+See [Organization-scoped administration](organization-access.md) before applying `20260928_0020`. Provision runtime table privileges separately from migration ownership, retain UTC settings, and verify the 31-table full backup/restore. Higher-level authority requires separately verified bootstrap; branch custody alone cannot create it. The feature-branch Linux container workflow includes hierarchy smoke. No additional production environment variables are required.

@@ -79,3 +79,25 @@ class OrganizationOfficeAssignment(IdMixin, TimestampMixin, Base):
     permission_role: Mapped[str] = mapped_column(String(80))
     status: Mapped[str] = mapped_column(String(20), default="active")
     branch_id: Mapped[UUID] = mapped_column(ForeignKey("branches.id"), index=True)
+
+
+class OrganizationAccessGrant(IdMixin, TimestampMixin, Base):
+    """Explicit application authority; independent of ecclesiastical office."""
+    __tablename__ = "organization_access_grants"
+    __table_args__ = (
+        CheckConstraint("scope_mode IN ('unit_only','descendants')", name="scope_mode"),
+        CheckConstraint("status IN ('active','inactive','revoked')", name="status"),
+        CheckConstraint(
+            "permission_role IN ('administrator','pastor_leader','accountant','receptionist','usher')",
+            name="permission_role",
+        ),
+        Index("ix_org_grant_user_status", "user_id", "status"),
+        Index("ix_org_grant_unit_status", "organization_unit_id", "status"),
+        Index("uq_org_grant_equivalent", "user_id", "organization_unit_id", "permission_role", "scope_mode", unique=True),
+    )
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    organization_unit_id: Mapped[UUID] = mapped_column(ForeignKey("organization_units.id"))
+    permission_role: Mapped[str] = mapped_column(String(80))
+    scope_mode: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    granted_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))

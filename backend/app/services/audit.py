@@ -17,7 +17,7 @@ def write_audit_log(
     metadata: dict[str, Any] | None = None,
 ) -> AuditLog:
     log = AuditLog(
-        branch_id=actor.branch_id if actor else None,
+        branch_id=db.info.get("staff_church", actor.branch_id) if actor else None,
         actor_user_id=actor.id if actor else None,
         action=action,
         entity_type=entity_type,

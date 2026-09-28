@@ -1,3 +1,7 @@
+# Current organization administration extension
+
+Phase 3 adds explicit, capability-specific organization access grants. See [Organization-scoped administration](organization-access.md) for migration `20260928_0020`, containment, context, RLS and privacy rules. Office assignments remain non-authorizing and memberships remain local. Historical phase reports below describe their original checkpoints.
+
 # Global VINYRD identity
 
 Current extension: persistent organization configuration is implemented on

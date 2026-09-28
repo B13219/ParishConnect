@@ -106,7 +106,7 @@ class ImportBatch(IdMixin, TimestampMixin, Base):
 
 class Member(IdMixin, TimestampMixin, Base):
     __tablename__ = "members"
-    __table_args__ = (UniqueConstraint("id", "branch_id", name="uq_members_id_branch"),)
+    __table_args__ = (UniqueConstraint("id", "branch_id", name="uq_members_id_branch"), Index("ix_members_branch_id", "branch_id"))
 
     branch_id: Mapped[UUID] = mapped_column(
         ForeignKey("branches.id"),
@@ -417,6 +417,7 @@ class Event(IdMixin, TimestampMixin, Base):
 
 class AttendanceRecord(IdMixin, TimestampMixin, Base):
     __tablename__ = "attendance_records"
+    __table_args__ = (Index("ix_attendance_records_branch_id", "branch_id"),)
 
     branch_id: Mapped[UUID] = mapped_column(ForeignKey("branches.id"), nullable=False)
     event_id: Mapped[UUID] = mapped_column(ForeignKey("events.id"), nullable=False)
@@ -535,6 +536,7 @@ class SermonLesson(IdMixin, TimestampMixin, Base):
 
 class Contribution(IdMixin, TimestampMixin, Base):
     __tablename__ = "contributions"
+    __table_args__ = (Index("ix_contributions_branch_id", "branch_id"),)
 
     branch_id: Mapped[UUID] = mapped_column(ForeignKey("branches.id"), nullable=False)
     member_id: Mapped[UUID | None] = mapped_column(ForeignKey("members.id"))

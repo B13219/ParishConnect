@@ -6,9 +6,9 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.security import user_roles
 from app.db.base import utc_now
 from app.models import ChurchMembership, Member, MembershipRequest, Profile, User
+from app.services.organization_access import effective_branch, require_branch_admin
 
 OPEN_REQUESTS = ("pending", "more_info_required")
 
@@ -21,12 +21,7 @@ def lock_user(db: Session, user_id: UUID) -> User:
 
 
 def require_church_admin(db: Session, actor: User, church_id: UUID) -> None:
-    if (
-        church_id is None
-        or actor.branch_id != church_id
-        or "administrator" not in user_roles(db, actor.id)
-    ):
-        raise HTTPException(403, "Church administrator permission required.")
+    require_branch_admin(db, actor, church_id)
 
 
 def set_primary(db: Session, user: User, membership_id: UUID) -> ChurchMembership:
@@ -56,10 +51,11 @@ def review_request(
     matched_member_id: UUID | None,
     reason: str | None,
 ) -> MembershipRequest:
+    require_church_admin(db, actor, effective_branch(db, actor))
     # Check the church before loading or locking another person's account.
     request = db.scalar(
         select(MembershipRequest).where(
-            MembershipRequest.id == request_id, MembershipRequest.church_id == actor.branch_id
+            MembershipRequest.id == request_id, MembershipRequest.church_id == effective_branch(db, actor)
         )
     )
     if request is None:

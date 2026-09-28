@@ -45,6 +45,7 @@ let geofenceMarker = null;
 let geofenceCircle = null;
 
 const sections = [
+  "organization-access",
   "registration-requests",
   "people",
   "imports",
@@ -219,16 +220,23 @@ const rolePermissions = {
   usher: ["attendance"],
 };
 
-const currentRoles = () => state.auth?.user?.roles || [];
+const currentRoles = () => state.staffContext?.roles || state.auth?.user?.roles || [];
 
-const canUseSection = (section) =>
-  currentRoles().includes("administrator") ||
-  currentRoles().some((role) => (rolePermissions[role] || []).includes(section));
+const canUseSection = (section) => {
+  if (section === "organization-access") return true;
+  const roles = currentRoles();
+  if (state.staffContext && !state.staffContext.local_access) {
+    if (["pastoral", "sermons"].includes(section)) return false;
+    if (section === "stewardship" && !roles.some(r => ["administrator", "accountant"].includes(r))) return false;
+    if (section === "reports" && !roles.includes("administrator")) return false;
+  }
+  return roles.includes("administrator") || roles.some(role => (rolePermissions[role] || []).includes(section));
+};
 
 const permittedSections = () => (state.auth?.access_token ? sections.filter(canUseSection) : []);
 
 const authHeaders = () =>
-  state.auth?.access_token ? { Authorization: `Bearer ${state.auth.access_token}` } : {};
+  state.auth?.access_token ? { Authorization: `Bearer ${state.auth.access_token}`, ...(state.staffContext?.id ? {"X-Vinyrd-Branch-ID": state.staffContext.id} : {}) } : {};
 
 const messageTemplates = {
   sunday_reminder: {
@@ -2502,6 +2510,7 @@ const loadDashboard = async () => {
     setStatus("Connecting");
     setSkeletons();
 
+    await window.VinyrdOrganizationAccess?.load();
     const sectionsToLoad = permittedSections();
     const results = await Promise.allSettled(sectionsToLoad.map(loadSection));
     const failures = results
@@ -2563,6 +2572,7 @@ const login = async (form) => {
 
 const clearSession = () => {
   state.auth = null;
+  state.staffContext = null;
   state.people = null;
   state.attendance = null;
   state.households = null;
@@ -5860,7 +5870,7 @@ applyRoleAccess();
 updateMessageAssist();
 
 if (state.auth?.access_token) {
-  loadDashboard();
+  window.addEventListener("load", () => loadDashboard());
 } else {
   setStatus("Login required");
 }

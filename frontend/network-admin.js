@@ -367,7 +367,8 @@
   window.VinyrdNetworkAdmin = {
     load: async () => {
       offset = 0;
-      await Promise.all([requests(), profile(), window.VinyrdOrganizationAdmin.load()]);
+      await Promise.all([requests(), profile(), state.staffContext?.local_access ? window.VinyrdOrganizationAdmin.load() : Promise.resolve()]);
+      if (state.staffContext && !state.staffContext.local_access) document.getElementById("organizationSetup").textContent = "Use Organization Administration for scoped offices and access. Initial church setup remains local.";
     },
   };
 })();

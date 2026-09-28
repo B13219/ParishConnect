@@ -23,6 +23,7 @@ from app.models import (
 )
 from app.services.denominations import denomination_catalog, normalize_denomination
 from app.services.global_identity import lock_user, require_church_admin, set_primary
+from app.services.organization_access import effective_branch
 from app.services.organizations import public_organization_paths
 
 router = APIRouter()
@@ -207,11 +208,11 @@ def initialize_home(user: User = Depends(current_user), db: Session = Depends(ge
 
 @router.get("/admin/profile")
 def admin_profile(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    require_church_admin(db, user, user.branch_id)
-    profile = db.get(ChurchPublicProfile, user.branch_id)
+    require_church_admin(db, user, effective_branch(db, user))
+    profile = db.get(ChurchPublicProfile, effective_branch(db, user))
     if profile:
         return {**public_data(profile), "is_published": profile.is_published}
-    branch = db.get(Branch, user.branch_id)
+    branch = db.get(Branch, effective_branch(db, user))
     return {"church_id": branch.id, "name": branch.name, "is_published": False}
 
 
@@ -219,13 +220,13 @@ def admin_profile(user: User = Depends(current_user), db: Session = Depends(get_
 def save_public_profile(
     payload: PublicProfileInput, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    require_church_admin(db, user, user.branch_id)
+    require_church_admin(db, user, effective_branch(db, user))
     lock_user(db, user.id)
     # Serialize competing administrators using the church row, not just user row.
-    db.scalar(select(Branch).where(Branch.id == user.branch_id).with_for_update())
-    profile = db.get(ChurchPublicProfile, user.branch_id)
+    db.scalar(select(Branch).where(Branch.id == effective_branch(db, user)).with_for_update())
+    profile = db.get(ChurchPublicProfile, effective_branch(db, user))
     if profile is None:
-        profile = ChurchPublicProfile(church_id=user.branch_id)
+        profile = ChurchPublicProfile(church_id=effective_branch(db, user))
         db.add(profile)
     for key, value in payload.model_dump(mode="json").items():
         setattr(profile, key, value)
@@ -283,16 +284,16 @@ def admin_requests(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    require_church_admin(db, user, user.branch_id)
+    require_church_admin(db, user, effective_branch(db, user))
     requests = db.scalars(
         select(MembershipRequest)
-        .where(MembershipRequest.church_id == user.branch_id, MembershipRequest.status == status)
+        .where(MembershipRequest.church_id == effective_branch(db, user), MembershipRequest.status == status)
         .order_by(MembershipRequest.created_at.desc(), MembershipRequest.id)
         .offset(offset)
         .limit(51)
     ).all()
     return {
-        "church_id": user.branch_id,
+        "church_id": effective_branch(db, user),
         "has_more": len(requests) > 50,
         "items": [
             {

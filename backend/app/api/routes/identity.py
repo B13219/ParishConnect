@@ -29,6 +29,7 @@ from app.services.global_identity import (
     review_request,
     set_primary,
 )
+from app.services.organization_access import effective_branch
 
 router = APIRouter()
 
@@ -320,9 +321,10 @@ def update_membership(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
+    require_church_admin(db, user, effective_branch(db, user))
     membership = db.scalar(
         select(ChurchMembership).where(
-            ChurchMembership.id == membership_id, ChurchMembership.church_id == user.branch_id
+            ChurchMembership.id == membership_id, ChurchMembership.church_id == effective_branch(db, user)
         )
     )
     if membership is None:

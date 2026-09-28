@@ -1,3 +1,5 @@
+> Phase 3 extension: [Organization-scoped administration](organization-access.md) adds explicit access grants after revision 0019. The setup-phase description below remains the historical organization configuration contract; office assignments themselves still grant no access.
+
 # Persistent church organization configuration
 
 This phase extends localization baseline `bb44938` on

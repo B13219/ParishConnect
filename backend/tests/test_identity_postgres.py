@@ -170,6 +170,9 @@ def postgres_identity():
                 VALUES (:id,:u,:c,'rejected','Prior-phase request',now(),now())"""),
                 {"id": old_request, "u": user, "c": b},
             )
+        migrate("20260927_0019")
+        with owner.connect() as conn:
+            assert conn.scalar(text("SELECT to_regclass('public.organization_access_grants')")) is None
         migrate("head")
         with owner.connect() as conn:
             preserved = conn.execute(

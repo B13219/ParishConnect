@@ -446,7 +446,7 @@ def open_event_attendance(
             detail="Event not found",
         )
 
-    if current_user.branch_id and event.branch_id != current_user.branch_id:
+    if event.branch_id != db.info.get("staff_church"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Event does not belong to your branch",
@@ -480,7 +480,7 @@ def close_event_attendance(
             detail="Event not found",
         )
 
-    if current_user.branch_id and event.branch_id != current_user.branch_id:
+    if event.branch_id != db.info.get("staff_church"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Event does not belong to your branch",

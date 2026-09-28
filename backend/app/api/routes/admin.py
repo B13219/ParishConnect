@@ -401,6 +401,10 @@ def update_user(
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    from app.services.organization_access import account_has_organization_grants
+
+    if account_has_organization_grants(db, user.id):
+        raise HTTPException(403, "Organization grant holders manage their own global credentials.")
     if user.identity_self_managed:
         raise HTTPException(403, "This person manages their global account. Manage church records instead.")
 

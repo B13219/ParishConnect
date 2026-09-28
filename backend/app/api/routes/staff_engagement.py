@@ -21,6 +21,7 @@ from app.models import (
     UserRole,
 )
 from app.services.audit import write_audit_log
+from app.services.organization_access import account_has_organization_grants
 
 router = APIRouter()
 
@@ -272,7 +273,7 @@ def reset_member_password(
             detail="Member account has not been activated.",
         )
 
-    if account.identity_self_managed:
+    if account.identity_self_managed or account_has_organization_grants(db, account.id):
         raise HTTPException(403, "The account owner must use the password reset flow.")
 
     temporary_password = secrets.token_urlsafe(9)
@@ -306,7 +307,7 @@ def update_member_access_status(
             detail="Member account has not been activated.",
         )
 
-    if account.identity_self_managed:
+    if account.identity_self_managed or account_has_organization_grants(db, account.id):
         raise HTTPException(403, "Manage this person's church membership instead of their global account.")
     account.status = payload.status
     write_audit_log(

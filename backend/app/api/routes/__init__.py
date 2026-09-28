@@ -10,6 +10,7 @@ from app.api.routes.members import router as members_router
 from app.api.routes.messages import router as messages_router
 from app.api.routes.network import router as network_router
 from app.api.routes.organization import router as organization_router
+from app.api.routes.organization_access import router as organization_access_router
 from app.api.routes.reports import router as reports_router
 from app.api.routes.root import router as root_router
 from app.api.routes.staff_engagement import router as staff_engagement_router
@@ -30,3 +31,5 @@ router.include_router(messages_router, prefix="/messages", tags=["messages"])
 router.include_router(stewardship_router, prefix="/stewardship", tags=["stewardship"])
 router.include_router(staff_engagement_router, prefix="/staff", tags=["staff-engagement"])
 router.include_router(reports_router, prefix="/reports", tags=["reports"])
+
+router.include_router(organization_access_router, prefix="/organization-access", tags=["organization-access"])

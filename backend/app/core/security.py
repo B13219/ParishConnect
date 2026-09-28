@@ -5,7 +5,7 @@ import json
 from datetime import timedelta
 from uuid import UUID
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -40,6 +40,8 @@ def role_slug(role_name: str) -> str:
 
 
 def user_roles(db: Session, user_id: UUID) -> list[str]:
+    if db.info.get("staff_church") and str(user_id) == db.info.get("identity_actor"):
+        return sorted(db.info.get("effective_staff_roles", []))
     roles = db.scalars(
         select(Role.name)
         .join(UserRole, UserRole.role_id == Role.id)
@@ -121,6 +123,7 @@ def decode_password_reset_token(token: str) -> dict[str, object]:
 
 def current_user(
     authorization: str | None = Header(default=None),
+    x_vinyrd_branch_id: UUID | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> User:
     if not authorization or not authorization.lower().startswith("bearer "):
@@ -136,19 +139,15 @@ def current_user(
     if user is None or user.status != "active":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User unavailable.")
     set_actor(db, user)
+    db.info["requested_staff_branch"] = x_vinyrd_branch_id
     return user
 
 
 def require_roles(*allowed_roles: str):
-    allowed = set(allowed_roles)
+    def dependency(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)) -> User:
+        from app.services.organization_access import enter_branch, requested_branch
 
-    def dependency(user: User = Depends(current_user), db: Session = Depends(get_db)) -> User:
-        roles = set(user_roles(db, user.id))
-        if "administrator" in roles or roles.intersection(allowed):
-            if user.branch_id is None:
-                raise HTTPException(status_code=403, detail="Staff church is not configured.")
-            db.info["staff_church"] = user.branch_id
-            return user
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied.")
+        enter_branch(db, user, requested_branch(db, user), allowed_roles, path=request.url.path)
+        return user
 
     return dependency

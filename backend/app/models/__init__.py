@@ -31,6 +31,7 @@ from app.models.identity import (
 )
 from app.models.organization import (
     ChurchOrganizationConfiguration,
+    OrganizationAccessGrant,
     OrganizationOfficeAssignment,
     OrganizationUnit,
 )
@@ -56,6 +57,7 @@ __all__ = [
     "MessageRecipient",
     "Ministry",
     "MinistryMembership",
+    "OrganizationAccessGrant",
     "OrganizationOfficeAssignment",
     "OrganizationUnit",
     "PrayerRequest",
