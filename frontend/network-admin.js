@@ -367,7 +367,7 @@
   window.VinyrdNetworkAdmin = {
     load: async () => {
       offset = 0;
-      await Promise.all([requests(), profile()]);
+      await Promise.all([requests(), profile(), window.VinyrdOrganizationAdmin.load()]);
     },
   };
 })();

@@ -25,6 +25,10 @@ from app.db.base import Base, IdMixin, TimestampMixin, utc_now
 class Branch(IdMixin, TimestampMixin, Base):
     __tablename__ = "branches"
 
+    organization_unit_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("organization_units.id", use_alter=True), unique=True
+    )
+
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     location: Mapped[str | None] = mapped_column(String(240))
     contact_phone: Mapped[str | None] = mapped_column(String(40))

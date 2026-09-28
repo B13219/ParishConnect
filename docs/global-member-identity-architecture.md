@@ -1,7 +1,16 @@
 # Global VINYRD identity
 
-Current state: Prompt 2 is implemented on `feature/global-member-identity`.
-Prompt 1 remains intact. Prompt 3 has not begun.
+Current extension: persistent organization configuration is implemented on
+`feature/vinyrd-member-mobile`, following localization commit `bb44938`.
+See [Organization configuration](organization-configuration.md) for schema,
+revision `20260927_0019`, setup/office APIs, public ancestry, security boundaries,
+examples and staging notes. Branch remains the tenant; assignments do not grant
+hierarchical permissions and members receive no ancestor memberships. This phase
+is checkpointed for feature-branch Linux validation only; this does not authorize
+merge, deployment, or hierarchical RBAC.
+
+The sections below retain the historical Prompt 1/Prompt 2 implementation record
+from `feature/global-member-identity`; their validation counts describe that phase.
 
 ## Original audit and baseline (before Prompt 1)
 

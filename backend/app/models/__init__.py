@@ -29,6 +29,11 @@ from app.models.identity import (
     MembershipRequest,
     Profile,
 )
+from app.models.organization import (
+    ChurchOrganizationConfiguration,
+    OrganizationOfficeAssignment,
+    OrganizationUnit,
+)
 
 __all__ = [
     "AttendanceRecord",
@@ -36,6 +41,7 @@ __all__ = [
     "Branch",
     "ChurchFollow",
     "ChurchMembership",
+    "ChurchOrganizationConfiguration",
     "ChurchPublicProfile",
     "CommunityGroup",
     "CommunityGroupMembership",
@@ -50,6 +56,8 @@ __all__ = [
     "MessageRecipient",
     "Ministry",
     "MinistryMembership",
+    "OrganizationOfficeAssignment",
+    "OrganizationUnit",
     "PrayerRequest",
     "Profile",
     "Role",

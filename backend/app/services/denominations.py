@@ -899,7 +899,7 @@ def denomination_catalog():
     # Include nested labels in the copy: API callers must not mutate defaults.
     return deepcopy(
         [
-            {**item, "aliases": DENOMINATION_ALIASES.get(item["value"], [])}
+            {"template_version": 1, **item, "aliases": DENOMINATION_ALIASES.get(item["value"], [])}
             for item in DENOMINATION_CATALOG
         ]
     )

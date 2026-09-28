@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Run only against the disposable PostgreSQL service provided by backend CI.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+ARTIFACTS="${RUNNER_TEMP}/vinyrd-container-validation"
+mkdir -p "$ARTIFACTS"
+IMAGE="vinyrd-validation:${GITHUB_SHA}"
+BOOT="vinyrd-validation-bootstrap"
+API="vinyrd-validation-api"
+export PGPASSWORD=parishconnect
+export VINYRD_PILOT_BASE_URL=http://127.0.0.1:8004
+export VINYRD_SMOKE_DISPOSABLE_DATABASE=1
+OWNER_URL=postgresql+psycopg://parishconnect:parishconnect@127.0.0.1:5432/vinyrd_container_validation
+RUNTIME_URL=postgresql+psycopg://vinyrd_container_runtime:container-runtime-validation-only@127.0.0.1:5432/vinyrd_container_validation
+
+cleanup() {
+  docker logs "$BOOT" > "$ARTIFACTS/bootstrap.log" 2>&1 || true
+  docker logs "$API" > "$ARTIFACTS/runtime.log" 2>&1 || true
+  docker rm -f "$BOOT" "$API" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" -f Dockerfile -t "$IMAGE" . 2>&1 | tee "$ARTIFACTS/build.log"
+createdb -h 127.0.0.1 -U parishconnect vinyrd_container_validation
+test "$(psql -h 127.0.0.1 -U parishconnect -d vinyrd_container_validation -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")" = 0
+psql -h 127.0.0.1 -U parishconnect -d postgres -v ON_ERROR_STOP=1 -c "ALTER DATABASE vinyrd_container_validation SET timezone TO 'UTC'"
+
+export PARISHCONNECT_DATABASE_URL="$OWNER_URL"
+export PORT=8004
+export PGTZ=UTC
+python - "$ARTIFACTS/owner.env" <<'PY'
+import os, sys
+from pathlib import Path
+values = {k: v for k, v in os.environ.items() if k.startswith(("PARISHCONNECT_", "VINYRD_")) or k in ("PORT", "PGTZ")}
+Path(sys.argv[1]).write_text("\n".join(f"{k}={v}" for k, v in values.items()) + "\n")
+PY
+
+wait_for_health() {
+  for attempt in {1..60}; do
+    if curl --fail --silent "$VINYRD_PILOT_BASE_URL/health" > "$ARTIFACTS/health.json"; then return 0; fi
+    sleep 1
+  done
+  return 1
+}
+
+# Exercise the unchanged production CMD on the empty database: migrate, bootstrap, serve.
+docker run -d --name "$BOOT" --network host --env-file "$ARTIFACTS/owner.env" "$IMAGE"
+wait_for_health
+docker exec "$BOOT" python -m alembic current | tee "$ARTIFACTS/migration-current.log"
+docker exec "$BOOT" python -c "from app.db.session import engine; from sqlalchemy import text; c=engine.connect(); assert c.scalar(text('SELECT version_num FROM alembic_version')) == '20260927_0019'; assert c.scalar(text('SHOW timezone')) == 'UTC'; assert c.scalar(text('SELECT count(*) FROM organization_units')) == 0"
+docker exec "$BOOT" python -m app.scripts.check_deployment_readiness --strict --allow-local-database
+docker logs "$BOOT" > "$ARTIFACTS/bootstrap.log" 2>&1
+docker stop --time 10 "$BOOT"
+
+# Existing documented deployment separation: owner migration/bootstrap above,
+# non-owner serving below. No RLS bypass in HTTP smoke tests.
+psql -h 127.0.0.1 -U parishconnect -d vinyrd_container_validation -v ON_ERROR_STOP=1 <<'SQL'
+CREATE ROLE vinyrd_container_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD 'container-runtime-validation-only';
+GRANT USAGE ON SCHEMA public TO vinyrd_container_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO vinyrd_container_runtime;
+SQL
+docker run -d --name "$API" --network host --env-file "$ARTIFACTS/owner.env" \
+  -e "PARISHCONNECT_DATABASE_URL=$RUNTIME_URL" -e PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD= \
+  "$IMAGE" uvicorn app.main:app --host 0.0.0.0 --port 8004
+wait_for_health
+docker exec "$API" python -c "from app.db.session import engine; from sqlalchemy import text; c=engine.connect(); assert c.scalar(text('SHOW timezone')) == 'UTC'; assert c.execute(text('SELECT rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user')).one() == (False,False)"
+curl --fail --silent "$VINYRD_PILOT_BASE_URL/staff/organization-admin.js" > /dev/null
+docker exec -e "PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD=$PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD" "$API" python -m app.scripts.pilot_smoke | tee "$ARTIFACTS/pilot-before.log"
+docker exec -e "PARISHCONNECT_DATABASE_URL=$OWNER_URL" -e "PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD=$PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD" "$API" python -m app.scripts.organization_smoke | tee "$ARTIFACTS/organization-smoke.log"
+docker exec -e "PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD=$PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD" "$API" python -m app.scripts.pilot_smoke | tee "$ARTIFACTS/pilot-after.log"
+docker exec -e "PARISHCONNECT_DATABASE_URL=$OWNER_URL" "$API" python -m app.scripts.verify_backup_restore --backup-path /tmp/vinyrd-container.dump | tee "$ARTIFACTS/backup-restore.log"
+docker restart --time 10 "$API"
+wait_for_health
+docker exec "$API" python -m app.scripts.check_deployment_readiness --strict --allow-local-database
+printf 'Validated commit: %s\nDocker build, clean migration, startup, health, readiness, pilot, organization smoke, tenant isolation, backup and runtime restart passed.\n' "$GITHUB_SHA" | tee "$ARTIFACTS/result.txt"
+# Do not upload environment files or the database dump.
+rm "$ARTIFACTS/owner.env"

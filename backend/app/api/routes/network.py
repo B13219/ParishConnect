@@ -23,6 +23,7 @@ from app.models import (
 )
 from app.services.denominations import denomination_catalog, normalize_denomination
 from app.services.global_identity import lock_user, require_church_admin, set_primary
+from app.services.organizations import public_organization_paths
 
 router = APIRouter()
 
@@ -117,8 +118,16 @@ def discover(
         ChurchPublicProfile.church_id,
     )
     rows = db.scalars(query.offset(offset).limit(limit + 1)).all()
+    paths = public_organization_paths(
+        db,
+        [row.church_id for row in rows[:limit]],
+        {row.church_id: row.denomination for row in rows[:limit]},
+    )
     return {
-        "items": [public_data(row) for row in rows[:limit]],
+        "items": [
+            {**public_data(row), "organization_path": paths.get(row.church_id, [])}
+            for row in rows[:limit]
+        ],
         "has_more": len(rows) > limit,
         "offset": offset,
         "limit": limit,
@@ -134,7 +143,12 @@ def public_profile(church_id: UUID, db: Session = Depends(get_db)):
     )
     if profile is None:
         raise HTTPException(404, "Public church profile not found.")
-    return public_data(profile)
+    return {
+        **public_data(profile),
+        "organization_path": public_organization_paths(
+            db, [church_id], {church_id: profile.denomination}
+        ).get(church_id, []),
+    }
 
 
 @router.get("/me")

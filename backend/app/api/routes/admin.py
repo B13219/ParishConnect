@@ -13,6 +13,7 @@ from app.models import (
     AttendanceRecord,
     AuditLog,
     Branch,
+    ChurchOrganizationConfiguration,
     Contribution,
     Event,
     Household,
@@ -210,6 +211,15 @@ def update_branch_settings(
 ) -> dict[str, object]:
     branch = get_default_branch(db)
     updates = payload.model_dump(exclude_unset=True)
+    config = db.get(ChurchOrganizationConfiguration, branch.id)
+    if (
+        config
+        and "denomination" in updates
+        and normalize_denomination(updates["denomination"] or "") != config.denomination
+    ):
+        raise HTTPException(
+            409, "Use organization setup to change the installed denomination configuration."
+        )
     for key, value in updates.items():
         setattr(branch, key, value)
     write_audit_log(

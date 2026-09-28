@@ -17,6 +17,14 @@ HTTPS domain
 
 Using one origin removes production CORS dependency between the web interfaces and API.
 
+PostgreSQL application connections explicitly request `timezone=UTC`. Legacy
+timestamp-without-time-zone attendance fields are interpreted as UTC; changing
+church display timezone does not change this database-session requirement. Keep
+migration/backup sessions in UTC too (`PGTZ=UTC` or a database UTC default).
+Linux container CI sets the disposable database default to UTC and asserts UTC
+on the running application's connections. A local smoke run also verifies that
+the connection setting works when the server default is `Africa/Nairobi`.
+
 ## Required environment
 
 The legacy `PARISHCONNECT_` variable prefix is retained for compatibility.
@@ -86,6 +94,15 @@ The automated version lives in `app.scripts.pilot_smoke`.
 The Admin backup manifest verifies application export scope, but production recovery
 must also validate the database itself.
 
+The manifest intentionally reports selected legacy operational tables, not every
+database table. Its `BACKUP_MODELS` allowlist is not the backup definition. It omits
+organization tables (and existing identity/group tables) and does not serialize
+`branches.organization_unit_id`. Do not use it as a recovery archive. Full
+PostgreSQL dump/restore below discovers all application tables dynamically and
+includes `organization_units`, `church_organization_configurations`,
+`organization_office_assignments` and the Branch organization link. Restore uses
+`--no-owner --no-privileges`; reapply production roles/grants separately.
+
 Run:
 
 ```text
@@ -97,3 +114,23 @@ compares every application table row count, and deletes the temporary database.
 
 Do not import real church data until this restore test passes on the intended hosting
 database.
+
+## Feature-branch Linux validation
+
+The existing backend workflow also runs on pushes to
+`feature/vinyrd-member-mobile`. `scripts/validate-linux-container.sh` builds the
+unchanged production Dockerfile at `github.sha`, starts its production CMD against
+an empty PostgreSQL 16 database, and verifies migration, bootstrap, health and
+readiness. It then serves the same image with the documented separate non-owner
+runtime role and exercises both the existing pilot and organization HTTP smoke
+journeys, backup/restore, and runtime restart. Owner credentials are used only for
+migration/bootstrap, disposable fixture setup and backup, not the HTTP server's
+security checks. There is no separate readiness endpoint; CI uses the existing
+strict readiness command plus `/health`.
+
+CI enforces changed-file lint and fails new full application/test findings, while
+reporting only the two known unchanged SMS findings as baseline debt. It does not
+alter Ruff rules globally or repair unrelated legacy findings. Generated local
+validation reports, environment files, and dumps are not part of the checkpoint.
+Workflow evidence is uploaded with the tested SHA; a checkpoint does not authorize
+merge, production deployment, or hierarchical RBAC work.

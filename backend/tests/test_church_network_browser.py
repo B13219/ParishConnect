@@ -83,6 +83,68 @@ def test_member_and_admin_network_journey(identity, tmp_path):
             staff.locator("#loginPassword").fill("test-password")
             staff.get_by_role("button", name="Enter Vinyrd").click()
             staff.locator('[data-section-link="registration-requests"]').click()
+            setup = staff.locator("#organizationSetup")
+            playwright.expect(setup).to_contain_text("Organization setup incomplete")
+            # Optional levels are truly excluded from HTML validation when skipped.
+            setup.get_by_label("Organization denomination", exact=True).select_option("Catholic")
+            playwright.expect(setup.get_by_label("What level are you setting up?")).to_have_value(
+                "outstation"
+            )
+            setup.get_by_label("What level are you setting up?").select_option("parish")
+            optional = setup.locator('[name="include_ecclesiastical_province"]')
+            optional.check()
+            country_input = setup.locator('[name="country_ecclesiastical_province"]')
+            country_input.fill("X")
+            optional.uncheck()
+            playwright.expect(country_input).to_be_disabled()
+            setup.get_by_label("Organization denomination", exact=True).select_option(
+                "Assemblies of God"
+            )
+            playwright.expect(setup.get_by_label("What level are you setting up?")).to_have_value(
+                "local_church"
+            )
+            for key, name in zip(
+                ["national_church", "zone", "district", "section", "local_church"],
+                [
+                    "Tanzania Assemblies of God",
+                    "Eastern",
+                    "Dar es Salaam",
+                    "Kinondoni",
+                    "TAG Mikocheni",
+                ],
+                strict=True,
+            ):
+                setup.locator(f'[name="name_{key}"]').fill(name)
+            setup.get_by_role("button", name="Review Church Setup").click()
+            playwright.expect(setup.locator("#organizationReview")).to_contain_text(
+                "Jimbo / District"
+            )
+            # Even a completed review has not written configuration.
+            if os.getenv("VINYRD_BROWSER_ARTIFACTS"):
+                out = Path(os.environ["VINYRD_BROWSER_ARTIFACTS"])
+                out.mkdir(parents=True, exist_ok=True)
+                setup.locator("#organizationReview").screenshot(
+                    path=str(out / "organization-review.png")
+                )
+            assert (
+                c.get("/api/v1/network/admin/organization/setup", headers=ids["admin_a"]).json()[
+                    "setup_status"
+                ]
+                == "draft"
+            )
+            setup.get_by_role("button", name="Confirm Church Setup").click()
+            playwright.expect(setup.locator("#organizationStatus")).to_contain_text(
+                "Organization setup configured"
+            )
+            setup.get_by_label("Intended permission profile").select_option("administrator")
+            setup.get_by_role("button", name="Save office assignment").click()
+            playwright.expect(setup.locator("ul")).to_contain_text("administrator — active")
+            if os.getenv("VINYRD_BROWSER_ARTIFACTS"):
+                setup.screenshot(
+                    path=str(
+                        Path(os.environ["VINYRD_BROWSER_ARTIFACTS"]) / "organization-configured.png"
+                    )
+                )
             form = staff.locator("#publicChurchForm")
             form.locator('[name="name"]').fill("Arusha Community Church")
             form.locator('[name="country"]').fill("TZ")
