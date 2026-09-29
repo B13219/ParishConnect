@@ -1,0 +1,12 @@
+.git
+work
+outputs
+**/.env
+**/.env.*
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/node_modules
+**/.venv
+**/venv

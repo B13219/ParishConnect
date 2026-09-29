@@ -146,3 +146,6 @@ merge, production deployment, or hierarchical RBAC work.
 ## Organization access migration
 
 See [Organization-scoped administration](organization-access.md) before applying `20260928_0020`. Provision runtime table privileges separately from migration ownership, retain UTC settings, and verify the 31-table full backup/restore. Higher-level authority requires separately verified bootstrap; branch custody alone cannot create it. The feature-branch Linux container workflow includes hierarchy smoke. No additional production environment variables are required.
+
+
+Phase 3.5 staging operations: see [staging initialization and privilege separation](staging-initialization.md). Runtime-only production startup, guarded initial authority and exhaustive restore startup validation are required; migration head remains `20260928_0020`.

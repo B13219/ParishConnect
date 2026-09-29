@@ -25,4 +25,4 @@ RUN python -m pip install --no-cache-dir --upgrade pip \
 
 WORKDIR /app/backend
 
-CMD ["sh", "-c", "alembic upgrade head && python -m app.scripts.bootstrap_admin && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["python", "-m", "app.scripts.start_backend"]

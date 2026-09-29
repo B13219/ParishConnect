@@ -68,12 +68,8 @@ def readiness_issues(
                 message="SQLite is for presentation demos only; production should use PostgreSQL.",
             )
         )
-    if (
-        not allow_local_database
-        and (
-            "parishconnect:parishconnect@" in database_url
-            or "@localhost" in database_url
-        )
+    if not allow_local_database and (
+        "parishconnect:parishconnect@" in database_url or "@localhost" in database_url
     ):
         issues.append(
             DeploymentIssue(
@@ -92,9 +88,7 @@ def readiness_issues(
                 message="Wildcard CORS is not appropriate for production.",
             )
         )
-    if environment == "production" and (
-        "localhost" in cors_origins or "127.0.0.1" in cors_origins
-    ):
+    if environment == "production" and ("localhost" in cors_origins or "127.0.0.1" in cors_origins):
         issues.append(
             DeploymentIssue(
                 code="cors-localhost-production",
@@ -157,12 +151,24 @@ def main() -> int:
         action="store_true",
         help="Allow a localhost/demo PostgreSQL URL for CI validation only.",
     )
+    parser.add_argument(
+        "--check-database",
+        action="store_true",
+        help="Verify live runtime privileges, UTC and migration head.",
+    )
     args = parser.parse_args()
 
     issues = readiness_issues(
         settings_snapshot(),
         allow_local_database=args.allow_local_database,
     )
+    if args.check_database:
+        from app.scripts.start_backend import validate_runtime
+
+        try:
+            validate_runtime(settings.database_url)
+        except RuntimeError as exc:
+            issues.append(DeploymentIssue("runtime-database", "high", str(exc)))
     if not issues:
         print("Vinyrd deployment readiness: no issues found.")
         return 0

@@ -382,3 +382,6 @@ Prompt 1 implementation remains in b0d1759 with documentation closeout de431cd.
 The missing registration/profile screens were committed separately as dde5710.
 The church network phase is a separate commit. No production deployment, merge or
 push occurred. Prompt 2 is complete for staging review; Prompt 3 has not started.
+
+
+Phase 3.5 staging operations: see [staging initialization and privilege separation](staging-initialization.md). Runtime-only production startup, guarded initial authority and exhaustive restore startup validation are required; migration head remains `20260928_0020`.

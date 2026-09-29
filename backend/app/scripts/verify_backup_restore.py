@@ -1,27 +1,39 @@
+"""Verify an exhaustive backup with explicit backup, restore and runtime credentials."""
+
 from __future__ import annotations
 
 import argparse
 import os
 import shutil
+import socket
 import subprocess
+import sys
 import tempfile
+import time
 from pathlib import Path
+from urllib.error import URLError
+from urllib.request import urlopen
+from uuid import uuid4
 
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.engine import URL, make_url
+from sqlalchemy.engine import make_url
 
 from app.core.settings import settings
+from app.db.session import database_connect_args
+from app.scripts.start_backend import runtime_environment
+from app.services.database_privileges import provision, runtime_permissions
 
 
-def command_env(url: URL) -> dict[str, str]:
-    env = os.environ.copy()
+def command_env(url):
+    env = runtime_environment(os.environ)
+    env.update(PGTZ="UTC", PGOPTIONS="-c timezone=UTC -c row_security=off")
     if url.password:
         env["PGPASSWORD"] = url.password
     return env
 
 
-def pg_args(url: URL) -> list[str]:
-    args: list[str] = []
+def pg_args(url):
+    args = []
     if url.host:
         args.extend(["-h", url.host])
     if url.port:
@@ -31,97 +43,178 @@ def pg_args(url: URL) -> list[str]:
     return args
 
 
-def row_counts(database_url: str) -> dict[str, int]:
-    engine = create_engine(database_url, pool_pre_ping=True)
+def snapshot(database_url):
+    engine = create_engine(
+        database_url, connect_args={"options": "-c timezone=UTC -c row_security=off"}
+    )
     try:
-        table_names = [
-            name
-            for name in inspect(engine).get_table_names()
-            if name != "alembic_version"
-        ]
+        names = set(inspect(engine).get_table_names()) - {"alembic_version"}
+        if not set(runtime_permissions()) <= names:
+            raise RuntimeError("Backup source omits required application tables.")
         with engine.connect() as connection:
-            return {
-                name: int(
-                    connection.execute(
-                        text(f'SELECT COUNT(*) FROM "{name}"')
-                    ).scalar_one()
-                )
-                for name in sorted(table_names)
+            quote = connection.dialect.identifier_preparer.quote
+            counts = {
+                name: int(connection.scalar(text(f"SELECT count(*) FROM public.{quote(name)}")))
+                for name in sorted(names)
             }
+            grants = list(
+                connection.execute(
+                    text("SELECT * FROM organization_access_grants ORDER BY id")
+                ).mappings()
+            )
+            head = connection.scalar(text("SELECT version_num FROM alembic_version"))
+            return counts, grants, head
     finally:
         engine.dispose()
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Create a PostgreSQL Vinyrd backup and verify it by restoring it."
+def row_counts(database_url):
+    return snapshot(database_url)[0]
+
+
+def restored_startup(runtime_url):
+    # Only the newly created restore database is passed to the HTTP worker.
+    env = runtime_environment(os.environ)
+    env.update(
+        PARISHCONNECT_DATABASE_URL=runtime_url, PARISHCONNECT_ENVIRONMENT="staging", PGTZ="UTC"
     )
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+    env["PORT"] = str(port)
+    with tempfile.TemporaryFile(mode="w+b") as log:
+        process = subprocess.Popen(
+            [sys.executable, "-m", "app.scripts.start_backend"],
+            env=env,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+        )
+        try:
+            for _ in range(100):
+                if process.poll() is not None:
+                    log.seek(0)
+                    diagnostic = log.read().decode("utf-8", errors="replace")[-3000:]
+                    diagnostic = diagnostic.replace(runtime_url, "[runtime database]")
+                    password = make_url(runtime_url).password
+                    if password:
+                        diagnostic = diagnostic.replace(password, "[redacted]")
+                    raise RuntimeError("Restored runtime failed startup: " + diagnostic)
+                try:
+                    with urlopen(f"http://127.0.0.1:{port}/health", timeout=1) as response:
+                        if response.status == 200:
+                            print(
+                                "Restored application startup, runtime privileges, UTC, migration head and health verified."
+                            )
+                            return
+                except (URLError, TimeoutError):
+                    pass
+                time.sleep(0.1)
+            raise RuntimeError("Restored application health check timed out.")
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backup-path", default="")
     args = parser.parse_args()
-
     for executable in ("pg_dump", "pg_restore", "createdb", "dropdb"):
         if shutil.which(executable) is None:
-            raise RuntimeError(f"{executable} is required for backup verification.")
-
-    url = make_url(settings.database_url)
-    if not url.drivername.startswith("postgresql"):
-        raise RuntimeError("Backup verification requires PostgreSQL.")
-    if not url.database:
-        raise RuntimeError("Database name is missing.")
-
-    backup_path = (
+            raise RuntimeError(f"{executable} is required.")
+    if not settings.backup_database_url or not settings.restore_database_url:
+        raise RuntimeError(
+            "Explicit BACKUP_DATABASE_URL and RESTORE_DATABASE_URL are required; runtime credentials are never used for restore."
+        )
+    runtime = make_url(settings.database_url)
+    backup = make_url(settings.backup_database_url)
+    restore = make_url(settings.restore_database_url)
+    if any(url.get_backend_name() != "postgresql" for url in (runtime, backup, restore)):
+        raise RuntimeError("PostgreSQL connections are required.")
+    if (runtime.host, runtime.port, runtime.database) != (
+        backup.host,
+        backup.port,
+        backup.database,
+    ):
+        raise RuntimeError("Backup credential must target the runtime source database.")
+    if runtime.username in (backup.username, restore.username):
+        raise RuntimeError("Use separate operational credentials, never the runtime login.")
+    path = (
         Path(args.backup_path)
         if args.backup_path
         else Path(tempfile.gettempdir()) / "vinyrd-pilot-backup.dump"
     )
-    backup_path.parent.mkdir(parents=True, exist_ok=True)
-
-    env = command_env(url)
-    common = pg_args(url)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    original = snapshot(settings.backup_database_url)
     subprocess.run(
-        ["pg_dump", *common, "-Fc", "-f", str(backup_path), url.database],
+        ["pg_dump", *pg_args(backup), "-Fc", "-f", str(path), backup.database],
+        env=command_env(backup),
         check=True,
-        env=env,
     )
-
-    original_counts = row_counts(settings.database_url)
-    restore_database = f"{url.database}_restore_verify_{os.getpid()}"
-    restore_url = url.set(database=restore_database)
-
+    name = "vinyrd_restore_verify_" + uuid4().hex
+    restored = restore.set(database=name)
+    created = False
     try:
         subprocess.run(
-            ["createdb", *common, restore_database],
+            [
+                "createdb",
+                *pg_args(restore),
+                "--maintenance-db",
+                restore.database or "postgres",
+                name,
+            ],
+            env=command_env(restore),
             check=True,
-            env=env,
         )
+        created = True
         subprocess.run(
             [
                 "pg_restore",
-                *common,
+                *pg_args(restore),
+                "--exit-on-error",
                 "--no-owner",
                 "--no-privileges",
                 "-d",
-                restore_database,
-                str(backup_path),
+                name,
+                str(path),
             ],
+            env=command_env(restore),
             check=True,
-            env=env,
         )
-        restored_counts = row_counts(restore_url.render_as_string(hide_password=False))
-        if original_counts != restored_counts:
+        result = snapshot(restored.render_as_string(hide_password=False))
+        if result != original:
             raise RuntimeError(
-                "Backup restore row-count verification failed: "
-                f"original={original_counts}, restored={restored_counts}"
+                "Restore differs in table counts, organization grants or migration head."
             )
+        engine = create_engine(restored, connect_args=database_connect_args(str(restored)))
+        try:
+            with engine.begin() as connection:
+                provision(connection, runtime.username)
+        finally:
+            engine.dispose()
+        runtime_restored = runtime.set(host=restore.host, port=restore.port, database=name)
+        restored_startup(runtime_restored.render_as_string(hide_password=False))
     finally:
-        subprocess.run(
-            ["dropdb", *common, "--if-exists", restore_database],
-            check=True,
-            env=env,
-        )
-
-    print(f"Vinyrd backup verified: {backup_path}")
-    print(f"Verified tables: {len(original_counts)}")
+        if created:
+            subprocess.run(
+                [
+                    "dropdb",
+                    *pg_args(restore),
+                    "--maintenance-db",
+                    restore.database or "postgres",
+                    name,
+                ],
+                env=command_env(restore),
+                check=True,
+            )
+    print(f"Vinyrd backup verified: {path}")
+    print(
+        f"Verified tables: {len(original[0])}; organization grants retained: {len(original[1])}; migration head: {original[2]}"
+    )
     return 0
 
 

@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://parishconnect:parishconnect@localhost:5432/parishconnect"
     )
+    migration_database_url: str = ""
+    backup_database_url: str = ""
+    restore_database_url: str = ""
     qr_token_secret: str = "local-demo-qr-secret-change-before-production"
     auth_token_secret: str = "local-demo-auth-secret-change-before-production"
     password_salt: str = "local-demo-password-salt-change-before-production"

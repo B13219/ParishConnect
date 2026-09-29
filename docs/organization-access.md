@@ -22,15 +22,7 @@ Legacy User.branch_id plus UserRole remains effective only at that local Branch,
 
 First higher-level authority cannot be self-created from branch custody. After independent governance verification, a migration-owner operator may run:
 
-```sh
-python -m app.scripts.provision_organization_grant \
-  --user-id VERIFIED_ACCOUNT_UUID \
-  --organization-unit-id VERIFIED_ORGANIZATION_UUID \
-  --permission-role administrator --scope-mode descendants \
-  --authority-reference APPROVAL_TICKET
-```
-
-This command requires ownership of the grant table, validates ancestry, rejects duplicate grants and audits the provisioning reference. It does not change offices or memberships. Do not run it with unverified real identities. Existing separately configured trees are not automatically merged or reparented by this phase.
+Initial authority now uses the guarded, one-shot operator command in [the staging runbook](staging-initialization.md). Both actor and recipient must be verified existing local Administrators in the configured tree. Deployment-owner credentials and a temporary bootstrap flag are required. Existing authority history blocks fresh initialization, including revoked grants; controlled recovery has a separate guard. Exact active retries are idempotent. Offices and memberships remain unchanged.
 
 ## APIs and context
 
@@ -75,15 +67,7 @@ Catholic example: a Diocese descendant grant covers linked descendant parishes, 
 
 ## Deployment and validation
 
-No new production environment variables are required. Keep UTC database sessions, PostgreSQL 16-compatible backup tools, migration-owner/runtime-role separation and existing authentication secrets. Apply `alembic upgrade head` with migration-owner credentials. Give the actual runtime role SELECT/INSERT/UPDATE on `organization_access_grants` using the existing provisioning mechanism; RLS remains authoritative. Existing table privileges continue, and the new actor-bound helper functions are intentionally executable by the runtime through their default PUBLIC execute permission; the internal unrestricted traversal helper is explicitly revoked.
-
-After a restore performed with `--no-privileges`, reapply the helper restriction before attaching any runtime role (that restore option intentionally omits ACLs):
-
-```sql
-REVOKE ALL ON FUNCTION public.vinyrd_org_covers(uuid,uuid,text) FROM PUBLIC;
-```
-
-Reapply runtime table privileges and verify non-owner/RLS tests against the restored staging instance. A row-count backup comparison alone does not validate restored role ACLs.
+Follow [staging initialization](staging-initialization.md) for separate runtime, migration, backup and restore credentials. Production/staging startup validates the runtime privilege matrix and migration head. The restore verifier automatically reapplies the restricted helper ACL and runtime grants, then starts the restored application and checks health. No schema migration was added in Phase 3.5; the single head remains `20260928_0020`.
 
 The existing feature-branch Linux workflow is reused. It tests the exact pushed commit, builds the existing production Dockerfile, migrates an empty PostgreSQL database, starts production commands, serves HTTP as non-owner/NOBYPASSRLS, runs legacy/organization/hierarchy smoke, verifies a real backup/restore including grant rows, and restarts the container. The dynamic full-database backup now covers 31 application tables. Restore retains functions/policies, but role ownership/privileges still require separate provisioning with the established --no-owner/--no-privileges restore process.
 
