@@ -21,6 +21,7 @@ from app.models import (
     Member,
     Message,
     MessageRecipient,
+    OrganizationOfficeAssignment,
     PrayerRequest,
     Role,
     SermonLesson,
@@ -30,6 +31,7 @@ from app.models import (
 )
 from app.services.audit import write_audit_log
 from app.services.denominations import normalize_denomination
+from app.services.terminology import Terminology, runtime_levels, user_locale
 
 router = APIRouter()
 
@@ -70,6 +72,7 @@ class BranchUpdate(BaseModel):
     def denomination_name(cls, value):
         return normalize_denomination(value) if isinstance(value, str) else value
 
+
 class BranchGeofenceUpdate(BaseModel):
     geofence_enabled: bool
     setup_method: str = Field(pattern="^(map|manual)$")
@@ -79,14 +82,11 @@ class BranchGeofenceUpdate(BaseModel):
 
     @model_validator(mode="after")
     def validate_coordinates(self) -> "BranchGeofenceUpdate":
-        if self.geofence_enabled and (
-            self.latitude is None or self.longitude is None
-        ):
-            raise ValueError(
-                "Latitude and longitude are required when geofencing is enabled."
-            )
+        if self.geofence_enabled and (self.latitude is None or self.longitude is None):
+            raise ValueError("Latitude and longitude are required when geofencing is enabled.")
 
         return self
+
 
 BACKUP_MODELS = {
     "attendance_records": AttendanceRecord,
@@ -185,8 +185,9 @@ def serialize_branch(branch: Branch) -> dict[str, object]:
         "denomination": branch.denomination,
         "default_language": branch.default_language,
         "timezone": branch.timezone,
-        "community_label": branch.community_label, 
+        "community_label": branch.community_label,
     }
+
 
 def table_counts(db: Session) -> dict[str, int]:
     return {
@@ -200,7 +201,20 @@ def get_branch_settings(
     db: Session = Depends(get_db),
     _user=Depends(require_roles("administrator")),
 ) -> dict[str, object]:
-    return {"module": "admin", "branch": serialize_branch(get_default_branch(db))}
+    branch = get_default_branch(db)
+    resolver = Terminology(db.get(ChurchOrganizationConfiguration, branch.id), branch.denomination)
+    return {
+        "module": "admin",
+        "branch": {
+            **serialize_branch(branch),
+            "locale": user_locale(db, _user, branch),
+            "runtime_template": {
+                "value": resolver.denomination,
+                "label": resolver.denomination,
+                "levels": runtime_levels(resolver),
+            },
+        },
+    }
 
 
 @router.patch("/branch")
@@ -234,6 +248,7 @@ def update_branch_settings(
     db.refresh(branch)
     return {"module": "admin", "branch": serialize_branch(branch)}
 
+
 @router.get("/branch/geofence")
 def get_branch_geofence_settings(
     db: Session = Depends(get_db),
@@ -258,9 +273,7 @@ def get_branch_geofence_settings(
 def update_branch_geofence_settings(
     payload: BranchGeofenceUpdate,
     db: Session = Depends(get_db),
-    actor: User = Depends(
-        require_roles("administrator", "pastor_leader")
-    ),
+    actor: User = Depends(require_roles("administrator", "pastor_leader")),
 ) -> dict[str, object]:
     branch = get_default_branch(db)
 
@@ -280,8 +293,7 @@ def update_branch_geofence_settings(
             "geofence_enabled": payload.geofence_enabled,
             "attendance_radius_meters": payload.attendance_radius_meters,
             "coordinates_configured": (
-                payload.latitude is not None
-                and payload.longitude is not None
+                payload.latitude is not None and payload.longitude is not None
             ),
         },
     )
@@ -301,6 +313,7 @@ def update_branch_geofence_settings(
             "geofence_enabled": branch.geofence_enabled,
         },
     }
+
 
 @router.post("/backup-manifest")
 def create_backup_manifest(
@@ -347,7 +360,31 @@ def list_users(
     _user=Depends(require_roles("administrator")),
 ) -> dict[str, object]:
     users = db.scalars(select(User).order_by(User.created_at.desc()).limit(50)).all()
-    return {"module": "admin", "users": [serialize_user(user, db) for user in users]}
+    branch = get_default_branch(db)
+    resolver = Terminology(db.get(ChurchOrganizationConfiguration, branch.id), branch.denomination)
+    locale = user_locale(db, _user, branch)
+    offices = list(
+        db.scalars(
+            select(OrganizationOfficeAssignment)
+            .where(
+                OrganizationOfficeAssignment.branch_id == branch.id,
+                OrganizationOfficeAssignment.status == "active",
+            )
+            .order_by(OrganizationOfficeAssignment.created_at)
+        )
+    )
+    result = []
+    for user in users:
+        row = serialize_user(user, db)
+        office = next((o for o in offices if o.user_id == user.id), None)
+        row["display_position_title"] = resolver.position(
+            office.position_key if office else None,
+            locale,
+            position_title=user.position_title,
+            role=row["primary_role"],
+        )
+        result.append(row)
+    return {"module": "admin", "users": result}
 
 
 @router.post("/users", status_code=status.HTTP_201_CREATED)
@@ -406,13 +443,17 @@ def update_user(
     if account_has_organization_grants(db, user.id):
         raise HTTPException(403, "Organization grant holders manage their own global credentials.")
     if user.identity_self_managed:
-        raise HTTPException(403, "This person manages their global account. Manage church records instead.")
+        raise HTTPException(
+            403, "This person manages their global account. Manage church records instead."
+        )
 
     updates = payload.model_dump(exclude_unset=True)
     if "email" in updates and updates["email"] is not None:
         existing = db.scalar(select(User).where(User.email == str(updates["email"])))
         if existing is not None and existing.id != user.id:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists.")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Email already exists."
+            )
         user.email = str(updates.pop("email"))
     if updates.get("password"):
         user.password_hash = password_hash(updates.pop("password"))

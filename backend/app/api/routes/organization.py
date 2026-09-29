@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import current_user, role_slug
 from app.db.session import get_db
-from app.models import OrganizationOfficeAssignment, Role, User
+from app.models import Branch, OrganizationOfficeAssignment, Role, User
 from app.services.global_identity import require_church_admin
 from app.services.organizations import (
     AssignmentInput,
@@ -18,25 +18,43 @@ from app.services.organizations import (
     save_assignment,
     setup_preview,
 )
+from app.services.terminology import Terminology, runtime_levels, user_locale
 
 router = APIRouter()
 
 
 def admin(user=Depends(current_user), db: Session = Depends(get_db)):
     if db.info.get("requested_staff_branch") not in (None, user.branch_id):
-        raise HTTPException(403, "Organization setup remains local; use Organization Administration.")
+        raise HTTPException(
+            403, "Organization setup remains local; use Organization Administration."
+        )
     require_church_admin(db, user, user.branch_id)
     return user
 
 
 @router.get("/setup")
 def setup(user=Depends(admin), db: Session = Depends(get_db)):
-    return configuration_data(db, user.branch_id)
+    return {
+        **configuration_data(db, user.branch_id),
+        "locale": user_locale(db, user, db.get(Branch, user.branch_id)),
+    }
 
 
 @router.post("/preview")
-def preview(payload: SetupInput, user=Depends(admin)):
-    return setup_preview(payload)
+def preview(payload: SetupInput, user=Depends(admin), db: Session = Depends(get_db)):
+    data = setup_preview(payload)
+    levels = runtime_levels(Terminology(denomination=data["denomination"]))
+    return {
+        **data,
+        "locale": user_locale(db, user, db.get(Branch, user.branch_id)),
+        "levels": levels,
+        "expected_parents": [
+            l for l in levels if l["key"] in {p["key"] for p in data["expected_parents"]}
+        ],
+        "available_offices": next(
+            (l["positions"] for l in levels if l["key"] == data["organization_level"]), []
+        ),
+    }
 
 
 @router.post("/confirm")
@@ -47,7 +65,10 @@ def confirm(payload: ConfirmInput, user=Depends(admin), db: Session = Depends(ge
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(409, "Organization setup conflicts with an existing record.") from exc
-    return configuration_data(db, user.branch_id)
+    return {
+        **configuration_data(db, user.branch_id),
+        "locale": user_locale(db, user, db.get(Branch, user.branch_id)),
+    }
 
 
 def assignment_data(row):

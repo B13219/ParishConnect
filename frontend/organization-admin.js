@@ -7,7 +7,8 @@
     if (text != null) el.textContent = text;
     return el;
   };
-  const bilingual = (item) => [...new Set([item.labels?.sw, item.labels?.en].filter(Boolean))].join(" / ") || item.key;
+  let locale = "en";
+  const bilingual = (item) => item.presentation?.[locale]?.bilingual_label || item.labels?.[locale] || item.labels?.en || item.label || item.title || item.key;
   const option = (select, value, text) => {
     const item = node("option", text);
     item.value = value;
@@ -39,6 +40,7 @@
         fetchJson(api + "/setup"), fetchJson("/network/denominations"),
       ]);
       if (version !== generation) return;
+      locale = config.locale || "en";
       root.replaceChildren(node("h2", "Church organization setup"));
       const status = node("p");
       status.id = "organizationStatus";
@@ -47,7 +49,7 @@
       if (config.setup_status === "configured") {
         status.textContent = "Organization setup configured — " + config.denomination + " (template " + config.template_version + ").";
         const path = node("ol");
-        for (const unit of config.organization_path) path.append(node("li", bilingual(unit) + ": " + unit.canonical_name));
+        for (const unit of config.organization_path) path.append(node("li", bilingual(unit) + ": " + (unit.presentation?.[locale]?.name || unit.canonical_name)));
         root.append(path, node("p", "This installed snapshot is preserved when templates change. Structural changes require a future configuration workflow."));
         await offices(config, status);
         return;
@@ -165,7 +167,7 @@
           const entry = preview.levels.find((item) => item.key === unit.level_key);
           list.append(node("li", bilingual(entry) + ": " + unit.canonical_name + " — " + [unit.country, unit.region, unit.city].filter(Boolean).join(", ") + (unit.is_published ? " (public)" : " (private)")));
         }
-        review.append(list, node("p", "Church level: " + (level.selectedOptions[0]?.textContent || "Custom configuration required")), node("p", "Office terminology: " + (preview.available_offices.map(bilingual).join("; ") || "Custom configuration required")), node("p", "Terminology: Kiswahili / English. Office titles do not grant permissions."));
+        review.append(list, node("p", "Church level: " + (level.selectedOptions[0]?.textContent || "Custom configuration required")), node("p", "Office terminology: " + (preview.available_offices.map(bilingual).join("; ") || "Custom configuration required")), node("p", "Bilingual terminology follows your UI language. Office titles do not grant permissions."));
         const confirm = button(review, "Confirm Church Setup", async () => {
           controls.disabled = true;
           confirm.disabled = true;
@@ -194,7 +196,7 @@
   async function offices(config, status) {
     const data = await fetchJson(api + "/assignments");
     const local = config.organization_path.at(-1);
-    const level = config.hierarchy_snapshot.levels.find((entry) => entry.key === local.level_key);
+    const level = (config.runtime_levels || config.hierarchy_snapshot.levels).find((entry) => entry.key === local.level_key);
     const panel = node("div");
     panel.append(node("h3", "Office assignments"), node("p", "Assignments record office and intended permission profile separately. Existing staff access remains controlled by staff roles; these assignments do not grant additional access."));
     const list = node("ul");

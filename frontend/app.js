@@ -615,6 +615,7 @@ const applyRoleAccess = () => {
   const userName = state.auth?.user?.name || "Vinyrd Staff";
   const firstName = userName.split(" ")[0] || "Friend";
   const primaryRole =
+    state.staffContext?.display_position_title ||
     state.auth?.user?.position_title ||
     (roles[0] ? labelize(roles[0]) : "Staff Console");
   const welcomeName = document.querySelector("#welcomeUserName");
@@ -2108,6 +2109,8 @@ const updateGeofenceSetupMethod = () => {
 
 const denominationTemplate = (value) => {
   const match = String(value || "").trim().toLowerCase();
+  const installed = state.admin?.branch?.runtime_template;
+  if (installed && installed.value?.toLowerCase() === match) return installed;
   return (state.admin?.denominations || []).find(
     (item) =>
       item.value.toLowerCase() === match ||
@@ -2141,14 +2144,14 @@ const renderBranchDenominationArchitecture = () => {
   panel.innerHTML = `
     <strong>${escapeHtml(template.label)} structure</strong>
     <span>${template.levels
-      .map((level) => escapeHtml(level.label + (level.optional ? " (optional)" : "")))
+      .map((level) => escapeHtml((level.presentation?.[state.admin?.branch?.locale || "en"]?.bilingual_label || level.label) + (level.optional ? " (optional)" : "")))
       .join(" → ")}</span>
     ${template.levels
       .map(
         (level) => `
           <small>
-            <b>${escapeHtml(level.label)}:</b>
-            ${level.positions.map((position) => escapeHtml(position.title)).join(" · ")}
+            <b>${escapeHtml(level.presentation?.[state.admin?.branch?.locale || "en"]?.bilingual_label || level.label)}:</b>
+            ${level.positions.map((position) => escapeHtml(position.presentation?.[state.admin?.branch?.locale || "en"]?.bilingual_label || position.title)).join(" · ")}
           </small>
         `,
       )
@@ -2174,7 +2177,7 @@ const renderAdminPositionOptions = (preferredLevel = "", preferredTitle = "") =>
     template.levels.forEach((level) => {
       levelSelect.append(
         new Option(
-          level.label + (level.optional ? " (optional)" : ""),
+          (level.presentation?.[state.admin?.branch?.locale || "en"]?.bilingual_label || level.label) + (level.optional ? " (optional)" : ""),
           level.key,
         ),
       );
@@ -2192,7 +2195,7 @@ const renderAdminPositionOptions = (preferredLevel = "", preferredTitle = "") =>
   const level = template?.levels.find((item) => item.key === levelSelect.value);
   positionSelect.innerHTML = '<option value="">No office title</option>';
   (level?.positions || []).forEach((position) => {
-    const option = new Option(position.title, position.title);
+    const option = new Option(position.presentation?.[state.admin?.branch?.locale || "en"]?.bilingual_label || position.title, position.title);
     option.dataset.permissionRole = position.permission_role;
     positionSelect.append(option);
   });
@@ -2258,14 +2261,14 @@ const renderAdmin = () => {
         row({
           title: user.name,
           subtitle: [
-            user.position_title || labelize(user.primary_role),
+            user.display_position_title || user.position_title || labelize(user.primary_role),
             user.organization_level ? labelize(user.organization_level) : null,
             user.email,
             user.phone || "No phone",
           ]
             .filter(Boolean)
             .join(" - "),
-          tag: `${user.position_title || labelize(user.primary_role)} / ${labelize(user.status)}`,
+          tag: `${user.display_position_title || user.position_title || labelize(user.primary_role)} / ${labelize(user.status)}`,
           tone: user.status === "active" ? "green" : "muted",
           action: `<button class="mini-button" data-admin-edit-user="${user.id}" type="button">Edit</button>`,
         }),

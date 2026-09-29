@@ -1,3 +1,4 @@
+import { OrganizationContext } from "./OrganizationContext";
 import { router } from "expo-router";
 import { Body, Button, Card } from "./ui";
 import { useNetwork } from "../providers/NetworkProvider";
@@ -11,6 +12,7 @@ export function ChurchContext() {
           ? "Viewing " + current.church_name
           : "No active church selected"}
       </Body>
+      <OrganizationContext context={current} full />
       <Body>Viewing a church is separate from Home Church.</Body>
       <Button
         secondary

@@ -1,3 +1,4 @@
+import { OrganizationContext } from "../components/OrganizationContext";
 import { useEffect } from "react";
 import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import AuthForm from "../features/auth/AuthForm";
@@ -44,13 +45,13 @@ beforeEach(() => {
         },
         message: null,
       },
-      controller: { authenticate } as unknown as ReturnType<
+      controller: { authenticate, setUiLanguage: jest.fn() } as unknown as ReturnType<
         typeof useSession
       >["controller"],
     });
   jest
     .mocked(useServices)
-    .mockReturnValue({ join } as unknown as ReturnType<typeof useServices>);
+    .mockReturnValue({ join, church: async () => ({name: "Church A", organization_path: []}) } as unknown as ReturnType<typeof useServices>);
   jest
     .mocked(useNetwork)
     .mockReturnValue({
@@ -219,4 +220,18 @@ test("profile saves global UI language without a church communication field", as
     country: null, region: null, city: null, ui_language: "sw",
   }));
   expect(ui.getByText("Profile saved.")).toBeTruthy();
+});
+
+test("Profile UI language switches ancestry presentation without a catalogue request", async () => {
+  const context = {organization_path:[{level_key:"district", name:"Dar", presentation:{
+    en:{label:"District",bilingual_label:"District / Jimbo",name:"Dar"},
+    sw:{label:"Jimbo",bilingual_label:"Jimbo / District",name:"Dar"},
+  }}]};
+  const ui = await render(<OrganizationContext context={context} full />);
+  expect(ui.getByText("Dar — District")).toBeTruthy();
+  const previous = useSession();
+  jest.mocked(useSession).mockReturnValue({...previous,session:{...previous.session,user:{...previous.session.user!,ui_language:"sw"}}});
+  await ui.rerender(<OrganizationContext context={context} full />);
+  expect(ui.getByText("Dar — Jimbo")).toBeTruthy();
+  expect(ui.queryByText("Dar — District")).toBeNull();
 });

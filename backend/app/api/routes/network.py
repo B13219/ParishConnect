@@ -25,6 +25,7 @@ from app.services.denominations import denomination_catalog, normalize_denominat
 from app.services.global_identity import lock_user, require_church_admin, set_primary
 from app.services.organization_access import effective_branch
 from app.services.organizations import public_organization_paths
+from app.services.terminology import Terminology, matches_context, presentation, runtime_levels
 
 router = APIRouter()
 
@@ -81,7 +82,13 @@ def public_data(profile):
 
 @router.get("/denominations")
 def denominations():
-    return {"items": denomination_catalog(), "custom_allowed": True}
+    return {
+        "items": [
+            {**item, "levels": runtime_levels(Terminology(denomination=item["value"]))}
+            for item in denomination_catalog()
+        ],
+        "custom_allowed": True,
+    }
 
 
 @router.get("/churches")
@@ -97,8 +104,6 @@ def discover(
     db: Session = Depends(get_db),
 ):
     query = select(ChurchPublicProfile).where(ChurchPublicProfile.is_published.is_(True))
-    if q.strip():
-        query = query.where(ChurchPublicProfile.name.icontains(q.strip(), autoescape=True))
     if view == "tanzania":
         country = "TZ"
     if view == "local" and not (city.strip() or region.strip()):
@@ -118,7 +123,21 @@ def discover(
         ChurchPublicProfile.created_at.desc() if view == "new" else ChurchPublicProfile.name,
         ChurchPublicProfile.church_id,
     )
-    rows = db.scalars(query.offset(offset).limit(limit + 1)).all()
+    if q.strip():
+        # Stream candidates in bounded batches: match only published complete ancestry.
+        found = []
+        for batch in db.scalars(query).yield_per(100).partitions(100):
+            candidate_paths = public_organization_paths(
+                db, [r.church_id for r in batch], {r.church_id: r.denomination for r in batch}
+            )
+            found.extend(
+                r for r in batch if matches_context(q, r.name, candidate_paths.get(r.church_id, []))
+            )
+            if len(found) > offset + limit:
+                break
+        rows = found[offset : offset + limit + 1]
+    else:
+        rows = db.scalars(query.offset(offset).limit(limit + 1)).all()
     paths = public_organization_paths(
         db,
         [row.church_id for row in rows[:limit]],
@@ -126,12 +145,23 @@ def discover(
     )
     return {
         "items": [
-            {**public_data(row), "organization_path": paths.get(row.church_id, [])}
+            {
+                **public_data(row),
+                "organization_path": paths.get(row.church_id, []),
+                "terminology": public_terms(paths.get(row.church_id, [])),
+            }
             for row in rows[:limit]
         ],
         "has_more": len(rows) > limit,
         "offset": offset,
         "limit": limit,
+    }
+
+
+def public_terms(path):
+    return {
+        "version": 1,
+        "local_church": path[-1]["presentation"] if path else presentation({}, "Local Church"),
     }
 
 
@@ -144,12 +174,10 @@ def public_profile(church_id: UUID, db: Session = Depends(get_db)):
     )
     if profile is None:
         raise HTTPException(404, "Public church profile not found.")
-    return {
-        **public_data(profile),
-        "organization_path": public_organization_paths(
-            db, [church_id], {church_id: profile.denomination}
-        ).get(church_id, []),
-    }
+    path = public_organization_paths(db, [church_id], {church_id: profile.denomination}).get(
+        church_id, []
+    )
+    return {**public_data(profile), "organization_path": path, "terminology": public_terms(path)}
 
 
 @router.get("/me")
@@ -157,6 +185,7 @@ def network_me(user: User = Depends(current_user), db: Session = Depends(get_db)
     memberships = db.scalars(
         select(ChurchMembership).where(ChurchMembership.user_id == user.id)
     ).all()
+    paths = public_organization_paths(db, [m.church_id for m in memberships])
     result = []
     for membership in memberships:
         branch = db.get(Branch, membership.church_id)
@@ -164,6 +193,8 @@ def network_me(user: User = Depends(current_user), db: Session = Depends(get_db)
             {
                 **MembershipView.model_validate(membership).model_dump(),
                 "church_name": branch.name if branch else "Church",
+                "organization_path": paths.get(membership.church_id, []),
+                "terminology": public_terms(paths.get(membership.church_id, [])),
             }
         )
     return {
@@ -287,7 +318,10 @@ def admin_requests(
     require_church_admin(db, user, effective_branch(db, user))
     requests = db.scalars(
         select(MembershipRequest)
-        .where(MembershipRequest.church_id == effective_branch(db, user), MembershipRequest.status == status)
+        .where(
+            MembershipRequest.church_id == effective_branch(db, user),
+            MembershipRequest.status == status,
+        )
         .order_by(MembershipRequest.created_at.desc(), MembershipRequest.id)
         .offset(offset)
         .limit(51)

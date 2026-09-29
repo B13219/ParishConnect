@@ -23,6 +23,7 @@ from app.models import (
 )
 from app.services.audit import write_audit_log
 from app.services.denominations import denomination_catalog, normalize_denomination
+from app.services.terminology import Terminology, runtime_levels, unit_presentation
 
 
 class SetupInput(BaseModel):
@@ -112,12 +113,13 @@ def setup_preview(payload):
     }
 
 
-def unit_data(unit):
+def unit_data(unit, resolver=None):
     return {
         "id": unit.id,
         "parent_id": unit.parent_id,
         "level_key": unit.level_key,
         "canonical_name": unit.canonical_name,
+        "presentation": unit_presentation(unit, resolver),
         "localized_names": unit.localized_names,
         "labels": unit.labels_snapshot,
         "is_published": unit.is_published,
@@ -182,9 +184,15 @@ def configuration_data(db, branch_id):
         "setup_status": config.setup_status,
         "local_unit_id": config.local_unit_id,
         "configured_at": config.configured_at,
+        "runtime_levels": runtime_levels(Terminology(config)),
         "terminology_snapshot": config.terminology_snapshot,
         "hierarchy_snapshot": config.hierarchy_snapshot,
-        "organization_path": [unit_data(u) for u in ancestry(db, config.local_unit_id)],
+        "terminology": Terminology(config).payload(
+            ancestry(db, config.local_unit_id)[-1].level_key if config.local_unit_id else None
+        ),
+        "organization_path": [
+            unit_data(u, Terminology(config)) for u in ancestry(db, config.local_unit_id)
+        ],
     }
 
 
@@ -430,6 +438,7 @@ def public_organization_paths(db, branch_ids, denominations=None):
                     "level_key": unit.level_key,
                     "name": unit.canonical_name,
                     "labels": unit.labels_snapshot,
+                    "presentation": unit_presentation(unit),
                 }
             )
             unit_id = unit.parent_id

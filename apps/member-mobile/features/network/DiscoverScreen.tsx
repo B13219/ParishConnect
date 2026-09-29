@@ -1,3 +1,4 @@
+import { termView } from "../../services/terminology";
 import { useRef, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
@@ -13,12 +14,14 @@ import {
 } from "../../components/ui";
 import { ChurchCard } from "../../components/ChurchCard";
 import { colors } from "../../constants/theme";
-import { useServices } from "../../providers/SessionProvider";
+import { useServices, useSession } from "../../providers/SessionProvider";
 import { useLoad } from "../../hooks/useLoad";
 import type { Church, DiscoveryFilters } from "../../types/api";
 
 export default function DiscoverScreen() {
   const services = useServices();
+  const { session } = useSession();
+  const label = (item: {presentation?: import("../../types/api").TermPresentation; label?: string; title?: string}) => termView(item.presentation, session.user?.ui_language)?.label || item.label || item.title;
   const [draft, setDraft] = useState<DiscoveryFilters>({ view: "all" });
   const [filters, setFilters] = useState<DiscoveryFilters>({ view: "all" });
   const [extra, setExtra] = useState<Church[]>([]);
@@ -158,24 +161,24 @@ export default function DiscoverScreen() {
                 <Body>
                   {selectedDenomination.levels
                     .map((level) =>
-                      level.optional ? `${level.label} (optional)` : level.label,
+                      level.optional ? `${label(level)} (optional)` : label(level),
                     )
                     .join(" → ")}
                 </Body>
                 {selectedDenomination.levels.map((level) => (
                   <View key={level.key} style={{ gap: 3 }}>
                     <Text style={{ color: colors.text, fontWeight: "600" }}>
-                      {level.label}{level.optional ? " (optional)" : ""}
+                      {label(level)}{level.optional ? " (optional)" : ""}
                     </Text>
                     <Body>
-                      {level.positions.map((position) => position.title).join(" · ")}
+                      {level.positions.map((position) => label(position)).join(" · ")}
                     </Body>
                   </View>
                 ))}
                 <Body>
                   VINYRD uses these as default organisation and office-title
                   templates. Denomination administrators can adapt optional
-                  levels and titles to their church body's constitution.
+                  levels and titles to their church constitution.
                 </Body>
               </View>
             ) : null}

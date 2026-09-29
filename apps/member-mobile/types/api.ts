@@ -1,3 +1,7 @@
+export type TermView = {label: string; secondary_label?: string | null; bilingual_label: string; name?: string; source?: string};
+export type TermPresentation = Partial<Record<"en" | "sw", TermView>>;
+export type OrganizationPath = {level_key: string; name?: string; labels?: Partial<Record<"en" | "sw", string>>; presentation?: TermPresentation}[];
+export type ChurchTerminology = {version: number; local_church: TermPresentation};
 export type SupportedLanguage = "en" | "sw";
 export type LocalizedLabels = { en: string; sw?: string };
 export type User = {
@@ -28,6 +32,8 @@ export type ProfileInput = {
 };
 export type Profile = ProfileInput & { user_id: string; email: string };
 export type Membership = {
+  organization_path?: OrganizationPath;
+  terminology?: ChurchTerminology;
   id: string;
   church_id: string;
   church_name: string;
@@ -60,6 +66,8 @@ export type PublicItem = {
   location: string | null;
 };
 export type Church = {
+  organization_path?: OrganizationPath;
+  terminology?: ChurchTerminology;
   church_id: string;
   name: string;
   country: string;
@@ -78,12 +86,14 @@ export type Church = {
   public_ministries: PublicItem[];
 };
 export type DenominationPosition = {
+  presentation?: TermPresentation;
   key: string;
   labels: LocalizedLabels;
   title: string;
   permission_role: string;
 };
 export type DenominationLevel = {
+  presentation?: TermPresentation;
   labels: LocalizedLabels;
   key: string;
   label: string;

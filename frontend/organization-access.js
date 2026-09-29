@@ -2,7 +2,9 @@
   const root = document.getElementById("organization-access");
   const api = "/organization-access";
   const node = (tag, text) => { const e = document.createElement(tag); if (text != null) e.textContent = text; return e; };
-  const label = (u) => u.labels?.[state.auth?.user?.ui_language || "en"] || u.labels?.en || u.level_key;
+  const locale = () => state.staffContext?.locale || state.auth?.user?.ui_language || "en";
+  const label = (u) => u.presentation?.[locale()]?.bilingual_label || u.labels?.[locale()] || u.labels?.en || u.level_key;
+  const name = (u) => u.presentation?.[locale()]?.name || u.canonical_name;
   const key = () => "vinyrd_staff_branch_" + state.auth.user.id;
   const message = (text) => { root.querySelector('[role="status"]').textContent = text; };
   const button = (text, run) => {
@@ -18,9 +20,12 @@
     wrap.append(input); form.append(wrap); return input;
   };
   let selectedUnit = null;
+  let generation = 0;
   async function load() {
     if (!state.auth?.access_token) return;
+    const loadVersion = ++generation;
     const data = await fetchJson(api + "/tree");
+    if (loadVersion !== generation) return;
     const stored = sessionStorage.getItem(key());
     const selected = data.branches.find(b => b.id === stored) || (!stored && data.branches.find(b => b.local_access));
     if (stored && stored !== "overview" && !selected) {
@@ -29,6 +34,13 @@
     }
     state.staffContext = selected || {roles: [], local_access: false};
     applyRoleAccess();
+    let header = document.getElementById("staffOrganizationContext");
+    if (!header) { header = node("div"); header.id = "staffOrganizationContext"; document.querySelector("#topbarUserName").parentElement.append(header); }
+    header.replaceChildren(node("strong", selected?.name || "Organization overview"));
+    for (const u of (selected?.organization_path || []).slice(-3).reverse()) {
+      const view = u.presentation?.[locale()];
+      if (view) header.append(node("div", view.name + " — " + view.bilingual_label));
+    }
     root.replaceChildren(node("h2", "Organization Administration"), node("p", "Office titles and VINYRD access are managed separately. Viewing a church does not change Home Church or membership."));
     const status = node("p"); status.setAttribute("role", "status"); root.append(status);
     root.append(button("Refresh organization access", load));
@@ -53,30 +65,34 @@
       const [parent, list] = queue.shift();
       for (const u of children.get(parent) || []) {
         if (seen.has(u.id)) continue; seen.add(u.id);
-        const item = node("li", `${label(u)}: ${u.canonical_name}`), sub = node("ul");
+        const item = node("li", `${label(u)}: ${name(u)}`), sub = node("ul");
         item.append(sub); list.append(item); queue.push([u.id, sub]);
       }
     }
     root.append(tree);
-    const select = field(root, "Organization context", "select", data.units.map(u => [u.id, `${label(u)}: ${u.canonical_name}`]));
+    const select = field(root, "Organization context", "select", data.units.map(u => [u.id, `${label(u)}: ${name(u)}`]));
     if (data.units.some(u => u.id === selectedUnit)) select.value = selectedUnit;
     const details = node("section"); root.append(details);
     const [grants, offices] = await Promise.all([fetchJson(api + "/grants"), fetchJson(api + "/offices")]);
+    let detailGeneration = 0;
     async function show() {
+      const detailVersion = ++detailGeneration;
       selectedUnit = select.value;
       const u = data.units.find(u => u.id === selectedUnit);
       details.replaceChildren();
       if (!u) { details.append(node("p", "No organization access assigned.")); return; }
-      details.append(node("h3", u.canonical_name), node("p", `${u.denomination} · ${label(u)}`));
+      details.append(node("h3", name(u)), node("p", `${u.denomination} · ${label(u)}`));
       const parent = data.units.find(p => p.id === u.parent_id);
-      details.append(node("p", "Parent: " + (parent?.canonical_name || "Outside this view / root")));
+      details.append(node("p", "Parent: " + ((parent && name(parent)) || "Outside this view / root")));
       const report = await fetchJson(api + "/summary?unit_id=" + encodeURIComponent(u.id));
+      if (detailVersion !== detailGeneration || loadVersion !== generation) return;
+      details.append(node("h3", label(u) + " Summary"));
       details.append(node("p", `Accessible churches: ${report.accessible_church_count}. Members: ${report.members.count ?? "Not authorized"} (${report.members.church_count} churches). Attendance: ${report.attendance.count ?? "Not authorized"} (${report.attendance.church_count} churches).`));
       if (report.finance) details.append(node("p", `Finance (${report.finance.church_count} churches): ` + report.finance.totals.map(t => `${t.currency} ${t.amount}`).join(", ")));
       details.append(node("h3", "Church offices — no application permissions"));
       for (const o of offices.items.filter(o => o.organization_unit_id === u.id)) {
         const position = u.positions.find(p => p.key === o.position_key);
-        const row = node("p", `${o.user.name || o.user.id} · ${position?.labels?.[state.auth.user.ui_language] || position?.title || o.position_key} · ${o.status}`);
+        const row = node("p", `${o.user.name || o.user.id} · ${position?.presentation?.[locale()]?.bilingual_label || position?.title || o.position_key} · ${o.status}`);
         if (u.can_manage) row.append(button(o.status === "active" ? "Deactivate office" : "Activate office", async () => {
           await sendJson(api + "/offices", "PUT", {user_id:o.user.id,organization_unit_id:u.id,position_key:o.position_key,status:o.status === "active" ? "inactive" : "active"}); await load();
         }));
@@ -85,7 +101,7 @@
       if (u.can_manage && u.positions.length) {
         const form = node("div"); form.className = "network-form";
         const who = field(form, "Office holder VINYRD account ID", "text");
-        const position = field(form, "Church office", "select", u.positions.map(p => [p.key,p.labels?.[state.auth.user.ui_language] || p.title]));
+        const position = field(form, "Church office", "select", u.positions.map(p => [p.key,p.presentation?.[locale()]?.bilingual_label || p.title]));
         form.append(button("Save office only", async () => { await sendJson(api + "/offices", "PUT", {user_id:who.value,organization_unit_id:u.id,position_key:position.value}); await load(); })); details.append(form);
       }
       details.append(node("h3", "VINYRD access grants"));
@@ -109,6 +125,7 @@
         form.append(button("Create access grant",async () => { await sendJson(api+"/grants","POST",{user_id:who.value,organization_unit_id:u.id,permission_role:role.value,scope_mode:mode.value}); await load(); })); details.append(form);
       }
     }
+    if (loadVersion !== generation) return;
     select.onchange = () => show().catch(e => message(e.message));
     await show();
   }

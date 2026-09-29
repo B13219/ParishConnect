@@ -5,6 +5,15 @@
   const churchId = new URLSearchParams(location.search).get("id");
   let mine = { memberships: [], requests: [], follows: [] };
   let offset = 0;
+  let locale = "en";
+  const term = (item) => item.presentation?.[locale]?.label || item.label || item.title;
+  const ancestry = (church, full = false) => {
+    const path = church.organization_path || [];
+    return (full ? path : path.slice(0, -1).slice(-2)).map(unit => {
+      const view = unit.presentation?.[locale] || unit.presentation?.en;
+      return (view?.name || unit.name) + " — " + (view?.label || unit.labels?.en || unit.level_key);
+    }).join(" · ");
+  };
   let refreshTimer;
   const el = (tag, value, className) => {
     const node = document.createElement(tag);
@@ -43,6 +52,7 @@
     });
   const loadMine = async () => {
     if (!VinyrdClient.token()) return;
+    locale = (await VinyrdClient.apiRequest("/identity/me")).ui_language || "en";
     await api("/network/me/initialize-home", "POST");
     mine = await VinyrdClient.apiRequest("/network/me");
   };
@@ -66,6 +76,7 @@
       ),
     );
     if (church.denomination) node.append(el("p", church.denomination));
+    if (ancestry(church)) node.append(el("p", ancestry(church)));
     node.append(
       link(
         "View church",
@@ -81,6 +92,7 @@
     content.replaceChildren();
     const main = card(church);
     main.querySelector("a").remove();
+    if (ancestry(church, true)) main.append(el("p", ancestry(church, true)));
     if (church.about) main.append(el("p", church.about));
     if (church.location) main.append(el("p", church.location));
     if (church.service_times)
@@ -308,6 +320,7 @@
         el("h2", membership.church_name),
         el("p", membership.is_primary ? "Home Church" : "Active membership"),
       );
+      if (ancestry(membership, true)) node.append(el("p", ancestry(membership, true)));
       node.append(
         button("View this church", async () => {
           VinyrdClient.setViewedChurch(membership.church_id);
@@ -375,6 +388,9 @@
     !VinyrdClient.requireSession()
   )
     return;
+  if (VinyrdClient.token()) {
+    try { locale = (await VinyrdClient.apiRequest("/identity/me")).ui_language || "en"; } catch { /* Public discovery remains usable. */ }
+  }
   if (page === "discover") {
     const denominationSelect = document.querySelector("#denominationSelect");
     const customDenominationLabel = document.querySelector(
@@ -407,7 +423,7 @@
                 ": " +
                 selected.levels
                   .map((level) =>
-                    level.optional ? level.label + " (optional)" : level.label,
+                    level.optional ? term(level) + " (optional)" : term(level),
                   )
                   .join(" → "),
             ),
@@ -416,9 +432,9 @@
             denominationArchitecture.append(
               el(
                 "span",
-                level.label +
+                term(level) +
                   ": " +
-                  level.positions.map((position) => position.title).join(" · "),
+                  level.positions.map((position) => term(position)).join(" · "),
               ),
             );
           });

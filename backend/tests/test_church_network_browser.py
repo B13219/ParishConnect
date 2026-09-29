@@ -117,7 +117,7 @@ def test_member_and_admin_network_journey(identity, tmp_path):
                 setup.locator(f'[name="name_{key}"]').fill(name)
             setup.get_by_role("button", name="Review Church Setup").click()
             playwright.expect(setup.locator("#organizationReview")).to_contain_text(
-                "Jimbo / District"
+                "District / Jimbo"
             )
             # Even a completed review has not written configuration.
             if os.getenv("VINYRD_BROWSER_ARTIFACTS"):

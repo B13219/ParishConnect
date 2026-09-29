@@ -46,7 +46,7 @@ def test_tag_canonical_contract_and_detached_labels(identity):
     assert levels["section"]["labels"]["sw"] == "Sehemu"
     assert levels["local_church"]["labels"]["sw"] == "Kanisa la Mahali Pamoja"
     bishop = levels["district"]["positions"][0]
-    assert bishop == {
+    assert {key: value for key, value in bishop.items() if key != "presentation"} == {
         "key": "district_bishop",
         "title": "District Bishop",
         "labels": {"en": "District Bishop", "sw": "Askofu wa Jimbo"},

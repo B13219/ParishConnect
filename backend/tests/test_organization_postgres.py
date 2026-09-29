@@ -233,7 +233,8 @@ def test_public_parent_reuse_and_projection_with_nonowner_role(postgres_identity
         public = client.get("/api/v1/network/churches/" + configs["local"]["branch_id"]).json()
         assert len(public["organization_path"]) == 5
         assert all(
-            set(unit) == {"level_key", "name", "labels"} for unit in public["organization_path"]
+            set(unit) == {"level_key", "name", "labels", "presentation"}
+            for unit in public["organization_path"]
         )
         assert client.get(API + "/assignments", headers=headers["local"]).json()["items"] == []
     with runtime.begin() as conn:

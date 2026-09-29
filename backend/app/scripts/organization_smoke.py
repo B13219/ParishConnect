@@ -144,7 +144,8 @@ def main():
         public = request("/api/v1/network/churches/" + church)
         assert len(public["organization_path"]) == 5
         assert all(
-            set(unit) == {"level_key", "name", "labels"} for unit in public["organization_path"]
+            set(unit) == {"level_key", "name", "labels", "presentation"}
+            for unit in public["organization_path"]
         )
         checks.append("public-ancestry-allowlist")
         member = login(member_email)

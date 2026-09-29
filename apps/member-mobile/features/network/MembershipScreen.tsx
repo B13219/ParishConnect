@@ -1,3 +1,5 @@
+import { OrganizationContext } from "../../components/OrganizationContext";
+import { useLoad } from "../../hooks/useLoad";
 import { useCallback, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
@@ -20,6 +22,7 @@ export default function MembershipScreen() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data, controller, error, loading } = useNetwork();
   const services = useServices();
+  const church = useLoad("membership-church:" + id, () => services.church(id));
   const [message, setMessage] = useState("");
   const [share, setShare] = useState(false);
   useFocusEffect(
@@ -40,6 +43,7 @@ export default function MembershipScreen() {
       onRefresh={() => void controller.refresh()}
       refreshing={loading}
     >
+      <OrganizationContext context={church.data || membership} full />
       <Notice message={error} />
       {!data ? (
         <>

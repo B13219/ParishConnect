@@ -214,7 +214,10 @@ def test_membership_stays_at_branch_and_public_output_is_allowlisted(identity):
         assert len(memberships) == 1 and str(memberships[0].church_id) == ids["a"]
     public = client.get("/api/v1/network/churches/" + ids["a"]).json()
     assert [u["level_key"] for u in public["organization_path"]] == KEYS
-    assert all(set(u) == {"level_key", "name", "labels"} for u in public["organization_path"])
+    assert all(
+        set(u) == {"level_key", "name", "labels", "presentation"}
+        for u in public["organization_path"]
+    )
     assert (
         client.get("/api/v1/network/churches").json()["items"][0]["organization_path"]
         == public["organization_path"]

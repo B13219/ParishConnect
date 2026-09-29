@@ -385,3 +385,6 @@ push occurred. Prompt 2 is complete for staging review; Prompt 3 has not started
 
 
 Phase 3.5 staging operations: see [staging initialization and privilege separation](staging-initialization.md). Runtime-only production startup, guarded initial authority and exhaustive restore startup validation are required; migration head remains `20260928_0020`.
+
+
+Phase 4 presentation: [runtime denomination terminology](runtime-terminology.md) documents the snapshot-first resolver, shared native/web payload, locale policy, scoped staff context and public search. No schema, authorization, membership or bootstrap changes.

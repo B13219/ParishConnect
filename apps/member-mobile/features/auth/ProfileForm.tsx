@@ -104,6 +104,7 @@ export default function ProfileForm({
               region: form.region || null,
               city: form.city || null,
             });
+            controller.setUiLanguage(form.ui_language);
             setSaved(true);
             if (onboarding) finish();
           }}

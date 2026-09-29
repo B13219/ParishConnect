@@ -122,6 +122,9 @@ export class SessionController {
         });
     }
   }
+  setUiLanguage(ui_language: User["ui_language"]) {
+    if (this.value.user) this.set({...this.value, user: {...this.value.user, ui_language}});
+  }
   completeOnboarding() {
     this.set({ ...this.value, onboarding: false });
   }

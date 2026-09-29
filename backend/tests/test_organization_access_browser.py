@@ -77,9 +77,13 @@ def test_scope_console_browser(hierarchy, tmp_path):
             playwright.expect(
                 panel.get_by_role("heading", name="VINYRD access grants", exact=True)
             ).to_be_visible()
-            playwright.expect(panel.get_by_label("Scope for district", exact=True)).to_be_visible()
+            playwright.expect(
+                panel.get_by_label("Scope for district / Jimbo", exact=True)
+            ).to_be_visible()
             panel.get_by_label("Grant recipient VINYRD account ID").fill(ids["users"]["target"])
-            panel.get_by_label("Scope for district", exact=True).select_option("descendants")
+            panel.get_by_label("Scope for district / Jimbo", exact=True).select_option(
+                "descendants"
+            )
             panel.get_by_role("button", name="Create access grant", exact=True).click()
             target_row = panel.locator('[data-grant-user="' + ids["users"]["target"] + '"]')
             playwright.expect(target_row.get_by_label("Grant status", exact=True)).to_be_visible()

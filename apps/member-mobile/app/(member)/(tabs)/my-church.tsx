@@ -1,3 +1,4 @@
+import { OrganizationContext } from "../../../components/OrganizationContext";
 import { useCallback } from "react";
 import { router, useFocusEffect } from "expo-router";
 import {
@@ -46,6 +47,7 @@ export default function MyChurch() {
       ) : null}
       {data?.memberships.map((m) => (
         <Card key={m.id}>
+          <OrganizationContext context={m} full />
           <Heading>{m.church_name}</Heading>
           <Body>
             {m.status}

@@ -21,6 +21,7 @@ from app.models import (
 )
 from app.services.audit import write_audit_log
 from app.services.organization_access import PERMISSION_ROLES, OrganizationScope, enter_branch
+from app.services.terminology import Terminology, configurations, staff_context, unit_presentation
 
 router = APIRouter()
 
@@ -44,18 +45,11 @@ class ContextInput(BaseModel):
     branch_id: UUID
 
 
-def unit_data(unit, visible, scope):
-    from app.services.denominations import denomination_catalog
-
+def unit_data(unit, visible, scope, config=None):
+    resolver = Terminology(config, unit.denomination)
     return {
-        "positions": [
-            p
-            for t in denomination_catalog()
-            if t["value"] == unit.denomination
-            for level in t["levels"]
-            if level["key"] == unit.level_key
-            for p in level["positions"]
-        ],
+        "positions": resolver.positions(unit.level_key),
+        "presentation": unit_presentation(unit, resolver),
         "id": unit.id,
         "level_key": unit.level_key,
         "labels": unit.labels_snapshot,
@@ -74,12 +68,18 @@ def unit_data(unit, visible, scope):
 def tree(user=Depends(current_user), db: Session = Depends(get_db)):
     scope = OrganizationScope(db, user)
     visible = scope.unit_ids()
+    configs = configurations(db, {scope.units[i].owner_branch_id for i in visible})
+    contexts = staff_context(db, user, scope)
     return {
-        "units": [unit_data(scope.units[i], visible, scope) for i in sorted(visible, key=str)],
+        "units": [
+            unit_data(scope.units[i], visible, scope, configs.get(scope.units[i].owner_branch_id))
+            for i in sorted(visible, key=str)
+        ],
         "branches": [
             {
                 "id": b.id,
                 "name": b.name,
+                **contexts[b.id],
                 "organization_unit_id": b.organization_unit_id,
                 "roles": sorted(scope.roles_for_branch(b.id)),
                 "local_access": b.id == user.branch_id and bool(scope.local_roles),
@@ -293,20 +293,12 @@ class OfficeInput(BaseModel):
 
 @router.put("/offices")
 def save_office(payload: OfficeInput, user=Depends(current_user), db: Session = Depends(get_db)):
-    from app.services.denominations import denomination_catalog
-
     scope = OrganizationScope(db, user)
     if not scope.can_manage(payload.organization_unit_id):
         raise HTTPException(403, "Office is outside your administrative scope.")
     unit = scope.units[payload.organization_unit_id]
-    positions = [
-        p
-        for t in denomination_catalog()
-        if t["value"] == unit.denomination
-        for level in t["levels"]
-        if level["key"] == unit.level_key
-        for p in level["positions"]
-    ]
+    config = configurations(db, [unit.owner_branch_id]).get(unit.owner_branch_id)
+    positions = Terminology(config, unit.denomination).positions(unit.level_key)
     position = next((p for p in positions if p["key"] == payload.position_key), None)
     if position is None:
         raise HTTPException(422, "Use a verified office key for this denomination level.")

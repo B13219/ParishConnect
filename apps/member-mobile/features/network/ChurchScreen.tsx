@@ -1,3 +1,4 @@
+import { OrganizationContext } from "../../components/OrganizationContext";
 import { Image, Linking } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -52,6 +53,7 @@ export default function ChurchScreen() {
           ) : null}
           <Card>
             {church.denomination ? <Body>{church.denomination}</Body> : null}
+            <OrganizationContext context={church} full />
             {church.about ? <Body>{church.about}</Body> : null}
             {church.location ? <Body>{church.location}</Body> : null}
             {church.service_times ? (

@@ -1,3 +1,4 @@
+import { OrganizationContext } from "./OrganizationContext";
 import { Image } from "react-native";
 import { router } from "expo-router";
 import type { Church } from "../types/api";
@@ -18,6 +19,7 @@ export function ChurchCard({ church }: { church: Church }) {
           .filter(Boolean)
           .join(" · ")}
       </Body>
+      <OrganizationContext context={church} />
       {church.denomination ? <Body>{church.denomination}</Body> : null}
       <Button
         title="View church"
