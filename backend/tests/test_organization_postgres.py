@@ -33,7 +33,7 @@ def test_organization_migration_runtime_rls_and_concurrent_confirmation(postgres
         "organization_office_assignments",
     )
     with owner.connect() as conn:
-        assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "20260928_0020"
+        assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "20260930_0021"
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM branches WHERE organization_unit_id IS NOT NULL")
@@ -120,10 +120,8 @@ def test_organization_migration_runtime_rls_and_concurrent_confirmation(postgres
         assert conn.scalar(text("SELECT count(*) FROM church_organization_configurations")) == 1
         assert conn.scalar(text("SELECT count(*) FROM organization_office_assignments")) == 1
         # Immutable units: even their custodian cannot reparent/rename them via runtime SQL.
-        assert (
-            conn.execute(text("UPDATE organization_units SET canonical_name='tampered'")).rowcount
-            == 0
-        )
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            conn.execute(text("UPDATE organization_units SET canonical_name='tampered'"))
         assert conn.execute(text("DELETE FROM organization_units")).rowcount == 0
         assert (
             conn.execute(

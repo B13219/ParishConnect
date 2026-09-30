@@ -21,7 +21,7 @@ The audit covered denomination/localization and organization services, configura
 
 `app/services/terminology.py` is the only denomination runtime policy engine. It contains no denomination-specific branches. A configured church uses `terminology_snapshot` as its installed label layer and `hierarchy_snapshot.levels` for installed levels/offices. Published OrganizationUnit labels are the immutable labels copied during setup; public runtime uses those snapshots even after a catalogue change. Existing `label`, `title`, `labels`, canonical names and keys remain present.
 
-When configuration is absent, current catalogue data provides preview/fallback. Unknown/custom denominations get their supplied configuration labels or generic labels. Missing entries in a configured snapshot do not silently install new catalogue levels; unavailable labels fall back to the stored label or generic display. Snapshot upgrades and complex override editing remain separate workflows. There is no separate override model/UI today; existing `terminology_snapshot` entries are honored. Manually editing private snapshots alone is not a supported publication workflow: public units retain their own installed published labels.
+When configuration is absent, current catalogue data provides preview/fallback. Unknown/custom denominations get their supplied configuration labels or generic labels. Missing entries in a configured snapshot do not silently install new catalogue levels; unavailable labels fall back to the stored label or generic display. Snapshot upgrades and complex override editing remain separate workflows. Phase 5 now provides [approved local overrides and upgrades](denomination-template-governance.md); the existing `terminology_snapshot` entries remain honored. Manually editing private snapshots alone is not a supported publication workflow: public units retain their own installed published labels.
 
 The response adds `presentation.en` and `presentation.sw`, each with `label`, `secondary_label`, `bilingual_label`, optional proper `name`, and presentation source (`snapshot`, `catalogue`, `vinyrd_default`). No official-translation certification is invented. Existing English defaults and supplied Kiswahili are preserved; missing Kiswahili falls back to English. A proper name uses the requested `localized_names` value or `canonical_name`; it is never machine-translated.
 
@@ -52,3 +52,5 @@ No schema or environment changes are required. Existing migration head is `20260
 ONE ORGANIZATION TREE IS SHARED ACROSS ALL LANGUAGES
 
 DENOMINATION TERMINOLOGY CHANGES PRESENTATION, NOT AUTHORIZATION
+
+Phase 5 adds controlled snapshot upgrades and local override approval. Its migration and conservative shared-unit publication rules supersede the earlier Phase 4 workflow limitations described above.

@@ -63,7 +63,15 @@ def snapshot(database_url):
                 ).mappings()
             )
             head = connection.scalar(text("SELECT version_num FROM alembic_version"))
-            return counts, grants, head
+            governance = {
+                table: list(connection.execute(text(f"SELECT * FROM {table} ORDER BY {key}")).mappings())
+                for table, key in (("church_organization_configurations", "branch_id"),
+                                   ("organization_units", "id"))
+            }
+            governance["approvals"] = list(connection.execute(text(
+                "SELECT * FROM audit_logs WHERE action='organization.template_approved' ORDER BY id"
+            )).mappings())
+            return counts, grants, head, governance
     finally:
         engine.dispose()
 
@@ -188,7 +196,7 @@ def main():
         result = snapshot(restored.render_as_string(hide_password=False))
         if result != original:
             raise RuntimeError(
-                "Restore differs in table counts, organization grants or migration head."
+                "Restore differs in table counts, grants, governance snapshots/history or migration head."
             )
         engine = create_engine(restored, connect_args=database_connect_args(str(restored)))
         try:
@@ -215,6 +223,7 @@ def main():
     print(
         f"Verified tables: {len(original[0])}; organization grants retained: {len(original[1])}; migration head: {original[2]}"
     )
+    print(f"Governance snapshots, unit labels and {len(original[3]['approvals'])} approvals restored exactly.")
     return 0
 
 

@@ -73,6 +73,8 @@
     const select = field(root, "Organization context", "select", data.units.map(u => [u.id, `${label(u)}: ${name(u)}`]));
     if (data.units.some(u => u.id === selectedUnit)) select.value = selectedUnit;
     const details = node("section"); root.append(details);
+    const governance = node("section"); governance.id = "templateGovernance"; root.append(governance);
+    window.VinyrdTemplateGovernance?.load(governance);
     const [grants, offices] = await Promise.all([fetchJson(api + "/grants"), fetchJson(api + "/offices")]);
     let detailGeneration = 0;
     async function show() {

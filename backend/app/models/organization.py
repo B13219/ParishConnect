@@ -55,7 +55,7 @@ class ChurchOrganizationConfiguration(TimestampMixin, Base):
     branch_id: Mapped[UUID] = mapped_column(ForeignKey("branches.id"), primary_key=True)
     denomination: Mapped[str] = mapped_column(String(120))
     template_version: Mapped[int | None] = mapped_column(Integer)
-    local_unit_id: Mapped[UUID | None] = mapped_column(ForeignKey("organization_units.id"))
+    local_unit_id: Mapped[UUID | None] = mapped_column(ForeignKey("organization_units.id"), index=True)
     setup_status: Mapped[str] = mapped_column(String(30), default="draft")
     configured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     configured_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))

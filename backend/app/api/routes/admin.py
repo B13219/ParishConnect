@@ -22,6 +22,7 @@ from app.models import (
     Message,
     MessageRecipient,
     OrganizationOfficeAssignment,
+    OrganizationUnit,
     PrayerRequest,
     Role,
     SermonLesson,
@@ -373,6 +374,9 @@ def list_users(
             .order_by(OrganizationOfficeAssignment.created_at)
         )
     )
+    office_units = {u.id: u.level_key for u in db.scalars(select(OrganizationUnit).where(
+        OrganizationUnit.id.in_({o.organization_unit_id for o in offices})
+    ))}
     result = []
     for user in users:
         row = serialize_user(user, db)
@@ -380,6 +384,7 @@ def list_users(
         row["display_position_title"] = resolver.position(
             office.position_key if office else None,
             locale,
+            level_key=office_units.get(office.organization_unit_id) if office else None,
             position_title=user.position_title,
             role=row["primary_role"],
         )

@@ -388,3 +388,7 @@ Phase 3.5 staging operations: see [staging initialization and privilege separati
 
 
 Phase 4 presentation: [runtime denomination terminology](runtime-terminology.md) documents the snapshot-first resolver, shared native/web payload, locale policy, scoped staff context and public search. No schema, authorization, membership or bootstrap changes.
+
+## Phase 5 template governance
+
+See [denomination template governance](denomination-template-governance.md) for immutable releases, explicit approval, local overrides, shared-unit publication boundaries and migration 20260930_0021.

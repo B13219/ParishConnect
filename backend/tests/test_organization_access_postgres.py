@@ -35,7 +35,7 @@ def test_hierarchy_nonowner_postgres(postgres_identity):
             text("SELECT relrowsecurity FROM pg_class WHERE relname='organization_access_grants'")
         )
         assert not any(c["default"] for c in columns)
-        assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "20260928_0020"
+        assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "20260930_0021"
     sessions = sessionmaker(bind=runtime, autoflush=False)
     app = create_app()
 

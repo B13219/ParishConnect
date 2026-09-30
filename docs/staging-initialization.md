@@ -2,6 +2,8 @@
 
 This runbook extends checkpoint `ce13b5002b785adf79df7a5570726ac57f33cdae`. It does not deploy production. No schema migration is added: one head, `20260928_0020`, following `20260927_0019` and `20260927_0018`. Existing identities, memberships, offices, tree structure and contained delegation rules remain intact.
 
+Phase 5 update: follow [template governance migration notes](denomination-template-governance.md) for head `20260930_0021` and reapply runtime privilege provisioning before starting that release. The Phase 3.5 checkpoint description above is historical.
+
 ## Credentials and UTC
 
 All commands run from `backend/`. Inject real credentials through the deployment secret store; examples are placeholders. Never put operational credentials or bootstrap flags in a mobile/web client.

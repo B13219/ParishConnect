@@ -8,7 +8,10 @@ from sqlalchemy.orm import Session
 from app.core.security import current_user, role_slug
 from app.db.session import get_db
 from app.models import Branch, OrganizationOfficeAssignment, Role, User
+from app.services import template_governance as governance
+from app.services import template_registry
 from app.services.global_identity import require_church_admin
+from app.services.organization_access import local_roles
 from app.services.organizations import (
     AssignmentInput,
     ConfirmInput,
@@ -30,6 +33,54 @@ def admin(user=Depends(current_user), db: Session = Depends(get_db)):
         )
     require_church_admin(db, user, user.branch_id)
     return user
+
+
+def governance_admin(user=Depends(admin), db: Session = Depends(get_db)):
+    if "administrator" not in local_roles(db, user):
+        raise HTTPException(
+            403, "Verified local church administrator required for configuration approval."
+        )
+    return user
+
+
+@router.get("/governance")
+def governance_status(user=Depends(governance_admin), db: Session = Depends(get_db)):
+    return {
+        **governance.status(db, user.branch_id),
+        "locale": user_locale(db, user, db.get(Branch, user.branch_id)),
+    }
+
+
+@router.get("/governance/versions/{version}")
+def governance_version(version: int, user=Depends(governance_admin), db: Session = Depends(get_db)):
+    config = governance.installed(db, user.branch_id)
+    return template_registry.template(config.denomination, version)
+
+
+@router.post("/governance/preview")
+@router.post("/governance/overrides/validate")
+def governance_preview(
+    payload: governance.ReviewInput, user=Depends(governance_admin), db: Session = Depends(get_db)
+):
+    return governance.preview(db, governance.installed(db, user.branch_id), payload)
+
+
+@router.post("/governance/approve")
+def governance_approve(
+    payload: governance.ApprovalInput, user=Depends(governance_admin), db: Session = Depends(get_db)
+):
+    try:
+        result = governance.approve(db, user, payload)
+        db.commit()
+        return result
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Concurrent governance conflict. Review again.") from exc
+
+
+@router.get("/governance/history")
+def governance_history(user=Depends(governance_admin), db: Session = Depends(get_db)):
+    return {"items": governance.history(db, user.branch_id)}
 
 
 @router.get("/setup")

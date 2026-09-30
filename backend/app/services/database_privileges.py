@@ -11,7 +11,7 @@ LIMITED = {
     "user_roles": "SELECT, INSERT, DELETE",
     "audit_logs": "SELECT, INSERT",
     "branches": "SELECT, UPDATE",
-    "organization_units": "SELECT, INSERT",
+    "organization_units": "SELECT, INSERT, UPDATE",
     "organization_access_grants": "SELECT, INSERT, UPDATE",
     "church_organization_configurations": "SELECT, INSERT, UPDATE",
     "organization_office_assignments": "SELECT, INSERT, UPDATE",

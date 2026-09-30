@@ -82,6 +82,7 @@ class UserRole(Base):
 
 class AuditLog(IdMixin, TimestampMixin, Base):
     __tablename__ = "audit_logs"
+    __table_args__ = (Index("ix_audit_governance_history", "branch_id", "action", "created_at"),)
 
     branch_id: Mapped[UUID | None] = mapped_column(ForeignKey("branches.id"))
     actor_user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))

@@ -262,11 +262,23 @@ def confirm_setup(db, actor, payload):
                 )
                 .order_by(OrganizationUnit.created_at, OrganizationUnit.id)
             ).all()
+            expected_labels = next(
+                level["labels"] for level in levels if level["key"] == entry.level_key
+            )
+            if any(
+                candidate.is_published and candidate.labels_snapshot != expected_labels
+                for candidate in candidates
+            ):
+                raise HTTPException(
+                    409,
+                    "Matching published organization has different terminology; independent review required.",
+                )
             unit = next(
                 (
                     candidate
                     for candidate in candidates
                     if candidate.localized_names == entry.localized_names
+                    and candidate.labels_snapshot == expected_labels
                     and candidate.is_published == entry.is_published
                     and (entry.level_key != target or candidate.owner_branch_id == branch.id)
                 ),

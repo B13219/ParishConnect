@@ -90,7 +90,10 @@ class Terminology:
         resolved = installed or labels or entry.get("labels") or {}
         fallback = entry.get("label") or (key.replace("_", " ").title() if key else "Local Church")
         return presentation(
-            resolved, fallback, self.source if installed else "snapshot" if labels else self.source
+            resolved,
+            fallback,
+            entry.get("provenance")
+            or (self.source if installed else "snapshot" if labels else self.source),
         )
 
     def positions(self, level_key):
@@ -99,14 +102,18 @@ class Terminology:
             {
                 **p,
                 "presentation": presentation(
-                    p.get("labels"), p.get("title") or "Office", self.source
+                    p.get("labels"), p.get("title") or "Office", p.get("provenance") or self.source
                 ),
             }
             for p in level.get("positions", [])
         ]
 
-    def position(self, key, locale="en", official_title=None, position_title=None, role=None):
+    def position(
+        self, key, locale="en", official_title=None, position_title=None, role=None, level_key=None
+    ):
         for level in self.levels:
+            if level_key is not None and level["key"] != level_key:
+                continue
             for p in self.positions(level["key"]):
                 if p["key"] == key:
                     return p["presentation"][normalize_locale(locale)]["label"]
@@ -123,6 +130,10 @@ class Terminology:
                 p["key"]: p["presentation"]
                 for level in self.levels
                 for p in self.positions(level["key"])
+            },
+            "positions_by_level": {
+                level["key"]: {p["key"]: p["presentation"] for p in self.positions(level["key"])}
+                for level in self.levels
             },
         }
 
@@ -220,6 +231,7 @@ def staff_context(db, user, scope):
             "display_position_title": resolver.position(
                 office.position_key if office else None,
                 locale,
+                level_key=scope.units[office.organization_unit_id].level_key if office else None,
                 position_title=user.position_title if b.id == user.branch_id else None,
                 role=" / ".join(sorted(scope.roles_for_branch(b.id))).replace("_", " "),
             ),
