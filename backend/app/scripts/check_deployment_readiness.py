@@ -88,21 +88,23 @@ def readiness_issues(
                 message="Wildcard CORS is not appropriate for production.",
             )
         )
-    if environment == "production" and ("localhost" in cors_origins or "127.0.0.1" in cors_origins):
+    if environment in {"production", "staging"} and (
+        "localhost" in cors_origins or "127.0.0.1" in cors_origins
+    ):
         issues.append(
             DeploymentIssue(
                 code="cors-localhost-production",
                 severity="high",
-                message="Production CORS origins must not contain localhost.",
+                message="Production/staging CORS origins must not contain localhost.",
             )
         )
 
-    if environment == "production" and not public_base_url.startswith("https://"):
+    if environment in {"production", "staging"} and not public_base_url.startswith("https://"):
         issues.append(
             DeploymentIssue(
                 code="public-base-url-not-https",
                 severity="high",
-                message="Production PARISHCONNECT_PUBLIC_BASE_URL must use HTTPS.",
+                message="Production/staging PARISHCONNECT_PUBLIC_BASE_URL must use HTTPS.",
             )
         )
 

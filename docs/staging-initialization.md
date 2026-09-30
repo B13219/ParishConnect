@@ -1,8 +1,56 @@
-# Staging initialization and recovery (Phase 3.5)
+# Staging initialization and recovery
 
-This runbook extends checkpoint `ce13b5002b785adf79df7a5570726ac57f33cdae`. It does not deploy production. No schema migration is added: one head, `20260928_0020`, following `20260927_0019` and `20260927_0018`. Existing identities, memberships, offices, tree structure and contained delegation rules remain intact.
+Current single head: `20260930_0021`, following `20260928_0020`,
+`20260927_0019` and `20260927_0018`. Follow the
+[template governance migration notes](denomination-template-governance.md).
+Migration 0021 adds no tables: it adds the constrained unit-label update policy,
+helper/trigger and indexes. Reapply runtime privilege provisioning because the
+current matrix adds `UPDATE` on `organization_units`; RLS and the immutable-field
+trigger constrain that permission. Do not modify historical migrations.
 
-Phase 5 update: follow [template governance migration notes](denomination-template-governance.md) for head `20260930_0021` and reapply runtime privilege provisioning before starting that release. The Phase 3.5 checkpoint description above is historical.
+## Phase 6 release gate
+
+Before changes, record the exact staging project/environment/service IDs, current
+deployment SHA and schema head. Confirm owner/runtime/backup/restore access,
+independently verified administrator identity/Branch/scope/authority reference,
+HTTPS origin, strong existing authentication secrets, disabled demo credentials,
+temporary bootstrap controls, fake-data boundaries, PostgreSQL 16 utilities,
+backup storage and EAS preview access/API origin. Do not rotate identity secrets
+as a side effect of validation.
+
+Use one feature-branch SHA for Linux CI, staging acceptance and EAS preview. Keep
+the release candidate provisional until all three are verified. The Railway
+environment name alone does not identify staging: verify its project ID too.
+Do not point disposable fixture scripts at an existing deployment; their loopback
+guards are intentional. Create approved test organizations through authenticated
+setup APIs and preserve all pre-existing staging data.
+
+Capture before/after grants, configuration snapshots and governance history under
+operator access around the existing owner migration/provisioning procedure below.
+Run the complete backend/PostgreSQL/Chromium suite and native typecheck, lint and
+tests. Browser and JS checks now run on every backend validation workflow.
+
+For a configured acceptance account with governance history, run the full restore
+gate using separately injected operator credentials:
+
+```text
+python -m app.scripts.verify_backup_restore --acceptance-smoke --backup-path <protected-dump-path>
+```
+
+Supply that existing validation account through `PARISHCONNECT_BOOTSTRAP_ADMIN_EMAIL`
+and `PARISHCONNECT_BOOTSTRAP_ADMIN_PASSWORD` to this one-off verifier only. The
+verifier does not bootstrap an account or enable authority: it authenticates to
+the isolated restored runtime and performs read-only organization/governance API
+checks. The HTTP child never receives the password as bootstrap configuration.
+This mode requires nonempty restored grants and approval history, strict readiness,
+current migration head, health and authenticated API checks. Ordinary backup mode
+remains usable for unconfigured databases. Protect/delete retained dumps according
+to the approved backup retention policy; never commit them.
+
+Record actual EAS build ID, profile, version/code, artifact and matching commit;
+do not substitute an earlier preview. No store submission, release tag, main merge
+or production deployment is part of Phase 6. Rollback guidance below remains
+application rollback with preserved schema/history, not automatic database downgrade.
 
 ## Credentials and UTC
 

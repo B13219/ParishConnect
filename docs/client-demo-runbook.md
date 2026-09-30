@@ -1,6 +1,9 @@
-# Client Demo Runbook
+# Client Demo Runbook — Phase 6 acceptance
 
-Use this runbook before showing Vinyrd to a church client or stakeholder group.
+Use this runbook on the isolated staging deployment before showing VINYRD to a
+church client. A successful local demo is not evidence of staging readiness.
+Follow [staging initialization](staging-initialization.md) for migration, credentials
+and authority; [template governance](denomination-template-governance.md) for upgrades.
 
 ## Demo Objective
 
@@ -19,24 +22,43 @@ Show that Vinyrd can replace paper registers and scattered spreadsheets with one
 9. Switch roles to show that ushers, accountants, pastors, and administrators see different workspaces.
 10. Open member portal to show the lower-permission member view.
 11. Show branch settings, audit logs, and backup manifest export as administrative controls.
+12. Preview/confirm denomination setup using clearly fictional organization names.
+    Show TAG and one non-TAG tree in English, Kiswahili and bilingual mode. Proper
+    names and OrganizationUnit IDs must stay unchanged when language changes.
+13. Assign an office, then demonstrate that it grants no VINYRD permission. Use an
+    independently approved organization grant to demonstrate contained access,
+    context switching and revocation. Never infer authority from a title.
+14. In the member app, discover and follow another church, request membership and
+    switch Home Church. Demonstrate that following and Home Church do not create
+    ancestor memberships or remove existing memberships.
+15. Preview a terminology override, approve as the local administrator and inspect
+    history. Shared-ancestor changes require review. Use hypothetical upgrade
+    versions only in isolated acceptance fixtures, never as official releases.
 
 ## Talking Points
 
-- The system supports gradual transition: QR, manual entry, household-assisted attendance, SMS/USSD later, and member self-service after that.
+- The system supports QR/manual attendance, household-assisted attendance and
+  member self-service. SMS delivery requires separately verified provider configuration.
 - Financial data is separated by role; accountants can focus on stewardship and reports without becoming full administrators.
 - Demo data is fake. Real church data should only be imported after permissions, backups, and data handling are approved.
 - Payment providers such as Selcom are planned after the core stewardship flow is stable.
 - The member webapp is live in the pilot build with profile, giving, events, groups, messages, prayers, Bible content, and sermon lessons.
-- The long-term member app can become a verified church network for national church news, followed-church feeds, YouTube/Zoom service attendance, road seminars, and event discovery.
+- Discovery, following and membership requests are implemented separately. Native
+  Android/iOS code and EAS internal profiles exist; record the actual validated
+  preview artifact before offering installation. Store distribution is not approved.
 
 ## Pre-Demo Checklist
 
-- Backend is running on `http://127.0.0.1:8003`.
-- Frontend is running on `http://127.0.0.1:5173`.
-- PostgreSQL has migrations applied and demo seed data loaded.
-- `python -m app.scripts.check_deployment_readiness` has been run so demo-only settings are understood.
-- `powershell -ExecutionPolicy Bypass -File .\scripts\pre-demo-check.ps1` has been run from the project root.
-- Backend tests and lint are passing.
+- Use the confirmed staging HTTPS origin, with `/staff/`, `/member/` and `/api/v1`.
+  Local development ports are not staging deployment instructions.
+- PostgreSQL is at `20260930_0021`; runtime privileges are reprovisioned, operator
+  secrets/flags removed, and initial authority independently verified.
+- `python -m app.scripts.check_deployment_readiness --strict --check-database` passes.
+- Use only approved fake staging fixtures, including legacy and custom-required churches.
+- Record the exact CI/staging/mobile SHA, full test results and skips. Report the
+  two existing SMS Ruff findings separately; do not claim a clean full lint run.
+- Full PostgreSQL backup/restore, restored organization/governance checks and
+  restored grant/history evidence pass. The admin manifest is not a recovery archive.
 - Browser cache is refreshed so the latest `app.js` is loaded.
 - No real church records are used unless the client has approved data handling.
 
@@ -44,13 +66,16 @@ Show that Vinyrd can replace paper registers and scattered spreadsheets with one
 
 Be clear that these items are planned but not yet production-live:
 
-- SMS and USSD provider integration.
+- Real SMS provider delivery and USSD acceptance are not proven by simulated messages.
 - Payment gateway integration.
 - Email delivery for password reset.
-- Production hosting, HTTPS, and domain configuration.
+- Production deployment, domain configuration and operational approval remain separate gates.
 - Real data migration from a church's existing spreadsheets.
-- Native mobile packaging remains future work; the responsive member webapp is the current pilot client.
-- National church news feeds, YouTube/Zoom attendance streams, road seminar pages, and cross-church network features.
+- Native store publication and physical-device acceptance remain separate from
+  automated native tests and an internal preview build.
+- Verified national news feeds, YouTube/Zoom attendance streams and road seminar pages.
+- Custom denomination hierarchy authoring and institution-approved future template
+  versions are not supplied by the built-in `custom_required` fallback.
 
 ## Follow-Up Questions For Client
 

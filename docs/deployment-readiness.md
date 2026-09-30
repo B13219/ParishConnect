@@ -64,18 +64,21 @@ bootstrap password from the hosting environment.
 
 ## Release commands
 
-The production container runs:
+The production container runs the privilege-separated entrypoint:
 
 ```text
-alembic upgrade head
-python -m app.scripts.bootstrap_admin
-uvicorn app.main:app --host 0.0.0.0 --port $PORT
+python -m app.scripts.start_backend
 ```
 
-Run the strict gate:
+Follow [staging initialization](staging-initialization.md) for owner-only migration,
+runtime reprovisioning and independently verified initial authority. Normal starts
+use only runtime credentials; migration is not performed by the runtime role.
+The current single migration head is `20260930_0021`.
+
+Run the strict gate (including staging):
 
 ```text
-python -m app.scripts.check_deployment_readiness --strict
+python -m app.scripts.check_deployment_readiness --strict --check-database
 ```
 
 ## Pilot journey

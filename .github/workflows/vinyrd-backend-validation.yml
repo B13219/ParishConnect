@@ -71,31 +71,17 @@ jobs:
       - name: Run Alembic migrations
         run: alembic upgrade head
 
-      - name: Detect frontend changes
-        id: frontend
-        env:
-          BASE_SHA: ${{ github.event.before || github.event.pull_request.base.sha }}
-        run: |
-          base="${BASE_SHA:-HEAD^}"
-          if [[ "$base" =~ ^0+$ ]]; then base=HEAD^; fi
-          if git diff --quiet "$base" HEAD -- ../frontend; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Install PostgreSQL client tools
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client-16
           echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
 
       - name: Install browser journey dependencies
-        if: steps.frontend.outputs.changed == 'true'
         run: python -m pip install -e ".[browser]" && python -m playwright install --with-deps chromium
 
       - name: Run Pytest
         env:
-          VINYRD_TEST_BROWSER: ${{ steps.frontend.outputs.changed == 'true' && '1' || '0' }}
+          VINYRD_TEST_BROWSER: '1'
           VINYRD_TEST_POSTGRES_URL: ${{ env.PARISHCONNECT_DATABASE_URL }}
         run: pytest -q
 
@@ -127,7 +113,6 @@ jobs:
           PY
 
       - name: Check all frontend JavaScript syntax
-        if: steps.frontend.outputs.changed == 'true'
         run: find ../frontend -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Validate production Linux container at exact commit

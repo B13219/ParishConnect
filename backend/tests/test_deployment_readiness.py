@@ -1,6 +1,15 @@
 from app.scripts.check_deployment_readiness import readiness_issues
 
 
+def test_staging_requires_public_https_and_nonlocal_cors() -> None:
+    codes = issue_codes({
+        "environment": "staging", "public_base_url": "http://staging.example",
+        "cors_origins": "http://localhost:5173",
+    })
+    assert "public-base-url-not-https" in codes
+    assert "cors-localhost-production" in codes
+
+
 def issue_codes(config: dict[str, object]) -> set[str]:
     return {issue.code for issue in readiness_issues(config)}
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import socket
@@ -12,7 +13,7 @@ import tempfile
 import time
 from pathlib import Path
 from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from sqlalchemy import create_engine, inspect, text
@@ -80,7 +81,40 @@ def row_counts(database_url):
     return snapshot(database_url)[0]
 
 
-def restored_startup(runtime_url):
+def restored_acceptance(base):
+    """Read restored organization/governance through normal authenticated HTTP."""
+    if not settings.bootstrap_admin_email or not settings.bootstrap_admin_password:
+        raise RuntimeError("Restore acceptance requires an explicit validation administrator login.")
+    token = None
+
+    def request(path, payload=None):
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = "Bearer " + token
+        req = Request(
+            base + "/api/v1" + path, headers=headers,
+            data=json.dumps(payload).encode() if payload is not None else None,
+        )
+        with urlopen(req, timeout=20) as response:
+            return json.load(response)
+
+    token = request("/auth/login", {
+        "email": settings.bootstrap_admin_email, "password": settings.bootstrap_admin_password,
+    })["access_token"]
+    setup = request("/network/admin/organization/setup")
+    if not setup["organization_path"]:
+        raise RuntimeError("Restore acceptance administrator needs a configured test Branch.")
+    history = request("/network/admin/organization/governance/history")
+    if not history["items"]:
+        raise RuntimeError("Restore acceptance requires restored governance history.")
+    request("/network/admin/organization/governance")
+    request("/organization-access/tree")
+    church = request("/admin/branch")["branch"]["id"]
+    request("/network/churches/" + church)
+    print("Restored authenticated organization, governance history, scope tree and public API smoke passed.")
+
+
+def restored_startup(runtime_url, *, acceptance_smoke=False):
     # Only the newly created restore database is passed to the HTTP worker.
     env = runtime_environment(os.environ)
     env.update(
@@ -90,6 +124,12 @@ def restored_startup(runtime_url):
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
     env["PORT"] = str(port)
+    if acceptance_smoke:
+        subprocess.run(
+            [sys.executable, "-m", "app.scripts.check_deployment_readiness",
+             "--strict", "--allow-local-database", "--check-database"],
+            env=env, check=True,
+        )
     with tempfile.TemporaryFile(mode="w+b") as log:
         process = subprocess.Popen(
             [sys.executable, "-m", "app.scripts.start_backend"],
@@ -110,14 +150,17 @@ def restored_startup(runtime_url):
                 try:
                     with urlopen(f"http://127.0.0.1:{port}/health", timeout=1) as response:
                         if response.status == 200:
-                            print(
-                                "Restored application startup, runtime privileges, UTC, migration head and health verified."
-                            )
-                            return
+                            break
                 except (URLError, TimeoutError):
                     pass
                 time.sleep(0.1)
-            raise RuntimeError("Restored application health check timed out.")
+            else:
+                raise RuntimeError("Restored application health check timed out.")
+            if acceptance_smoke:
+                restored_acceptance(f"http://127.0.0.1:{port}")
+            print(
+                "Restored application startup, runtime privileges, UTC, migration head and health verified."
+            )
         finally:
             process.terminate()
             try:
@@ -130,6 +173,8 @@ def restored_startup(runtime_url):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backup-path", default="")
+    parser.add_argument("--acceptance-smoke", action="store_true",
+                        help="Require restored grants/history and authenticated read-only API checks.")
     args = parser.parse_args()
     for executable in ("pg_dump", "pg_restore", "createdb", "dropdb"):
         if shutil.which(executable) is None:
@@ -158,6 +203,8 @@ def main():
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     original = snapshot(settings.backup_database_url)
+    if args.acceptance_smoke and (not original[1] or not original[3]["approvals"]):
+        raise RuntimeError("Acceptance backup must contain access grants and governance approvals.")
     subprocess.run(
         ["pg_dump", *pg_args(backup), "-Fc", "-f", str(path), backup.database],
         env=command_env(backup),
@@ -205,7 +252,8 @@ def main():
         finally:
             engine.dispose()
         runtime_restored = runtime.set(host=restore.host, port=restore.port, database=name)
-        restored_startup(runtime_restored.render_as_string(hide_password=False))
+        restored_startup(runtime_restored.render_as_string(hide_password=False),
+                         acceptance_smoke=args.acceptance_smoke)
     finally:
         if created:
             subprocess.run(
