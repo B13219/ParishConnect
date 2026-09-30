@@ -173,7 +173,7 @@ def test_branch_default_locale_and_snapshot_staff_contract(identity):
     assert branch["runtime_template"]["levels"][2]["presentation"]["sw"]["label"] == "Jimbo"
 
 
-def test_office_display_changes_never_change_permissions(identity):
+def test_office_display_changes_never_change_permissions(identity, monkeypatch):
     c, sessions, ids = identity
     config = confirm(c, ids)
     actor = c.get("/api/v1/auth/me", headers=ids["admin_a"]).json()["user"]
@@ -208,6 +208,11 @@ def test_office_display_changes_never_change_permissions(identity):
         0
     ]
     assert context["display_position_title"] == "Approved Swahili Title"
+    monkeypatch.setattr("app.services.terminology.configurations", lambda db, ids: {})
+    hidden = c.get("/api/v1/organization-access/tree", headers=ids["admin_a"]).json()["branches"][0]
+    assert hidden["display_position_title"] == "administrator"
+    assert hidden["terminology"]["local_church"]["sw"]["label"] == "Kanisa la Mahali Pamoja"
+
     assert (
         c.get(
             "/api/v1/members/", headers={**ids["admin_a"], "X-Vinyrd-Branch-ID": ids["b"]}

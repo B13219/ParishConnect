@@ -191,8 +191,20 @@ def staff_context(db, user, scope):
     )
     result = {}
     for b in branches:
-        resolver = Terminology(configs.get(b.id), b.denomination)
         unit = scope.units.get(b.organization_unit_id)
+        config = configs.get(b.id)
+        if config is None and unit is not None:
+            # RLS may hide the private configuration from non-admin staff. Never
+            # substitute a newer catalogue office for that installed snapshot.
+            # Retain visible unit labels and legacy/role title fallback instead.
+            config = {
+                "denomination": unit.denomination,
+                "setup_status": "configured",
+                "hierarchy_snapshot": {
+                    "levels": [{"key": unit.level_key, "labels": unit.labels_snapshot}]
+                },
+            }
+        resolver = Terminology(config, b.denomination)
         locale = effective_locale(profile.ui_language if profile else None, b.default_language)
         visible_path = scope.visible_path(b.organization_unit_id) if unit else []
         office = next(

@@ -31,6 +31,8 @@ Staff setup also returns `runtime_levels`, and authorized branch settings return
 
 Staff: Profile.ui_language if available, then the selected Branch.default_language, then `en`. The effective value is returned with each authorized branch context and setup/settings response. Global member UI: Profile.ui_language, then `en`; Member.preferred_language remains exclusively a church communication preference. Native profile save updates session presentation immediately. Both locale variants travel with church data, so switching language requires no separate catalogue fetch and existing/offline data has an English/legacy fallback.
 
+If existing RLS hides a private configuration from non-admin staff, the header uses visible unit snapshot labels and legacy/technical-role title fallback, rather than reading private configuration or substituting a newer catalogue office title.
+
 No cross-branch terminology cache is added. Staff branch switching retains the existing full page reset, while generation guards prevent slower organization-detail responses from replacing current content. The header is built only from OrganizationScope-visible paths, not from all configured ancestors. Catalogue filtering is a preview; installed church presentation is independent of that catalogue.
 
 ## Positions, reports and security
