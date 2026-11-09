@@ -48,7 +48,7 @@ def pg_args(url):
 def postgres_client_major(executable):
     """Read the installed PostgreSQL client major without assuming an OS packaging suffix."""
     output = subprocess.check_output([executable, "--version"], text=True).strip()
-    match = re.search(r"\\(PostgreSQL\\)\\s+(\\d+)", output)
+    match = re.search(r"\(PostgreSQL\)\s+(\d+)", output)
     if not match:
         raise RuntimeError(f"Cannot determine {executable} PostgreSQL version: {output}")
     return int(match.group(1))
