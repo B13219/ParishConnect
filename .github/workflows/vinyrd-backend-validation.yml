@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/vinyrd-member-mobile
+      - release/vinyrd-management-pilot-2026-11-13
   pull_request:
     branches:
       - ci/vinyrd-validation-base
@@ -19,7 +20,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_USER: parishconnect
           POSTGRES_PASSWORD: parishconnect
@@ -73,7 +74,7 @@ jobs:
 
       - name: Install PostgreSQL client tools
         run: |
-          sudo apt-get update && sudo apt-get install -y postgresql-client-16
+          sudo apt-get update && sudo apt-get install -y postgresql-client-18
           echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
 
       - name: Install browser journey dependencies
