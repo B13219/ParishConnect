@@ -31,6 +31,17 @@ def validate_target(env: dict[str, str]) -> None:
         raise RuntimeError("Synthetic-only pilot guard must be explicitly enabled.")
     if env.get("PARISHCONNECT_ENVIRONMENT") != TARGET_ENVIRONMENT:
         raise RuntimeError("Synthetic pilot requires staging, never production.")
+    needed = (
+        "PARISHCONNECT_DATABASE_URL",
+        "PARISHCONNECT_MIGRATION_DATABASE_URL",
+        "PARISHCONNECT_BACKUP_DATABASE_URL",
+        "PARISHCONNECT_RESTORE_DATABASE_URL",
+    )
+    missing = [name for name in needed if not env.get(name)]
+    if missing:
+        raise RuntimeError(
+            "Staging database configuration is incomplete; missing: " + ", ".join(missing)
+        )
     runtime = make_url(env["PARISHCONNECT_DATABASE_URL"])
     owner = make_url(env["PARISHCONNECT_MIGRATION_DATABASE_URL"])
     backup = make_url(env["PARISHCONNECT_BACKUP_DATABASE_URL"])
@@ -128,8 +139,13 @@ def main() -> None:
             process.wait(timeout=5)
 
     # Validate *after* synthetic journeys so restored row counts are nonzero.
-    run_module("app.scripts.verify_backup_restore", source,
-               "--backup-path", "/tmp/vinyrd-synthetic-pilot-verified.dump")
+    archive = "/tmp/vinyrd-synthetic-pilot-verified.dump"
+    try:
+        run_module("app.scripts.verify_backup_restore", source,
+                   "--backup-path", archive)
+    finally:
+        from pathlib import Path
+        Path(archive).unlink(missing_ok=True)
     print("VINYRD_SYNTHETIC_PILOT_ACCEPTANCE_PASS: migrations, RLS runtime, synthetic HTTP flows, and restored startup.", flush=True)
     # Clear all owner, backup, restore and test credentials from the worker process.
     os.execve(sys.executable, [sys.executable, "-m", "app.scripts.start_backend"], clean)
