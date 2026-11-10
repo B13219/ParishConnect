@@ -63,3 +63,11 @@ def test_synthetic_worker_drops_operator_and_acceptance_secrets():
         assert key not in clean
     assert clean["PARISHCONNECT_DATABASE_URL"] == env["PARISHCONNECT_DATABASE_URL"]
     assert clean["PGTZ"] == "UTC"
+
+
+
+def test_synthetic_guard_reports_missing_credentials_without_values():
+    env = environment()
+    del env["PARISHCONNECT_DATABASE_URL"]
+    with pytest.raises(RuntimeError, match="PARISHCONNECT_DATABASE_URL"):
+        validate_target(env)
