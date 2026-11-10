@@ -1,0 +1,40 @@
+name: Vinyrd offline Alembic SQL export (migration rehearsal)
+
+on:
+  push:
+    branches:
+      - ops/vinyrd-neon-sql-export-20261110
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Alembic and app
+        run: python -m pip install -e ./backend
+      - name: Compile all migrations offline (NO DATABASE CONNECTION)
+        env:
+          PARISHCONNECT_DATABASE_URL: postgresql+psycopg://offline:offline@127.0.0.1:5432/offline
+        working-directory: backend
+        run: |
+          python -m alembic upgrade head --sql > "$RUNNER_TEMP/vinyrd-schema.sql"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import hashlib
+          sql = (Path(os.environ["RUNNER_TEMP"]) / "vinyrd-schema.sql").read_bytes()
+          print("VINYRD_SQL_SIZE=" + str(len(sql)))
+          print("VINYRD_SQL_SHA256=" + hashlib.sha256(sql).hexdigest())
+          hex_str = sql.hex()
+          print("VINYRD_SQL_HEX_BEGIN")
+          for start in range(0, len(hex_str), 3200):
+              print("VINYRD_SQL_HEX_CHUNK=" + hex_str[start:start+3200])
+          print("VINYRD_SQL_HEX_END")
+          PY
