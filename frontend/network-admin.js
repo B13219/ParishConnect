@@ -22,6 +22,91 @@
     return b;
   };
   let offset = 0;
+  let profilePublished = null;
+
+  // Membership requests are initiated by members in the public church directory,
+  // not by the administrator's local People form.
+  const guide = node("aside");
+  guide.id = "membershipOnboardingGuide";
+  guide.className = "membership-onboarding";
+  guide.setAttribute("aria-label", "How church membership requests work");
+  $("networkRequestStatus").closest("label").before(guide);
+
+  const memberLink = (label, path) => {
+    const link = node("a", label);
+    link.href = path;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    return link;
+  };
+  const renderGuide = () => {
+    guide.replaceChildren();
+    guide.append(node("h3", "How membership requests work"));
+    const published = node(
+      "p",
+      profilePublished === null
+        ? "Checking public church profile status…"
+        : profilePublished
+          ? "Church profile published — people can discover this church."
+          : "Church profile not published — it will not appear in member discovery yet.",
+    );
+    published.className = profilePublished
+      ? "membership-published"
+      : "membership-unpublished";
+    guide.append(published);
+
+    const steps = node("ol");
+    for (const step of [
+      "Publish the public church profile with the correct country and denomination.",
+      "The person creates their own member account and discovers this church.",
+      "They select Request to join; the request appears in this administrator inbox.",
+      "Verify their identity before approving or linking an existing member.",
+    ]) steps.append(node("li", step));
+    guide.append(steps);
+
+    const links = node("div");
+    links.className = "membership-onboarding-actions";
+    if (!profilePublished) {
+      const jump = node("button", "Set up public profile");
+      jump.type = "button";
+      jump.className = "membership-guide-button";
+      jump.addEventListener("click", () => {
+        $("publicChurchForm").scrollIntoView({ behavior: "smooth", block: "start" });
+        $("publicChurchForm").querySelector('[name="country"]')?.focus({ preventScroll: true });
+      });
+      links.append(jump);
+    }
+    links.append(
+      memberLink("Open member registration", "/member/account.html"),
+      memberLink("Open church discovery", "/member/discover.html"),
+    );
+    guide.append(links);
+  };
+
+  const updateEmptyState = () => {
+    const empty = $("networkRequests").querySelector(".membership-empty-state");
+    if (!empty) return;
+    const current = $("networkRequestStatus").value;
+    empty.replaceChildren();
+    empty.append(
+      node(
+        "strong",
+        current === "pending" ? "No pending membership requests yet." : "No requests with this status.",
+      ),
+    );
+    if (current === "pending") {
+      empty.append(
+        node(
+          "p",
+          profilePublished === false
+            ? "Publish the church profile below before asking a member to find this church and request to join."
+            : "A member must create an account and select Request to join from the church directory. This inbox will then show their request.",
+        ),
+      );
+    }
+  };
+  renderGuide();
+
   const requests = async (append = false) => {
     const data = await fetchJson(
       "/network/admin/requests?status=" +
@@ -31,8 +116,12 @@
     );
     const list = $("networkRequests");
     if (!append) list.replaceChildren();
-    if (!data.items.length && !offset)
-      list.append(node("p", "No requests with this status."));
+    if (!data.items.length && !offset) {
+      const empty = node("div");
+      empty.className = "membership-empty-state";
+      list.append(empty);
+      updateEmptyState();
+    }
     for (const r of data.items) {
       const card = node("article");
       card.className = "request-card";
@@ -122,6 +211,9 @@
       fetchJson("/network/admin/profile"),
       fetchJson("/network/denominations"),
     ]);
+    profilePublished = Boolean(data.is_published);
+    renderGuide();
+    updateEmptyState();
     const form = $("publicChurchForm");
     form.replaceChildren();
     const fields = [
@@ -332,6 +424,9 @@
             return item;
           });
         await sendJson("/network/admin/profile", "PUT", payload);
+        profilePublished = published.checked;
+        renderGuide();
+        updateEmptyState();
         status(
           published.checked
             ? "Public church profile published."
