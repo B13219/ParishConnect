@@ -1,0 +1,35 @@
+name: Vinyrd Membership Toast Validation
+
+on:
+  push:
+    branches:
+      - ux/vinyrd-membership-toasts-20261113
+  pull_request:
+    branches:
+      - release/vinyrd-management-pilot-2026-11-13
+
+permissions:
+  contents: read
+
+jobs:
+  membership-notifications:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate frontend JavaScript
+        run: node --check frontend/network-admin.js
+      - name: Install test and browser dependencies
+        working-directory: backend
+        run: python -m pip install -e ".[dev,browser]"
+      - name: Install Chromium
+        working-directory: backend
+        run: python -m playwright install --with-deps chromium
+      - name: Run membership request notification browser journey
+        working-directory: backend
+        env:
+          VINYRD_TEST_BROWSER: "1"
+        run: python -m pytest tests/test_church_network_browser.py -q
