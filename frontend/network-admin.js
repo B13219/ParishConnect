@@ -6,29 +6,68 @@
     return n;
   };
   const status = (text) => ($("networkAdminStatus").textContent = text);
-  // In-app notifications only: never show applicant contact details or tokens.
+  // Browser-only membership bubbles: no system permission, PII, or external provider.
   const toast = node("div");
   toast.id = "membershipToast";
   toast.className = "membership-toast";
   toast.hidden = true;
   document.body.append(toast);
   let toastTimeout = null;
+  let countdownInterval = null;
   const dismissToast = () => {
     if (toastTimeout !== null) window.clearTimeout(toastTimeout);
+    if (countdownInterval !== null) window.clearInterval(countdownInterval);
     toastTimeout = null;
+    countdownInterval = null;
     toast.hidden = true;
   };
   const notify = (message, kind = "success") => {
     dismissToast();
+    const duration = kind === "error" ? 12000 : 9000;
+    const title = kind === "error" ? "Action needs attention"
+      : kind === "info" ? "Membership requests" : "Vinyrd";
     toast.className = "membership-toast membership-toast--" + kind;
     toast.setAttribute("role", kind === "error" ? "alert" : "status");
-    const dismiss = node("button", "Dismiss");
+    toast.setAttribute("aria-label", "Vinyrd membership notification");
+
+    const icon = node("span", kind === "error" ? "!" : kind === "info" ? "✉" : "✓");
+    icon.className = "membership-toast__icon";
+    icon.setAttribute("aria-hidden", "true");
+    const copy = node("div");
+    copy.className = "membership-toast__copy";
+    copy.append(node("strong", title), node("span", message));
+
+    const timer = node("span");
+    timer.className = "membership-toast__timer";
+    timer.setAttribute("aria-hidden", "true");
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 44 44");
+    svg.setAttribute("aria-hidden", "true");
+    for (const cls of ["membership-toast__ring-track", "membership-toast__ring-progress"]) {
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("cx", "22");
+      circle.setAttribute("cy", "22");
+      circle.setAttribute("r", "16");
+      circle.setAttribute("class", cls);
+      svg.append(circle);
+    }
+    svg.querySelector(".membership-toast__ring-progress").style.animationDuration = duration + "ms";
+    const seconds = node("span", Math.ceil(duration / 1000) + "s");
+    seconds.className = "membership-toast__seconds";
+    timer.append(svg, seconds);
+
+    const dismiss = node("button", "×");
     dismiss.type = "button";
+    dismiss.className = "membership-toast__dismiss";
     dismiss.setAttribute("aria-label", "Dismiss notification");
     dismiss.addEventListener("click", dismissToast);
-    toast.replaceChildren(node("span", message), dismiss);
+    toast.replaceChildren(icon, copy, timer, dismiss);
     toast.hidden = false;
-    toastTimeout = window.setTimeout(dismissToast, kind === "error" ? 10000 : 6500);
+    const deadline = Date.now() + duration;
+    countdownInterval = window.setInterval(() => {
+      seconds.textContent = Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) + "s";
+    }, 500);
+    toastTimeout = window.setTimeout(dismissToast, duration);
   };
   const action = (label, callback) => {
     const b = node("button", label);
@@ -49,6 +88,8 @@
   let offset = 0;
   let profilePublished = null;
   let knownPendingIds = null;
+  let pollingStarted = false;
+  let pollInFlight = false;
 
   // Membership requests are initiated by members in the public church directory,
   // not by the administrator's local People form.
@@ -133,6 +174,47 @@
   };
   renderGuide();
 
+  const updatePending = (items) => {
+    const currentIds = new Set(items.map((item) => item.id));
+    if (knownPendingIds === null) {
+      // Show requests that already exist on the first administrator login.
+      if (currentIds.size) {
+        notify(currentIds.size === 1
+          ? "1 membership request is waiting for review."
+          : currentIds.size + "+ membership requests are waiting for review.", "info");
+      }
+    } else {
+      const newCount = items.filter((item) => !knownPendingIds.has(item.id)).length;
+      if (newCount) {
+        notify(newCount === 1
+          ? "New membership request received."
+          : newCount + " new membership requests received.", "info");
+      }
+    }
+    knownPendingIds = currentIds;
+  };
+  const pollPending = async () => {
+    // Bounded polling works only for a visible, signed-in staff browser tab.
+    if (pollInFlight || document.hidden || !state.auth?.access_token || $("appShell").hidden) return;
+    pollInFlight = true;
+    try {
+      const data = await fetchJson("/network/admin/requests?status=pending&offset=0");
+      if (!document.hidden && Array.isArray(data.items)) updatePending(data.items);
+    } catch (_) {
+      // A transient polling failure must not interrupt other staff work.
+    } finally {
+      pollInFlight = false;
+    }
+  };
+  const startPolling = () => {
+    if (pollingStarted) return;
+    pollingStarted = true;
+    window.setInterval(pollPending, 30000);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) pollPending();
+    });
+  };
+
   const requests = async (append = false) => {
     const data = await fetchJson(
       "/network/admin/requests?status=" +
@@ -141,19 +223,7 @@
         offset,
     );
     if (!append && offset === 0 && $("networkRequestStatus").value === "pending") {
-      const currentIds = new Set(data.items.map((item) => item.id));
-      if (knownPendingIds !== null) {
-        const newlySeen = data.items.filter((item) => !knownPendingIds.has(item.id));
-        if (newlySeen.length) {
-          notify(
-            newlySeen.length === 1
-              ? "New membership request received."
-              : newlySeen.length + " new membership requests received.",
-            "info",
-          );
-        }
-      }
-      knownPendingIds = currentIds;
+      updatePending(data.items);
     }
     const list = $("networkRequests");
     if (!append) list.replaceChildren();
@@ -236,8 +306,6 @@
                   result === "approved" ? select.value || null : null,
                 reason: note.value || null,
               });
-              offset = 0;
-              await requests();
               const confirmations = {
                 approved: "Membership approved.",
                 rejected: "Membership request rejected.",
@@ -246,6 +314,14 @@
               const confirmation = confirmations[result] || "Request updated.";
               status(confirmation);
               notify(confirmation);
+              // Confirm immediately after the server accepts the review; refreshing
+              // the inbox is a separate read and must not swallow the success bubble.
+              offset = 0;
+              try {
+                await requests();
+              } catch (error) {
+                status(confirmation + " Refresh failed: " + error.message);
+              }
             }),
           );
         }
@@ -511,6 +587,7 @@
     load: async () => {
       offset = 0;
       await Promise.all([requests(), profile(), state.staffContext?.local_access ? window.VinyrdOrganizationAdmin.load() : Promise.resolve()]);
+      startPolling();
       if (state.staffContext && !state.staffContext.local_access) document.getElementById("organizationSetup").textContent = "Use Organization Administration for scoped offices and access. Initial church setup remains local.";
     },
   };

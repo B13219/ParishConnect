@@ -208,6 +208,18 @@ def test_member_and_admin_network_journey(identity, tmp_path):
             toast = staff.locator("#membershipToast")
             playwright.expect(toast).to_contain_text("New membership request received.")
             playwright.expect(toast).to_have_attribute("role", "status")
+            playwright.expect(toast).to_be_visible()
+            playwright.expect(toast.locator(".membership-toast__timer")).to_be_visible()
+            playwright.expect(toast.locator(".membership-toast__ring-progress")).to_have_count(1)
+            first_second = int(toast.locator(".membership-toast__seconds").inner_text()[:-1])
+            staff.wait_for_timeout(1200)
+            remaining_second = int(toast.locator(".membership-toast__seconds").inner_text()[:-1])
+            assert remaining_second < first_second, "Notification timer must visibly count down"
+            # A new browser page used to miss pending requests on first load.
+            staff.reload()
+            toast = staff.locator("#membershipToast")
+            playwright.expect(toast).to_contain_text("1 membership request is waiting for review.")
+            playwright.expect(toast).to_be_visible()
             card = staff.locator(".request-card").filter(has_text="Ada Person")
             playwright.expect(card).to_be_visible()
             card.get_by_label("Reviewer note or rejection reason").fill(
@@ -235,6 +247,8 @@ def test_member_and_admin_network_journey(identity, tmp_path):
             card.get_by_role("button", name="Approve / link selected member").click()
             playwright.expect(toast).to_contain_text("Membership approved.")
             playwright.expect(toast).to_have_attribute("role", "status")
+            playwright.expect(toast).to_be_visible()
+            playwright.expect(toast).to_be_hidden(timeout=11500)
             playwright.expect(staff.locator("#networkRequests")).to_contain_text("No requests")
             member.goto(base + "/member/my-church.html")
             playwright.expect(member.locator("#networkContent")).to_contain_text("Home Church")
