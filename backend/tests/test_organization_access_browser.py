@@ -91,9 +91,9 @@ def test_scope_console_browser(hierarchy, tmp_path):
             assert len(c.get(API + "/tree", headers=target_headers).json()["branches"]) == 3
             target_row.get_by_label("Grant status", exact=True).select_option("revoked")
             target_row.get_by_role("button", name="Save access grant", exact=True).click()
-            playwright.expect(target_row.get_by_label("Grant status", exact=True)).to_have_value(
-                "revoked"
-            )
+            # Selecting a value is instantaneous; wait for the saved grant to be
+            # reloaded from the server before asserting the authorization change.
+            playwright.expect(target_row.locator("p").first).to_contain_text("revoked")
             assert c.get(API + "/tree", headers=target_headers).json()["branches"] == []
             # Existing token after revocation gets an empty selector on a fresh console load.
             target = browser.new_page()

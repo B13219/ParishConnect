@@ -38,3 +38,209 @@
 #registration-requests [hidden] {
   display: none !important;
 }
+
+/* Keep member requests distinct from public profile / organization configuration. */
+#registration-requests .membership-onboarding {
+  max-width: 1000px;
+  margin: 20px 0 24px;
+  padding: 18px 22px;
+  border: 1px solid #d7dacb;
+  border-left: 4px solid #5b6f46;
+  border-radius: 12px;
+  background: #f8f8f3;
+}
+#registration-requests .membership-onboarding h3 {
+  margin: 0 0 10px;
+  font-size: 1.08rem;
+}
+#registration-requests .membership-onboarding ol {
+  margin: 12px 0;
+  padding-left: 23px;
+}
+#registration-requests .membership-onboarding li {
+  margin: 5px 0;
+}
+#registration-requests .membership-unpublished,
+#registration-requests .membership-published {
+  margin: 8px 0;
+  font-weight: 650;
+}
+#registration-requests .membership-unpublished { color: #8c5d23; }
+#registration-requests .membership-published { color: #405d36; }
+#registration-requests .membership-onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+#registration-requests .membership-onboarding-actions a {
+  color: #365c49;
+  font-weight: 650;
+  text-underline-offset: 3px;
+}
+#registration-requests .membership-onboarding-actions .membership-guide-button {
+  margin: 0;
+  border: 1px solid #526b48;
+  border-radius: 8px;
+  padding: 9px 14px;
+  background: #e7ebdc;
+  color: #2c4429;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+#registration-requests .membership-empty-state {
+  margin: 12px 0 20px;
+  max-width: 900px;
+  border: 1px dashed #bcc5b7;
+  border-radius: 10px;
+  padding: 18px 20px;
+  background: #fbfbf8;
+}
+#registration-requests .membership-empty-state p { margin-bottom: 0; }
+#registration-requests input[type="checkbox"] {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 2px 0 0;
+  accent-color: #527248;
+}
+#registration-requests label:has(> input[type="checkbox"]) {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+@media (min-width: 900px) {
+  #registration-requests #publicChurchForm {
+    max-width: 1000px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 20px;
+  }
+  #registration-requests #publicChurchForm > fieldset,
+  #registration-requests #publicChurchForm > label:has(textarea),
+  #registration-requests #publicChurchForm > label:has(> input[type="checkbox"]) {
+    grid-column: 1 / -1;
+  }
+  #registration-requests #publicChurchForm > button[type="submit"] {
+    justify-self: start;
+    grid-column: 1 / -1;
+    min-width: 180px;
+  }
+}
+
+/* Compact WhatsApp-like floating bubble, with a visible countdown ring. */
+.membership-toast {
+  --bubble-bg: #246a45;
+  --bubble-edge: #b5e4c1;
+  --bubble-ink: #ffffff;
+  position: fixed;
+  right: 16px;
+  bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  width: min(400px, calc(100vw - 32px));
+  padding: 14px 12px;
+  border: 1px solid var(--bubble-edge);
+  border-radius: 21px 21px 7px 21px;
+  background: var(--bubble-bg);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 25%);
+  color: var(--bubble-ink);
+  font: inherit;
+  animation: vinyrd-bubble-appear 160ms ease-out both;
+}
+.membership-toast[hidden] { display: none !important; }
+.membership-toast--info { --bubble-bg: #17665a; --bubble-edge: #8fdbce; }
+.membership-toast--error { --bubble-bg: #8c3032; --bubble-edge: #f2b5b5; }
+.membership-toast__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 35px;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 18%);
+  font-weight: 800;
+  font-size: 1.15rem;
+}
+.membership-toast__copy {
+  display: grid;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.membership-toast__copy strong { font-size: 0.88rem; }
+.membership-toast__copy > span { font-size: 0.86rem; }
+.membership-toast__timer {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.membership-toast__timer svg {
+  position: absolute;
+  inset: 0;
+  width: 44px;
+  height: 44px;
+  transform: rotate(-90deg);
+  fill: none;
+  stroke-width: 4;
+}
+.membership-toast__ring-track { stroke: rgb(255 255 255 / 24%); }
+.membership-toast__ring-progress {
+  stroke: #f5d889;
+  stroke-linecap: round;
+  stroke-dasharray: 100.531;
+  animation-name: vinyrd-bubble-countdown;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.membership-toast__seconds { z-index: 1; }
+.membership-toast__dismiss {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #ffffff;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+.membership-toast__dismiss:hover,
+.membership-toast__dismiss:focus-visible { background: rgb(255 255 255 / 16%); }
+.membership-toast__dismiss:focus-visible { outline: 2px solid #f5d889; outline-offset: 2px; }
+@keyframes vinyrd-bubble-countdown {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: 100.531; }
+}
+@keyframes vinyrd-bubble-appear {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .membership-toast { animation: none; }
+  .membership-toast__ring-progress { animation: none; }
+}
+@media (max-width: 390px) {
+  .membership-toast { gap: 8px; padding: 11px 8px; }
+  .membership-toast__icon { flex-basis: 28px; width: 28px; height: 28px; }
+  .membership-toast__timer { flex-basis: 40px; width: 40px; }
+  .membership-toast__timer svg { width: 40px; height: 40px; }
+}

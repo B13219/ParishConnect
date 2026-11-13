@@ -25,13 +25,16 @@ Linux container CI sets the disposable database default to UTC and asserts UTC
 on the running application's connections. A local smoke run also verifies that
 the connection setting works when the server default is `Africa/Nairobi`.
 
-The production image installs `postgresql-client-16` from the signed
+The production image now installs `postgresql-client-18` from the signed
 [official PostgreSQL Apt repository](https://www.postgresql.org/download/linux/debian/),
-matching the supported PostgreSQL 16 server. The unversioned Debian client package
-previously selected client 17, whose restore prologue failed on PostgreSQL 16 with
-`unrecognized configuration parameter "transaction_timeout"`. Keep dump/restore
-client major versions aligned with the server during future upgrades; CI asserts
-both client versions and performs an actual restore.
+matching the Railway PostgreSQL 18 deployment observed in November 2026.
+The earlier PostgreSQL 16 client cannot dump a newer PostgreSQL 18 server. The
+backup/restore verifier explicitly compares PostgreSQL source and restore server
+majors with all four client tools (`pg_dump`, `pg_restore`, `createdb`, `dropdb`)
+before any backup or database creation. The release CI uses PostgreSQL 18 and
+performs an actual restore. For deployments intentionally running a different
+PostgreSQL major, build and test a matching client toolchain instead of forcing
+a server downgrade. Never apply this change as an automatic production deployment.
 
 ## Required environment
 

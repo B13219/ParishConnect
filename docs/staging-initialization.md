@@ -14,7 +14,7 @@ Before changes, record the exact staging project/environment/service IDs, curren
 deployment SHA and schema head. Confirm owner/runtime/backup/restore access,
 independently verified administrator identity/Branch/scope/authority reference,
 HTTPS origin, strong existing authentication secrets, disabled demo credentials,
-temporary bootstrap controls, fake-data boundaries, PostgreSQL 16 utilities,
+temporary bootstrap controls, fake-data boundaries, PostgreSQL 18 utilities matching the Railway server,
 backup storage and EAS preview access/API origin. Do not rotate identity secrets
 as a side effect of validation.
 

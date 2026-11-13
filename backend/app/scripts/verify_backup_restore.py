@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -42,6 +43,43 @@ def pg_args(url):
     if url.username:
         args.extend(["-U", url.username])
     return args
+
+
+def postgres_client_major(executable):
+    """Read the installed PostgreSQL client major without assuming an OS packaging suffix."""
+    output = subprocess.check_output([executable, "--version"], text=True).strip()
+    match = re.search(r"\(PostgreSQL\)\s+(\d+)", output)
+    if not match:
+        raise RuntimeError(f"Cannot determine {executable} PostgreSQL version: {output}")
+    return int(match.group(1))
+
+
+def postgres_server_major(database_url):
+    engine = create_engine(database_url, connect_args={"options": "-c timezone=UTC"})
+    try:
+        with engine.connect() as connection:
+            return int(connection.scalar(text("SHOW server_version_num"))) // 10000
+    finally:
+        engine.dispose()
+
+
+def verify_postgres_toolchain(backup_url, restore_url):
+    """Prevent backups/restores with a client from a different major release."""
+    source_major = postgres_server_major(backup_url)
+    restore_major = postgres_server_major(restore_url)
+    if source_major != restore_major:
+        raise RuntimeError(
+            f"Backup PostgreSQL {source_major} and restore PostgreSQL {restore_major} "
+            "must match for this verified restore procedure."
+        )
+    for executable in ("pg_dump", "pg_restore", "createdb", "dropdb"):
+        client_major = postgres_client_major(executable)
+        if client_major != source_major:
+            raise RuntimeError(
+                f"{executable} uses PostgreSQL {client_major}, but the server is "
+                f"PostgreSQL {source_major}. Install matching major-version tools "
+                "before attempting the full restore verification."
+            )
 
 
 def snapshot(database_url):
@@ -196,6 +234,7 @@ def main():
         raise RuntimeError("Backup credential must target the runtime source database.")
     if runtime.username in (backup.username, restore.username):
         raise RuntimeError("Use separate operational credentials, never the runtime login.")
+    verify_postgres_toolchain(settings.backup_database_url, settings.restore_database_url)
     path = (
         Path(args.backup_path)
         if args.backup_path

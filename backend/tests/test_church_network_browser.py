@@ -83,6 +83,12 @@ def test_member_and_admin_network_journey(identity, tmp_path):
             staff.locator("#loginPassword").fill("test-password")
             staff.get_by_role("button", name="Enter Vinyrd").click()
             staff.locator('[data-section-link="registration-requests"]').click()
+            guide = staff.locator("#membershipOnboardingGuide")
+            playwright.expect(guide).to_contain_text("How membership requests work")
+            playwright.expect(guide).to_contain_text("Church profile not published")
+            playwright.expect(staff.locator(".membership-empty-state")).to_contain_text(
+                "No pending membership requests yet"
+            )
             setup = staff.locator("#organizationSetup")
             playwright.expect(setup).to_contain_text("Organization setup incomplete")
             # Optional levels are truly excluded from HTML validation when skipped.
@@ -154,6 +160,10 @@ def test_member_and_admin_network_journey(identity, tmp_path):
             form.get_by_label("Publish this profile").check()
             form.get_by_role("button", name="Save public profile").click()
             playwright.expect(staff.locator("#networkAdminStatus")).to_contain_text("published")
+            playwright.expect(guide).to_contain_text("Church profile published")
+            playwright.expect(guide.get_by_role("link", name="Open member registration")).to_have_attribute(
+                "href", "/member/account.html"
+            )
             result = c.put(
                 "/api/v1/network/admin/profile",
                 headers=ids["admin_b"],
@@ -195,12 +205,28 @@ def test_member_and_admin_network_journey(identity, tmp_path):
             member.get_by_role("button", name="Request to join", exact=True).click()
             playwright.expect(member.locator("#networkContent")).to_contain_text("pending review")
             staff.get_by_role("button", name="Refresh requests", exact=True).click()
+            toast = staff.locator("#membershipToast")
+            playwright.expect(toast).to_contain_text("New membership request received.")
+            playwright.expect(toast).to_have_attribute("role", "status")
+            playwright.expect(toast).to_be_visible()
+            playwright.expect(toast.locator(".membership-toast__timer")).to_be_visible()
+            playwright.expect(toast.locator(".membership-toast__ring-progress")).to_have_count(1)
+            first_second = int(toast.locator(".membership-toast__seconds").inner_text()[:-1])
+            staff.wait_for_timeout(1200)
+            remaining_second = int(toast.locator(".membership-toast__seconds").inner_text()[:-1])
+            assert remaining_second < first_second, "Notification timer must visibly count down"
+            # A new browser page used to miss pending requests on first load.
+            staff.reload()
+            toast = staff.locator("#membershipToast")
+            playwright.expect(toast).to_contain_text("1 membership request is waiting for review.")
+            playwright.expect(toast).to_be_visible()
             card = staff.locator(".request-card").filter(has_text="Ada Person")
             playwright.expect(card).to_be_visible()
             card.get_by_label("Reviewer note or rejection reason").fill(
                 "Please confirm your existing church record."
             )
             card.get_by_role("button", name="Request more information", exact=True).click()
+            playwright.expect(toast).to_contain_text("More information requested.")
             staff.locator("#networkRequestStatus").select_option("more_info_required")
             card = staff.locator(".request-card").filter(has_text="Ada Person")
             playwright.expect(card).to_contain_text("Please confirm")
@@ -209,8 +235,20 @@ def test_member_and_admin_network_journey(identity, tmp_path):
                 "More information requested"
             )
             card.get_by_label("Link existing member").select_option(ids["offline"])
+            card.get_by_role("button", name="Approve / link selected member").click()
+            playwright.expect(toast).to_contain_text("Action failed.")
+            playwright.expect(toast).to_have_attribute("role", "alert")
+            playwright.expect(staff.locator("#networkAdminStatus")).to_contain_text(
+                "Verify the existing member identity"
+            )
+            toast.get_by_role("button", name="Dismiss notification").click()
+            playwright.expect(toast).to_be_hidden()
             card.get_by_label("I verified").check()
             card.get_by_role("button", name="Approve / link selected member").click()
+            playwright.expect(toast).to_contain_text("Membership approved.")
+            playwright.expect(toast).to_have_attribute("role", "status")
+            playwright.expect(toast).to_be_visible()
+            playwright.expect(toast).to_be_hidden(timeout=11500)
             playwright.expect(staff.locator("#networkRequests")).to_contain_text("No requests")
             member.goto(base + "/member/my-church.html")
             playwright.expect(member.locator("#networkContent")).to_contain_text("Home Church")
