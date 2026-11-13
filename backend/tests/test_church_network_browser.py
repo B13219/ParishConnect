@@ -205,12 +205,16 @@ def test_member_and_admin_network_journey(identity, tmp_path):
             member.get_by_role("button", name="Request to join", exact=True).click()
             playwright.expect(member.locator("#networkContent")).to_contain_text("pending review")
             staff.get_by_role("button", name="Refresh requests", exact=True).click()
+            toast = staff.locator("#membershipToast")
+            playwright.expect(toast).to_contain_text("New membership request received.")
+            playwright.expect(toast).to_have_attribute("role", "status")
             card = staff.locator(".request-card").filter(has_text="Ada Person")
             playwright.expect(card).to_be_visible()
             card.get_by_label("Reviewer note or rejection reason").fill(
                 "Please confirm your existing church record."
             )
             card.get_by_role("button", name="Request more information", exact=True).click()
+            playwright.expect(toast).to_contain_text("More information requested.")
             staff.locator("#networkRequestStatus").select_option("more_info_required")
             card = staff.locator(".request-card").filter(has_text="Ada Person")
             playwright.expect(card).to_contain_text("Please confirm")
@@ -219,8 +223,18 @@ def test_member_and_admin_network_journey(identity, tmp_path):
                 "More information requested"
             )
             card.get_by_label("Link existing member").select_option(ids["offline"])
+            card.get_by_role("button", name="Approve / link selected member").click()
+            playwright.expect(toast).to_contain_text("Action failed.")
+            playwright.expect(toast).to_have_attribute("role", "alert")
+            playwright.expect(staff.locator("#networkAdminStatus")).to_contain_text(
+                "Verify the existing member identity"
+            )
+            toast.get_by_role("button", name="Dismiss notification").click()
+            playwright.expect(toast).to_be_hidden()
             card.get_by_label("I verified").check()
             card.get_by_role("button", name="Approve / link selected member").click()
+            playwright.expect(toast).to_contain_text("Membership approved.")
+            playwright.expect(toast).to_have_attribute("role", "status")
             playwright.expect(staff.locator("#networkRequests")).to_contain_text("No requests")
             member.goto(base + "/member/my-church.html")
             playwright.expect(member.locator("#networkContent")).to_contain_text("Home Church")

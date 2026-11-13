@@ -130,3 +130,54 @@
     min-width: 180px;
   }
 }
+
+/* Mobile-first, non-modal membership notifications. */
+.membership-toast {
+  position: fixed;
+  inset-inline: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  box-sizing: border-box;
+  width: auto;
+  max-width: 540px;
+  margin-inline: auto;
+  padding: 14px 16px;
+  border: 1px solid #93ab88;
+  border-left: 5px solid #3f734b;
+  border-radius: 12px;
+  background: #f1f7ec;
+  color: #253d2a;
+  box-shadow: 0 8px 25px rgb(0 0 0 / 18%);
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+.membership-toast[hidden] { display: none !important; }
+.membership-toast--info {
+  background: #eff6fa;
+  border-color: #a0bacb;
+  border-left-color: #3c6883;
+  color: #1d435b;
+}
+.membership-toast--error {
+  background: #fff3ef;
+  border-color: #d4a59b;
+  border-left-color: #a63627;
+  color: #68281d;
+}
+.membership-toast button {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 10px;
+  min-height: 44px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.membership-toast button:focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }

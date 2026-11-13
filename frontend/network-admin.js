@@ -6,6 +6,30 @@
     return n;
   };
   const status = (text) => ($("networkAdminStatus").textContent = text);
+  // In-app notifications only: never show applicant contact details or tokens.
+  const toast = node("div");
+  toast.id = "membershipToast";
+  toast.className = "membership-toast";
+  toast.hidden = true;
+  document.body.append(toast);
+  let toastTimeout = null;
+  const dismissToast = () => {
+    if (toastTimeout !== null) window.clearTimeout(toastTimeout);
+    toastTimeout = null;
+    toast.hidden = true;
+  };
+  const notify = (message, kind = "success") => {
+    dismissToast();
+    toast.className = "membership-toast membership-toast--" + kind;
+    toast.setAttribute("role", kind === "error" ? "alert" : "status");
+    const dismiss = node("button", "Dismiss");
+    dismiss.type = "button";
+    dismiss.setAttribute("aria-label", "Dismiss notification");
+    dismiss.addEventListener("click", dismissToast);
+    toast.replaceChildren(node("span", message), dismiss);
+    toast.hidden = false;
+    toastTimeout = window.setTimeout(dismissToast, kind === "error" ? 10000 : 6500);
+  };
   const action = (label, callback) => {
     const b = node("button", label);
     b.type = "button";
@@ -15,6 +39,7 @@
         await callback();
       } catch (e) {
         status(e.message);
+        notify("Action failed. Please check the message on this page.", "error");
       } finally {
         b.disabled = false;
       }
@@ -23,6 +48,7 @@
   };
   let offset = 0;
   let profilePublished = null;
+  let knownPendingIds = null;
 
   // Membership requests are initiated by members in the public church directory,
   // not by the administrator's local People form.
@@ -114,6 +140,21 @@
         "&offset=" +
         offset,
     );
+    if (!append && offset === 0 && $("networkRequestStatus").value === "pending") {
+      const currentIds = new Set(data.items.map((item) => item.id));
+      if (knownPendingIds !== null) {
+        const newlySeen = data.items.filter((item) => !knownPendingIds.has(item.id));
+        if (newlySeen.length) {
+          notify(
+            newlySeen.length === 1
+              ? "New membership request received."
+              : newlySeen.length + " new membership requests received.",
+            "info",
+          );
+        }
+      }
+      knownPendingIds = currentIds;
+    }
     const list = $("networkRequests");
     if (!append) list.replaceChildren();
     if (!data.items.length && !offset) {
@@ -195,9 +236,16 @@
                   result === "approved" ? select.value || null : null,
                 reason: note.value || null,
               });
-              status("Request updated.");
               offset = 0;
               await requests();
+              const confirmations = {
+                approved: "Membership approved.",
+                rejected: "Membership request rejected.",
+                more_info_required: "More information requested.",
+              };
+              const confirmation = confirmations[result] || "Request updated.";
+              status(confirmation);
+              notify(confirmation);
             }),
           );
         }
